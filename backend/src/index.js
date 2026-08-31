@@ -1,0 +1,97 @@
+require('dotenv').config();
+const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
+const cors = require('cors');
+
+const path = require('path');
+const app = express();
+const server = http.createServer(app);
+const io = new Server(server, { cors: { origin: '*' } });
+
+app.set('io', io);
+app.use(cors());
+app.use('/webhook', express.raw({ type: 'application/json' }), require('./routes/webhook'));
+app.use(express.json());
+
+app.use('/auth',          require('./routes/auth'));
+app.use('/users',         require('./routes/users'));
+app.use('/calls',         require('./routes/calls'));
+app.use('/rooms',         require('./routes/rooms'));
+app.use('/wallet',        require('./routes/wallet'));
+app.use('/premium',       require('./routes/premium'));
+app.use('/notifications', require('./routes/notifications'));
+app.use('/spin',          require('./routes/spin'));
+app.use('/payment',       require('./routes/payment'));
+app.use('/earnings',      require('./routes/earnings'));
+app.use('/upload',        require('./routes/upload'));
+app.use('/admin',         require('./routes/admin'));
+app.use('/admin',         express.static(__dirname + '/../admin'));
+app.use('/uploads',       express.static(path.join(__dirname, '../uploads')));
+app.use(express.static(path.join(__dirname, '../public')));
+app.get('/privacy',       (_, res) => res.sendFile(path.join(__dirname, '../public/privacy.html')));
+
+app.get('/health', (_, res) => res.json({ status: 'ok', ts: Date.now() }));
+
+app.get('/dbtest', async (_, res) => {
+  try {
+    const pool = require('./config/db');
+    const [tables] = await pool.query('SHOW TABLES');
+    res.json({ db: 'ok', tables: tables.map(t => Object.values(t)[0]) });
+  } catch (e) {
+    res.status(500).json({ db: 'fail', error: e.message, code: e.code });
+  }
+});
+
+require('./socket')(io);
+
+// Auto-migrate missing columns so the app doesn't crash on fresh DB
+async function runMigrations() {
+  const pool = require('./config/db');
+  const migrations = [
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS free_trial_used TINYINT(1) NOT NULL DEFAULT 0`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS intro_9_used TINYINT(1) NOT NULL DEFAULT 0`,
+    `CREATE TABLE IF NOT EXISTS reports (
+      id           CHAR(36)     PRIMARY KEY DEFAULT (UUID()),
+      reporter_id  CHAR(36),
+      reported_id  CHAR(36),
+      reason       VARCHAR(200),
+      status       VARCHAR(20)  DEFAULT 'pending',
+      created_at   DATETIME     DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_status (status),
+      INDEX idx_reported (reported_id)
+    )`,
+    `CREATE TABLE IF NOT EXISTS user_ratings (
+      id           CHAR(36)     PRIMARY KEY DEFAULT (UUID()),
+      rater_id     CHAR(36),
+      rated_id     CHAR(36),
+      call_id      CHAR(36),
+      stars        TINYINT      DEFAULT 5,
+      review_text  TEXT,
+      tags         JSON,
+      created_at   DATETIME     DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_rated (rated_id),
+      INDEX idx_rater (rater_id)
+    )`,
+  ];
+  for (const sql of migrations) {
+    try { await pool.query(sql); } catch (e) { console.warn('[Migration]', e.message); }
+  }
+  console.log('[Migration] Done');
+}
+runMigrations();
+
+// A fresh server process has zero live socket connections — any is_online=1 left
+// over from before a restart/sleep is stale (Render's free tier sleeps/restarts
+// and wipes the in-memory socket map, but not this DB flag), which made users
+// appear online with no way to actually receive a call. Reset on every boot.
+(async () => {
+  const pool = require('./config/db');
+  try {
+    const [result] = await pool.query('UPDATE users SET is_online=0 WHERE is_online=1');
+    console.log(`[Startup] Reset is_online for ${result.affectedRows} stale user(s)`);
+  } catch (e) { console.warn('[Startup] is_online reset failed:', e.message); }
+})();
+
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => console.log(`🍍 Pineapple backend running on port ${PORT}`));

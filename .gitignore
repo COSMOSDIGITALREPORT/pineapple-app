@@ -1,0 +1,58 @@
+
+!.env.example
+.claude/
+.DS_Store
+.env
+.env.*
+.metro-health-check*
+.tmp/
+*.jks
+*.key
+*.keystore
+*.log
+*.p12
+*.pem
+*.tar.gz
+*.zip
+**/.DS_Store
+**/.xcode.env
+**/.xcode.env.local
+**/android/.gradle/
+**/android/.idea/
+**/android/*.iml
+**/android/app/build/
+**/android/app/release/
+**/android/app/src/main/assets/index.android.bundle
+**/android/build/
+**/android/captures/
+**/android/local.properties
+**/ios/*.xcodeproj/xcuserdata/
+**/ios/*.xcworkspace/xcuserdata/
+**/ios/build/
+**/ios/DerivedData/
+**/ios/Podfile.lock
+**/ios/Pods/
+**/node_modules/
+*/node_modules/
+# ─── Backend logs ────────────────────────────────────────────────────────────
+# ─── Claude Code ─────────────────────────────────────────────────────────────
+# ─── macOS ───────────────────────────────────────────────────────────────────
+# ─── Metro bundler ───────────────────────────────────────────────────────────
+# ─── Misc ────────────────────────────────────────────────────────────────────
+# ─── Node modules ────────────────────────────────────────────────────────────
+# ─── React Native build artifacts ────────────────────────────────────────────
+# ─── Secrets & Keys (NEVER commit these) ────────────────────────────────────
+# ─── Xcode env ───────────────────────────────────────────────────────────────
+# ─── Zip / large binaries ────────────────────────────────────────────────────
+# Android
+# iOS
+backend/.env
+backend/.env.local
+backend/.env.production
+backend/*.log
+backend/server.log
+backend/uploads/
+google-services.json
+node_modules/
+pineapple-8376c-firebase-adminsdk-fbsvc-a742b2a08a.json
+tmp/

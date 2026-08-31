@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "606160326804",
+    "project_id": "pineapple-8376c",
+    "storage_bucket": "pineapple-8376c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:606160326804:android:f0c48b64923e4919db2481",
+        "android_client_info": {
+          "package_name": "com.cosmosdigital.pineapple"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBXdGs4_PfQT2RnFOwDnLPqT7faFNC0HN0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:606160326804:android:334c1a201342868fdb2481",
+        "android_client_info": {
+          "package_name": "com.cosmosdigital.pineapplegirls"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBXdGs4_PfQT2RnFOwDnLPqT7faFNC0HN0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

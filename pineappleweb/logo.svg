@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6B0028"/>
+      <stop offset="40%" stop-color="#C0004A"/>
+      <stop offset="100%" stop-color="#FF2D75"/>
+    </linearGradient>
+    <linearGradient id="shine" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="rgba(255,255,255,0.2)"/>
+      <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
+    </linearGradient>
+    <clipPath id="bodyClip">
+      <ellipse cx="128" cy="160" rx="46" ry="62"/>
+    </clipPath>
+  </defs>
+
+  <!-- Rounded square background -->
+  <rect width="256" height="256" rx="56" fill="url(#bg)"/>
+  <rect width="256" height="128" rx="0" fill="url(#shine)"/>
+
+  <!-- Crown leaves (behind body) -->
+  <path d="M128,102 C128,102 122,74 128,52 C134,74 128,102 128,102Z" fill="rgba(255,255,255,0.88)"/>
+  <path d="M128,102 C126,98 108,78 100,60 C114,72 128,102 128,102Z" fill="rgba(255,255,255,0.72)"/>
+  <path d="M128,102 C130,98 148,78 156,60 C142,72 128,102 128,102Z" fill="rgba(255,255,255,0.72)"/>
+  <path d="M126,104 C124,100 104,86 96,68 C112,78 126,104 126,104Z" fill="rgba(255,255,255,0.5)"/>
+  <path d="M130,104 C132,100 152,86 160,68 C144,78 130,104 130,104Z" fill="rgba(255,255,255,0.5)"/>
+
+  <!-- Pineapple body -->
+  <ellipse cx="128" cy="160" rx="46" ry="62" fill="rgba(255,255,255,0.93)"/>
+
+  <!-- Crosshatch clipped inside body -->
+  <g clip-path="url(#bodyClip)" stroke="rgba(192,0,74,0.28)" stroke-width="1.8" fill="none">
+    <line x1="82" y1="98"  x2="174" y2="222"/>
+    <line x1="96" y1="98"  x2="188" y2="222"/>
+    <line x1="110" y1="98" x2="174" y2="198"/>
+    <line x1="68" y1="106" x2="160" y2="222"/>
+    <line x1="54" y1="114" x2="146" y2="222"/>
+    <line x1="174" y1="98" x2="82"  y2="222"/>
+    <line x1="160" y1="98" x2="68"  y2="222"/>
+    <line x1="146" y1="98" x2="82"  y2="198"/>
+    <line x1="188" y1="106" x2="96" y2="222"/>
+    <line x1="202" y1="114" x2="110" y2="222"/>
+    <line x1="82"  y1="130" x2="174" y2="130"/>
+    <line x1="82"  y1="148" x2="174" y2="148"/>
+    <line x1="82"  y1="166" x2="174" y2="166"/>
+    <line x1="82"  y1="184" x2="174" y2="184"/>
+    <line x1="82"  y1="202" x2="174" y2="202"/>
+  </g>
+</svg>

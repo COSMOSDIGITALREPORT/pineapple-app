@@ -1,0 +1,12 @@
+{
+  "react-native": {
+    "android": {
+      "google_services_enabled": false,
+      "firebase_json_path": ""
+    },
+    "ios": {
+      "google_services_enabled": true,
+      "firebase_plist_path": "ios/pineapple/GoogleService-Info.plist"
+    }
+  }
+}
