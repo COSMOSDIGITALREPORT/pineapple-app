@@ -141,7 +141,12 @@ function MainApp() {
         packageId: plan.packId,
       });
       dispatch(addCoins(result.minsAdded));
-      dispatch(setProfile({ isPremium: result.isPremium, planId: result.planId }));
+      dispatch(setProfile({
+        isPremium: result.isPremium,
+        planId: result.planId,
+        intro9Used: result.intro9Used ?? (plan.packId === 'pack_9' ? true : undefined),
+        intro_9_used: result.intro_9_used ?? (plan.packId === 'pack_9' ? true : undefined),
+      }));
     } catch (err) {
       // user cancelled (err.code === 0) — do nothing
     } finally {

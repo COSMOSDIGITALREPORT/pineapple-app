@@ -85,7 +85,7 @@ export default function PremiumPlansScreen({ onBack }) {
   const insets = useSafeAreaInsets();
   const dispatch = useDispatch();
   const user = useSelector((s) => s.user);
-  const showIntro = !user?.intro_9_used;
+  const showIntro = !user?.intro_9_used && !user?.intro9Used;
   const allPlans = showIntro ? [INTRO_PLAN, ...PLANS] : PLANS;
   const [selected, setSelected] = useState(showIntro ? 'intro' : 'premium');
   const [paying, setPaying] = useState(false);
@@ -142,7 +142,16 @@ export default function PremiumPlansScreen({ onBack }) {
         packageId: plan.packId,
       });
       dispatch(addCoins(result.minsAdded));
-      dispatch(setProfile({ isPremium: result.isPremium, planId: result.planId, hasSpun: result.spinReset ? false : undefined }));
+      dispatch(setProfile({
+        isPremium: result.isPremium,
+        planId: result.planId,
+        intro9Used: result.intro9Used ?? (plan.packId === 'pack_9' ? true : undefined),
+        intro_9_used: result.intro_9_used ?? (plan.packId === 'pack_9' ? true : undefined),
+        hasSpun: result.spinReset ? false : undefined,
+      }));
+      if (plan.packId === 'pack_9') {
+        setSelected('premium');
+      }
       setSuccessMsg(`${plan.name} activated! ${result.minsAdded} mins added.`);
     } catch (err) {
       if (err?.code !== 0) { /* cancelled */ }

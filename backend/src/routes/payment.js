@@ -67,8 +67,17 @@ router.post('/verify', auth, async (req, res) => {
     await pool.query('INSERT INTO wallet_transactions (id,user_id,type,amount,description) VALUES (?,?,?,?,?)',
       [uuidv4(), req.user.userId, 'purchase', pkg.coins, `Bought ${pkg.coins} coins for ₹${pkg.price}`]);
 
-    const [rows] = await pool.query('SELECT minutes, is_premium, plan_id FROM users WHERE id=?', [req.user.userId]);
-    res.json({ success: true, coins: rows[0].minutes, minsAdded: pkg.coins, isPremium: !!rows[0].is_premium, planId: rows[0].plan_id, spinReset: isPremiumPack });
+    const [rows] = await pool.query('SELECT minutes, is_premium, plan_id, intro_9_used FROM users WHERE id=?', [req.user.userId]);
+    res.json({
+      success: true,
+      coins: rows[0].minutes,
+      minsAdded: pkg.coins,
+      isPremium: !!rows[0].is_premium,
+      planId: rows[0].plan_id,
+      intro_9_used: !!rows[0].intro_9_used,
+      intro9Used: !!rows[0].intro_9_used,
+      spinReset: isPremiumPack
+    });
   } catch (err) { res.status(500).json({ error: 'Verification failed' }); }
 });
 

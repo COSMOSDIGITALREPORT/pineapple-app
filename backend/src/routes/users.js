@@ -26,6 +26,8 @@ router.get('/me', auth, async (req, res) => {
     const u = rows[0];
     u.coins = u.minutes ?? 0;
     u.age = calcAge(u.dob);
+    u.intro_9_used = !!u.intro_9_used;
+    u.intro9Used = !!u.intro_9_used;
     res.set('Cache-Control', 'no-store');
     res.json(u);
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -55,7 +57,11 @@ router.put('/me', auth, async (req, res) => {
     q += ' WHERE id=?'; params.push(req.user.userId);
     await pool.query(q, params);
     const [rows] = await pool.query(`SELECT ${ME_FIELDS} FROM users WHERE id=?`, [req.user.userId]);
-    const u = rows[0]; u.coins = u.minutes ?? 0; u.age = calcAge(u.dob);
+    const u = rows[0];
+    u.coins = u.minutes ?? 0;
+    u.age = calcAge(u.dob);
+    u.intro_9_used = !!u.intro_9_used;
+    u.intro9Used = !!u.intro_9_used;
     res.json(u);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });

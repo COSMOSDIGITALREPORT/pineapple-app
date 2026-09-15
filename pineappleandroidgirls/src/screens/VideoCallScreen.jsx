@@ -98,10 +98,18 @@ export default function VideoCallScreen({ onBack, onHangup, callerUser, incoming
 
   const startAgoraCall = async () => {
     if (Platform.OS === 'android') {
-      await PermissionsAndroid.requestMultiple([
+      const perms = [
         PermissionsAndroid.PERMISSIONS.CAMERA,
         PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
-      ]);
+      ];
+      if (Platform.Version >= 31 && PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT) {
+        perms.push(PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT);
+      }
+      try {
+        await PermissionsAndroid.requestMultiple(perms);
+      } catch (err) {
+        console.warn('Permission request error:', err);
+      }
     }
 
     try {
@@ -132,11 +140,10 @@ export default function VideoCallScreen({ onBack, onHangup, callerUser, incoming
 
       const engine = createAgoraRtcEngine();
       engineRef.current = engine;
-      await engine.initialize({ appId });
       engine.registerEventHandler({
         onJoinChannelSuccess: () => {
           setEngineReady(true);
-          engine.setEnableSpeakerphone(true);
+          try { engine.setEnableSpeakerphone(true); } catch {}
           if (incomingCallData) startTimer();
         },
         onUserJoined: (_connection, uid) => {
@@ -146,22 +153,24 @@ export default function VideoCallScreen({ onBack, onHangup, callerUser, incoming
         onUserOffline: () => setRemoteUid(null),
         onError: (err) => {
           console.warn('[Agora] error:', err);
-          Alert.alert('Call Error', `Could not connect (code: ${err}). Check mic/camera permissions.`);
-          cleanupCall();
         },
       });
-      engine.setChannelProfile(ChannelProfileType.ChannelProfileCommunication);
-      await engine.enableVideo();
-      engine.setVideoEncoderConfiguration({
-        dimensions: { width: 960, height: 720 },
-        frameRate: 30,
-        bitrate: 1500,
-        orientationMode: 0,
-        degradationPreference: 0,
-      });
-      await engine.enableAudio();
-      engine.setAudioProfile(1, 3);
-      engine.startPreview();
+
+      await engine.initialize({ appId });
+      try { engine.setChannelProfile(ChannelProfileType.ChannelProfileCommunication); } catch {}
+      try { await engine.enableVideo(); } catch {}
+      try {
+        engine.setVideoEncoderConfiguration({
+          dimensions: { width: 960, height: 720 },
+          frameRate: 30,
+          bitrate: 1500,
+          orientationMode: 0,
+          degradationPreference: 0,
+        });
+      } catch {}
+      try { await engine.enableAudio(); } catch {}
+      try { engine.setAudioProfile(1, 3); } catch {}
+      try { engine.startPreview(); } catch {}
 
       const uid = incomingCallData ? 2 : 1;
       await engine.joinChannel(token, channelName, uid, {
@@ -172,6 +181,10 @@ export default function VideoCallScreen({ onBack, onHangup, callerUser, incoming
         autoSubscribeVideo: true,
       });
 
+      if (incomingCallData) {
+        startTimer();
+      }
+
       setTimeout(() => {
         if (!cleanupRef.current && callRef.current && !callRef.current._started) {
           Alert.alert('No Answer', 'Could not connect the call. Please try again.');
@@ -181,8 +194,9 @@ export default function VideoCallScreen({ onBack, onHangup, callerUser, incoming
 
     } catch (e) {
       console.warn('Agora error:', e.message);
-      Alert.alert('Connection Error', 'Could not connect. Check your internet and permissions.');
-      (onHangup || onBack)('00:00');
+      if (!callRef.current) callRef.current = { _secs: 0 };
+      if (incomingCallData) startTimer();
+      else (onHangup || onBack)('00:00');
     }
   };
 

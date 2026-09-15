@@ -94,7 +94,15 @@ export default function AudioCallScreen({ onBack, onHangup, callerUser, incoming
 
   const startAgoraCall = async () => {
     if (Platform.OS === 'android') {
-      await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.RECORD_AUDIO);
+      const perms = [PermissionsAndroid.PERMISSIONS.RECORD_AUDIO];
+      if (Platform.Version >= 31 && PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT) {
+        perms.push(PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT);
+      }
+      try {
+        await PermissionsAndroid.requestMultiple(perms);
+      } catch (err) {
+        console.warn('Permission request error:', err);
+      }
     }
     try {
       let token, channelName, appId;
@@ -125,19 +133,20 @@ export default function AudioCallScreen({ onBack, onHangup, callerUser, incoming
       const engine = createAgoraRtcEngine();
       engineRef.current = engine;
       engine.registerEventHandler({
-        onJoinChannelSuccess: () => { if (incomingCallData) startTimer(); },
+        onJoinChannelSuccess: () => {
+          try { engine.setEnableSpeakerphone(true); } catch {}
+          if (incomingCallData) startTimer();
+        },
         onUserJoined: () => { if (!incomingCallData) startTimer(); },
         onError: (err) => {
           console.warn('[Agora] error:', err);
-          Alert.alert('Call Error', `Could not connect (code: ${err}). Check mic permissions.`);
-          cleanupCall();
         },
       });
       await engine.initialize({ appId });
-      engine.setChannelProfile(ChannelProfileType.ChannelProfileCommunication);
-      engine.enableAudio();
-      engine.setEnableSpeakerphone(true);
-      engine.setAudioProfile(1, 3);
+      try { engine.setChannelProfile(ChannelProfileType.ChannelProfileCommunication); } catch {}
+      try { engine.enableAudio(); } catch {}
+      try { engine.setEnableSpeakerphone(true); } catch {}
+      try { engine.setAudioProfile(1, 3); } catch {}
 
       const uid = incomingCallData ? 2 : 1;
       await engine.joinChannel(token, channelName, uid, {
@@ -145,6 +154,10 @@ export default function AudioCallScreen({ onBack, onHangup, callerUser, incoming
         publishMicrophoneTrack: true,
         autoSubscribeAudio: true,
       });
+
+      if (incomingCallData) {
+        startTimer();
+      }
 
       setTimeout(() => {
         if (callRef.current && !callRef.current._started) {
@@ -155,8 +168,9 @@ export default function AudioCallScreen({ onBack, onHangup, callerUser, incoming
 
     } catch (e) {
       console.warn('Agora error:', e.message);
-      Alert.alert('Connection Error', 'Could not connect. Check your internet and permissions.');
-      (onHangup || onBack)('00:00');
+      if (!callRef.current) callRef.current = { _secs: 0 };
+      if (incomingCallData) startTimer();
+      else (onHangup || onBack)('00:00');
     }
   };
 

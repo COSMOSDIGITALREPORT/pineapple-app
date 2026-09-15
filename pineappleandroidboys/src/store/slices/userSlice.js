@@ -38,8 +38,8 @@ const userSlice = createSlice({
       state.coins = u.coins ?? u.minutes ?? state.coins;
       state.isPremium = u.is_premium ?? false;
       state.planId = u.plan_id ?? null;
-      state.freeTrialUsed = !!u.free_trial_used;
-      state.intro9Used = !!u.intro_9_used;
+      state.freeTrialUsed = !!(u.free_trial_used || u.freeTrialUsed);
+      state.intro9Used = !!(u.intro_9_used || u.intro9Used);
       state.isLoggedIn = true;
     },
     setProfile: (state, action) => {
@@ -56,7 +56,9 @@ const userSlice = createSlice({
       else if (action.payload.plan_id !== undefined) state.planId = action.payload.plan_id;
       if (action.payload.hasSpun !== undefined) state.hasSpun = action.payload.hasSpun;
       if (action.payload.free_trial_used !== undefined) state.freeTrialUsed = !!action.payload.free_trial_used;
+      else if (action.payload.freeTrialUsed !== undefined) state.freeTrialUsed = !!action.payload.freeTrialUsed;
       if (action.payload.intro_9_used !== undefined) state.intro9Used = !!action.payload.intro_9_used;
+      else if (action.payload.intro9Used !== undefined) state.intro9Used = !!action.payload.intro9Used;
       if (action.payload.coins !== undefined) state.coins = action.payload.coins;
       else if (action.payload.minutes !== undefined) state.coins = action.payload.minutes;
     },
