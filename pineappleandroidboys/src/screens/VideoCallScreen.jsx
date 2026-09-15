@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, Image, TouchableOpacity,
   StatusBar, Animated, Modal, ScrollView, Dimensions, Alert,
+  PermissionsAndroid, Platform,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -134,6 +135,13 @@ export default function VideoCallScreen({ onBack, onHangup, callerUser, incoming
   }, []);
 
   const startAgoraCall = async () => {
+    if (Platform.OS === 'android') {
+      await PermissionsAndroid.requestMultiple([
+        PermissionsAndroid.PERMISSIONS.CAMERA,
+        PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+      ]);
+    }
+
     let token, channelName, appId;
 
     try {
@@ -171,27 +179,34 @@ export default function VideoCallScreen({ onBack, onHangup, callerUser, incoming
       const engine = createAgoraRtcEngine();
       engineRef.current = engine;
       await engine.initialize({ appId });
-      engine.addListener('onJoinChannelSuccess', () => {
-        setEngineReady(true);
-        if (incomingCallData) startTimer();
+      engine.registerEventHandler({
+        onJoinChannelSuccess: () => {
+          setEngineReady(true);
+          engine.setEnableSpeakerphone(true);
+          if (incomingCallData) startTimer();
+        },
+        onUserJoined: (_connection, uid) => {
+          setRemoteUid(uid);
+          if (!incomingCallData) startTimer();
+        },
+        onUserOffline: () => setRemoteUid(null),
+        onError: (err) => {
+          console.warn('[Agora] error:', err);
+          Alert.alert('Call Error', `Could not connect (code: ${err}). Check mic/camera permissions.`);
+          cleanupCall();
+        },
       });
-      engine.addListener('onUserJoined', (connection, uid) => {
-        setRemoteUid(uid);
-        if (!incomingCallData) startTimer();
-      });
-      engine.addListener('onUserOffline', () => setRemoteUid(null));
       engine.setChannelProfile(ChannelProfileType.ChannelProfileCommunication);
       await engine.enableVideo();
       engine.setVideoEncoderConfiguration({
-        dimensions: { width: 1280, height: 720 },
+        dimensions: { width: 960, height: 720 },
         frameRate: 30,
-        bitrate: 2500,
+        bitrate: 1500,
         orientationMode: 0,
         degradationPreference: 0,
       });
       await engine.enableAudio();
-      engine.setAudioProfile(3, 7);
-      engine.setEnableSpeakerphone(true);
+      engine.setAudioProfile(1, 3);
       engine.startPreview();
 
       const uid = incomingCallData ? 2 : 1;
@@ -309,7 +324,7 @@ export default function VideoCallScreen({ onBack, onHangup, callerUser, incoming
             <Icon name="video-off" size={18} color="rgba(255,255,255,0.6)" />
           </View>
         ) : (
-          <RtcSurfaceView canvas={{ uid: 0, renderMode: 2 }} style={StyleSheet.absoluteFill} />
+          <RtcSurfaceView canvas={{ uid: 0, renderMode: 2 }} style={StyleSheet.absoluteFill} zOrderMediaOverlay />
         )}
       </View>
 

@@ -58,3 +58,6 @@ pineapple-8376c-firebase-adminsdk-fbsvc-a742b2a08a.json
 tmp/
 
 pineapple-transfer/
+APKS/
+*.apk
+*gradle_error.txt

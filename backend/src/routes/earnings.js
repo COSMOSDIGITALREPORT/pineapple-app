@@ -23,11 +23,15 @@ router.post('/withdraw', auth, async (req, res) => {
   if (!amount || !upi_id) return res.status(400).json({ error: 'amount and upi_id required' });
   if (amount < 100) return res.status(400).json({ error: 'Minimum withdrawal ₹100' });
   try {
-    const [summary] = await pool.query(
-      'SELECT COALESCE(SUM(amount_inr),0) AS available FROM earnings WHERE girl_id=? AND status="pending"',
+    const [earnedRows] = await pool.query(
+      'SELECT COALESCE(SUM(amount_inr),0) AS total_earned FROM earnings WHERE girl_id=?',
       [req.user.userId]);
-    if (parseFloat(summary[0].available) < parseFloat(amount))
-      return res.status(400).json({ error: 'Insufficient earnings' });
+    const [withdrawnRows] = await pool.query(
+      'SELECT COALESCE(SUM(amount),0) AS total_withdrawn FROM withdrawals WHERE girl_id=? AND status != "rejected"',
+      [req.user.userId]);
+    const available = Math.max(0, (parseFloat(earnedRows[0].total_earned) || 0) - (parseFloat(withdrawnRows[0].total_withdrawn) || 0));
+    if (available < parseFloat(amount))
+      return res.status(400).json({ error: `Insufficient earnings. Available: ₹${available.toFixed(2)}` });
 
     const feeAmount = sameDay ? Math.round(amount * SAME_DAY_FEE_RATE * 100) / 100 : 0;
 

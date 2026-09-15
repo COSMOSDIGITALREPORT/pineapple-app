@@ -16,59 +16,59 @@ const { width } = Dimensions.get('window');
 const INTRO_PLAN = {
   id: 'intro',
   packId: 'pack_9',
-  name: 'Trial',
+  name: 'Intro Trial',
   price: '₹9',
   priceNum: 9,
-  mins: 4,
+  mins: 15,
   emoji: '🎁',
-  badge: '🎁 FIRST TIME',
+  badge: '🎁 ONE-TIME ONLY',
   cta: 'Buy Now',
   colors: ['#FFB6D9', '#FF2E7E'],
   badgeColors: ['#FFB6D9', '#FF2E7E'],
-  features: ['4 minutes talktime', 'Try voice & video calls', 'One-time offer only'],
+  features: ['15 Coins (15 audio or 7.5 video mins)', 'One-time only for new users', 'Try voice & video calls'],
 };
 
 const PLANS = [
   {
     id: 'basic',
     packId: 'pack_100',
-    name: 'Starter',
-    price: '₹89',
-    priceNum: 89,
-    mins: 50,
+    name: 'Basic',
+    price: '₹100',
+    priceNum: 100,
+    mins: 120,
     emoji: '📞',
     cta: 'Buy Now',
     colors: ['#FF2E7E', '#E91E63'],
-    features: ['50 minutes talktime', 'Voice calls only', 'Standard profile'],
+    features: ['120 Coins (2 hrs Audio / 1 hr Video)', 'Instant voice & video calling', 'Standard profile'],
   },
   {
     id: 'standard',
     packId: 'pack_200',
-    name: 'Plus',
-    price: '₹179',
-    priceNum: 179,
-    mins: 100,
+    name: 'Standard',
+    price: '₹200',
+    priceNum: 200,
+    mins: 240,
     emoji: '⚡',
     badge: '⭐ MOST POPULAR',
     cta: 'Upgrade Now',
     colors: ['#E91E63', '#B0005A'],
     badgeColors: ['#FF2E7E', '#E91E63'],
-    features: ['100 minutes talktime', 'Voice + Video calls', 'Verified badge', 'Priority profile'],
+    features: ['240 Coins (4 hrs Audio / 2 hrs Video)', 'Verified badge', 'Priority matching', 'Voice & video calls'],
   },
   {
     id: 'premium',
     packId: 'pack_500',
-    name: 'Gold',
-    price: '₹489',
-    priceNum: 489,
-    mins: 250,
+    name: 'Premium',
+    price: '₹500',
+    priceNum: 500,
+    mins: 700,
     emoji: '👑',
     badge: '🔥 BEST VALUE',
-    cta: 'Unlock Gold',
+    cta: 'Unlock Premium',
     colors: ['#FFD700', '#FFA500'],
     badgeColors: ['#FFD700', '#FFA500'],
     isGold: true,
-    features: ['250 minutes talktime', 'Fortune Wheel daily spin', 'Win gifts up to ₹10,000', 'Gold crown badge', 'Priority matching', 'VIP support'],
+    features: ['700 Coins (11.6 hrs Audio / 5.8 hrs Video)', 'Lucky Spin Unlocked (Spin daily)', 'Premium VIP crown badge', 'Win gifts up to ₹10,000', 'Top priority matching', 'VIP support'],
   },
 ];
 
@@ -234,7 +234,7 @@ export default function PremiumPlansScreen({ onBack }) {
                       <Text style={styles.planEmoji}>{plan.emoji}</Text>
                       <View>
                         <Text style={[styles.planName, isGold && styles.planNameGold]}>{plan.name}</Text>
-                        <Text style={styles.planMins}>{plan.mins} Minutes</Text>
+                        <Text style={styles.planMins}>{plan.mins} Coins</Text>
                       </View>
                     </View>
                     <View style={styles.cardRight}>

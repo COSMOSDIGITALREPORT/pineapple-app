@@ -36,7 +36,7 @@ const userSlice = createSlice({
       state.language = u.language ?? state.language;
       state.content_prefs = u.content_prefs ?? state.content_prefs;
       state.avatarUrl = u.avatar_url ?? state.avatarUrl;
-      state.coins = 0;
+      state.coins = u.coins ?? u.minutes ?? state.coins;
       state.isPremium = u.is_premium ?? false;
       state.planId = u.plan_id ?? null;
       state.isLoggedIn = true;
@@ -54,7 +54,8 @@ const userSlice = createSlice({
       else if (action.payload.is_premium !== undefined) state.isPremium = !!action.payload.is_premium;
       if (action.payload.planId !== undefined) state.planId = action.payload.planId;
       else if (action.payload.plan_id !== undefined) state.planId = action.payload.plan_id;
-      state.coins = 0;
+      if (action.payload.coins !== undefined) state.coins = action.payload.coins;
+      else if (action.payload.minutes !== undefined) state.coins = action.payload.minutes;
     },
     setLoggedIn: (state, action) => {
       state.isLoggedIn = action.payload;

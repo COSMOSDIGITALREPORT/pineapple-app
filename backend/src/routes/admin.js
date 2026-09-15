@@ -50,14 +50,40 @@ router.get('/stats', adminAuth, async (req, res) => {
     const [[boys]]    = await pool.query('SELECT COUNT(*) AS total FROM users WHERE gender IN ("boy","male")');
     const [[girls]]   = await pool.query('SELECT COUNT(*) AS total FROM users WHERE gender IN ("girl","female")');
     const [[online]]  = await pool.query('SELECT COUNT(*) AS total FROM users WHERE is_online=1');
-    const [[calls]]   = await pool.query('SELECT COUNT(*) AS total, COALESCE(SUM(mins_deducted),0) AS total_mins FROM calls WHERE status="ended"');
-    const [[pending]] = await pool.query('SELECT COUNT(*) AS total FROM withdrawals WHERE status="pending"');
-    const [[reports]] = await pool.query('SELECT COUNT(*) AS total FROM reports WHERE status="pending"');
+    const [[calls]]   = await pool.query(
+      `SELECT COUNT(*) AS total,
+              COALESCE(SUM(mins_deducted),0) AS total_coins,
+              COALESCE(SUM(duration_seconds),0) AS total_secs,
+              COALESCE(SUM(platform_revenue_inr),0) AS call_platform_rev,
+              COALESCE(SUM(girl_earnings_inr),0) AS call_girl_earnings
+       FROM calls WHERE status="ended"`
+    );
+    const [[earnings]] = await pool.query('SELECT COALESCE(SUM(amount_inr),0) AS total_girl_earned FROM earnings');
+    const [[pending]]  = await pool.query('SELECT COUNT(*) AS total, COALESCE(SUM(amount),0) AS total_amount FROM withdrawals WHERE status="pending"');
+    const [[reports]]  = await pool.query('SELECT COUNT(*) AS total FROM reports WHERE status="pending"');
     const [[unverified]] = await pool.query('SELECT COUNT(*) AS total FROM users WHERE gender="girl" AND is_verified=0');
-    res.json({ users: users.total, boys: boys.total, girls: girls.total, online: online.total,
-               totalCalls: calls.total, totalMins: calls.total_mins,
-               pendingWithdrawals: pending.total, pendingReports: reports.total,
-               pendingVerifications: unverified.total });
+
+    const totalCoinsSpent = Number(calls.total_coins) || 0;
+    const totalPlatformCallRev = parseFloat(calls.call_platform_rev) || 0;
+    const totalGirlEarnings = parseFloat(earnings.total_girl_earned) || 0;
+    const pendingWithdrawalAmount = parseFloat(pending.total_amount) || 0;
+    const totalMinsTalked = Math.round((Number(calls.total_secs) || 0) / 60);
+
+    res.json({
+      users: users.total,
+      boys: boys.total,
+      girls: girls.total,
+      online: online.total,
+      totalCalls: calls.total,
+      totalMins: totalMinsTalked,
+      totalCoins: totalCoinsSpent,
+      platformRevenue: totalPlatformCallRev,
+      girlEarnings: totalGirlEarnings,
+      pendingWithdrawalAmount,
+      pendingWithdrawals: pending.total,
+      pendingReports: reports.total,
+      pendingVerifications: unverified.total,
+    });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -85,6 +111,26 @@ router.put('/users/:id/verify', adminAuth, async (req, res) => {
   try {
     await pool.query('UPDATE users SET is_verified=? WHERE id=?', [req.body.verify ? 1 : 0, req.params.id]);
     res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// PUT /admin/users/:id/gender — update user gender (boy / girl)
+router.put('/users/:id/gender', adminAuth, async (req, res) => {
+  const { gender } = req.body;
+  if (!gender || !['boy', 'girl', 'male', 'female'].includes(gender.toLowerCase())) {
+    return res.status(400).json({ error: 'Valid gender (boy or girl) required' });
+  }
+  try {
+    await pool.query('UPDATE users SET gender=? WHERE id=?', [gender.toLowerCase(), req.params.id]);
+    res.json({ success: true, gender: gender.toLowerCase() });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// POST /admin/fix-genders — auto-fix any null/missing genders
+router.post('/fix-genders', adminAuth, async (req, res) => {
+  try {
+    const [result] = await pool.query("UPDATE users SET gender='girl' WHERE gender IS NULL OR gender='' OR gender='-'");
+    res.json({ success: true, updated: result.affectedRows });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -155,10 +201,17 @@ router.put('/reports/:id', adminAuth, async (req, res) => {
 router.get('/calls', adminAuth, async (req, res) => {
   try {
     const [rows] = await pool.query(
-      `SELECT c.id, c.call_type, c.duration_seconds, c.mins_deducted, c.status, c.created_at,
+      `SELECT c.id, c.call_type, c.duration_seconds, c.mins_deducted,
+              COALESCE(c.girl_earnings_inr, 0) AS girl_earnings_inr,
+              COALESCE(c.platform_revenue_inr, 0) AS platform_revenue_inr,
+              COALESCE(c.free_trial, 0) AS free_trial,
+              c.status, c.created_at,
               u1.name AS caller, u2.name AS receiver
-       FROM calls c JOIN users u1 ON c.caller_id=u1.id JOIN users u2 ON c.receiver_id=u2.id
-       ORDER BY c.created_at DESC LIMIT 100`);
+       FROM calls c
+       LEFT JOIN users u1 ON c.caller_id=u1.id
+       LEFT JOIN users u2 ON c.receiver_id=u2.id
+       ORDER BY c.created_at DESC LIMIT 100`
+    );
     res.json(rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });

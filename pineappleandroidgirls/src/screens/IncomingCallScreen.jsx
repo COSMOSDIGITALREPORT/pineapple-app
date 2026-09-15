@@ -30,12 +30,12 @@ export default function IncomingCallScreen({ callData, onAccept, onReject }) {
     pulse(ring2, 400);
     pulse(ring3, 800);
 
-    Vibration.vibrate([0, 700, 500, 700], true);
-    RingtoneModule?.playRingtone();
+    try { Vibration.vibrate([0, 700, 500, 700], true); } catch (_) {}
+    try { RingtoneModule?.playRingtone(); } catch (_) {}
 
     return () => {
-      Vibration.cancel();
-      RingtoneModule?.stopRingtone();
+      try { Vibration.cancel(); } catch (_) {}
+      try { RingtoneModule?.stopRingtone(); } catch (_) {}
     };
   }, []);
 

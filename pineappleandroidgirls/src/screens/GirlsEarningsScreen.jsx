@@ -42,19 +42,19 @@ export default function GirlsEarningsScreen({ onDrawer, onRedeem }) {
 
   const todayCoins = earnings.earnings
     .filter(e => new Date(e.created_at).toDateString() === new Date().toDateString())
-    .reduce((s, e) => s + (e.mins_received || 0), 0);
-  const totalCoins    = earnings.summary?.total_mins || 0;
-  const totalInr      = earnings.summary?.total_inr  || 0;
+    .reduce((s, e) => s + (parseFloat(e.mins_received) || 0), 0);
+  const totalCoins    = parseFloat(earnings.summary?.total_mins || 0);
+  const totalInr      = parseFloat(earnings.summary?.total_inr  || 0);
   const totalCalls    = calls.length;
   const totalCallMins = calls.reduce((s, c) => s + Math.floor((c.duration_seconds || 0) / 60), 0);
 
   const STATS = [
-    { label: 'Today',   value: todayCoins,                        sub: 'coins' },
-    { label: 'Total',   value: totalCoins,                        sub: 'all time' },
+    { label: 'Today',   value: todayCoins > 0 ? todayCoins.toFixed(1) : '0', sub: 'coins' },
+    { label: 'Total',   value: totalCoins > 0 ? totalCoins.toFixed(1) : '0', sub: 'all time' },
     { label: 'Calls',   value: totalCalls,                        sub: 'received' },
     { label: 'Minutes', value: totalCallMins,                     sub: 'talked' },
-    { label: 'Earned',  value: `₹${Number(totalInr).toFixed(0)}`, sub: 'total' },
-    { label: 'Rating',  value: '⭐',                               sub: 'top rated' },
+    { label: 'Earned',  value: `₹${Number(totalInr).toFixed(2)}`, sub: 'total INR' },
+    { label: 'Rating',  value: '⭐ 5.0',                          sub: 'top rated' },
   ];
 
   return (
@@ -140,19 +140,30 @@ export default function GirlsEarningsScreen({ onDrawer, onRedeem }) {
         ) : calls.slice(0, 10).map((call, i) => {
           const secs = call.duration_seconds || 0;
           const dur  = `${String(Math.floor(secs / 60)).padStart(2,'0')}:${String(secs % 60).padStart(2,'0')}`;
-          const earned = Math.floor(Math.ceil((secs / 60) * 2) * 0.7);
+          const isVideo = call.call_type === 'video';
+          const rate = isVideo ? 2 : 1;
+          const billableMins = Math.max(1, Math.ceil(secs / 60));
+          const earnedCoins = (billableMins * rate * 0.70).toFixed(1);
+          const earnedInr = (earnedCoins * 0.50).toFixed(2);
           return (
             <View key={call.id || i} style={styles.row}>
               <View style={styles.rowIcon}>
-                <Icon name="phone" size={18} color="#FF3870" />
+                <Icon name={isVideo ? 'video' : 'phone'} size={18} color="#FF3870" />
               </View>
               <View style={styles.rowInfo}>
-                <Text style={styles.rowName} numberOfLines={1}>{call.other_user?.name || 'User'}</Text>
+                <Text style={styles.rowName} numberOfLines={1}>{call.other_user?.name || 'Caller'}</Text>
                 <Text style={styles.rowMeta}>{dur} · {call.call_type || 'audio'}</Text>
               </View>
-              <Text style={[styles.rowEarned, { color: earned > 0 ? '#22C55E' : '#94A3B8' }]}>
-                {earned > 0 ? `+${earned} coins` : '—'}
-              </Text>
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={[styles.rowEarned, { color: secs > 0 ? '#22C55E' : '#94A3B8' }]}>
+                  {secs > 0 ? `+${earnedCoins} coins` : '—'}
+                </Text>
+                {secs > 0 && (
+                  <Text style={{ fontSize: 11, color: '#64748B', fontWeight: '600', marginTop: 1 }}>
+                    ₹{earnedInr}
+                  </Text>
+                )}
+              </View>
             </View>
           );
         })}

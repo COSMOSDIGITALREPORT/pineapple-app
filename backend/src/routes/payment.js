@@ -11,10 +11,10 @@ if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
 }
 
 const PACKAGES = {
-  pack_9:   { coins: 4,   price: 9   }, // ₹9 intro trial — 4 mins
-  pack_100: { coins: 50,  price: 89  },
-  pack_200: { coins: 100, price: 179 },
-  pack_500: { coins: 250, price: 489 },
+  pack_9:   { coins: 15,  price: 9,   label: 'Intro Trial', isIntro: true },
+  pack_100: { coins: 120, price: 100, label: 'Basic' },
+  pack_200: { coins: 240, price: 200, label: 'Standard' },
+  pack_500: { coins: 700, price: 500, label: 'Premium', unlocksSpin: true },
 };
 
 router.post('/create-order', auth, async (req, res) => {
@@ -24,6 +24,14 @@ router.post('/create-order', auth, async (req, res) => {
     }
     const pkg = PACKAGES[req.body.packageId];
     if (!pkg) return res.status(400).json({ error: 'Invalid package' });
+
+    if (req.body.packageId === 'pack_9') {
+      const [userRows] = await pool.query('SELECT intro_9_used FROM users WHERE id=?', [req.user.userId]);
+      if (userRows[0]?.intro_9_used) {
+        return res.status(400).json({ error: 'The ₹9 Intro Trial plan is a one-time offer for new users only.' });
+      }
+    }
+
     const order = await razorpay.orders.create({
       amount: pkg.price * 100, currency: 'INR',
       receipt: `r_${req.user.userId.replace(/-/g, '').substring(0, 20)}_${Date.now().toString().slice(-8)}`,

@@ -1,1 +1,1 @@
-<resources xmlns:tools="http://schemas.android.com/tools" tools:keep="@drawable/src_image_pineapple_logo" />
+<resources xmlns:tools="http://schemas.android.com/tools" tools:keep="@drawable/src_image_pineapple_logo,@drawable/src_image_pineapple_full" />

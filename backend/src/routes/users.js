@@ -48,8 +48,8 @@ router.put('/me', auth, async (req, res) => {
 
   const prefsJson = content_prefs ? JSON.stringify(content_prefs) : undefined;
   try {
-    let q = 'UPDATE users SET name=?,dob=?,gender=?,city=?,language=?,bio=?,updated_at=NOW()';
-    const params = [name, dob||null, gender, city, language, bio];
+    let q = 'UPDATE users SET name=COALESCE(NULLIF(?,""), name),dob=COALESCE(?, dob),gender=COALESCE(NULLIF(?,""), gender),city=COALESCE(?, city),language=COALESCE(?, language),bio=COALESCE(?, bio),updated_at=NOW()';
+    const params = [name, dob||null, gender||null, city||null, language||null, bio||null];
     if (safeAvatar !== undefined) { q += ',avatar_url=?'; params.push(safeAvatar); }
     if (prefsJson  !== undefined) { q += ',content_prefs=?'; params.push(prefsJson); }
     q += ' WHERE id=?'; params.push(req.user.userId);

@@ -13,8 +13,9 @@ import {
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useSelector } from 'react-redux';
-import { reportUser, blockUser, getUserReviews, getLiveUsers, getTopGirls } from '../services/api';
+import { useSelector, useDispatch } from 'react-redux';
+import { reportUser, blockUser, getUserReviews, getLiveUsers, getTopGirls, getMe } from '../services/api';
+import { setProfile } from '../store/slices/userSlice';
 import Icon from '../components/Icon';
 
 const { width } = Dimensions.get('window');
@@ -185,6 +186,7 @@ function StarRating({ rating = 0, count = 0 }) {
 
 export default function ConnectScreen({ onVideoCall, onAudioCall, onDrawer, onBuyCoins, onRandomCall }) {
   const insets = useSafeAreaInsets();
+  const dispatch = useDispatch();
   const { coins } = useSelector((s) => s.user);
   const [activeFilter, setActiveFilter] = useState('All');
   const [users, setUsers] = useState([]);
@@ -196,6 +198,12 @@ export default function ConnectScreen({ onVideoCall, onAudioCall, onDrawer, onBu
   const [topGirls, setTopGirls] = useState([]);
   const coinSpinAnim = useRef(new Animated.Value(0)).current;
   const glowAnim  = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    getMe().then((d) => {
+      if (d) dispatch(setProfile(d));
+    }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     Animated.loop(

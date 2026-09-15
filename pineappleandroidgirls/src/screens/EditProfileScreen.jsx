@@ -96,6 +96,7 @@ export default function EditProfileScreen({ onBack, onPremium }) {
         bio:           bio.trim(),
         language:      language.trim(),
         city:          city.trim(),
+        gender:        'girl',
         avatar_url:    finalAvatarUrl,
         content_prefs: { topics: selTopics, noInappropriate },
       });

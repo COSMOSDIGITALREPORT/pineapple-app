@@ -260,7 +260,7 @@ export default function AudioCallScreen({ onBack, onHangup, callerUser, incoming
     try {
       const order = await createPaymentOrder('pack_9');
       const options = {
-        description: '3 Minutes Call Extension',
+        description: 'Intro Trial — 15 Coins',
         currency: 'INR',
         key: order.keyId,
         amount: order.amount,
@@ -451,7 +451,7 @@ export default function AudioCallScreen({ onBack, onHangup, callerUser, incoming
               Continue talking with {callerUser?.name || 'them'} for just
             </Text>
             <Text style={styles.trialPrice}>₹9</Text>
-            <Text style={styles.trialPriceSub}>3 more minutes · One-time offer</Text>
+            <Text style={styles.trialPriceSub}>15 Coins (15 audio / 7.5 video mins) · One-time offer</Text>
 
             <TouchableOpacity
               style={styles.trialPayBtn}

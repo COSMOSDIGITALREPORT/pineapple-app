@@ -109,8 +109,8 @@ export default function ProfileSetupScreen({ onComplete }) {
       if (avatarUri && avatarUri.startsWith('file://')) {
         finalAvatarUrl = await uploadAvatar(avatarUri);
       }
-      await updateProfile({ name: name.trim(), birthdate, avatar_url: finalAvatarUrl, gender });
-      dispatch(setProfile({ name: name.trim(), avatar_url: finalAvatarUrl, birthdate, gender }));
+      await updateProfile({ name: name.trim(), dob: birthdate, birthdate, avatar_url: finalAvatarUrl, gender: 'boy' });
+      dispatch(setProfile({ name: name.trim(), avatar_url: finalAvatarUrl, birthdate, gender: 'boy' }));
       onComplete();
     } catch (e) {
       setError(e.message || 'Failed to save. Try again.');

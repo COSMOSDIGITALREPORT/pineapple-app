@@ -51,6 +51,12 @@ async function runMigrations() {
   const migrations = [
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS free_trial_used TINYINT(1) NOT NULL DEFAULT 0`,
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS intro_9_used TINYINT(1) NOT NULL DEFAULT 0`,
+    `ALTER TABLE calls ADD COLUMN IF NOT EXISTS free_trial TINYINT(1) NOT NULL DEFAULT 0`,
+    `ALTER TABLE calls ADD COLUMN IF NOT EXISTS girl_earnings_inr DECIMAL(10,2) NOT NULL DEFAULT 0`,
+    `ALTER TABLE calls ADD COLUMN IF NOT EXISTS platform_revenue_inr DECIMAL(10,2) NOT NULL DEFAULT 0`,
+    `ALTER TABLE calls ADD COLUMN IF NOT EXISTS girl_coins DECIMAL(10,2) NOT NULL DEFAULT 0`,
+    `ALTER TABLE earnings MODIFY COLUMN mins_received DECIMAL(10,2) NOT NULL DEFAULT 0`,
+    `ALTER TABLE earnings MODIFY COLUMN amount_inr DECIMAL(10,2) NOT NULL DEFAULT 0`,
     `CREATE TABLE IF NOT EXISTS reports (
       id           CHAR(36)     PRIMARY KEY DEFAULT (UUID()),
       reporter_id  CHAR(36),
@@ -73,6 +79,12 @@ async function runMigrations() {
       INDEX idx_rated (rated_id),
       INDEX idx_rater (rater_id)
     )`,
+    `INSERT INTO coin_packages (id, coins, price_inr, label, is_popular) VALUES
+      ('pack_9', 15, 9, '15 Coins (Trial)', 0),
+      ('pack_100', 120, 100, '120 Coins (Basic)', 0),
+      ('pack_200', 240, 200, '240 Coins (Standard)', 0),
+      ('pack_500', 700, 500, '700 Coins (Premium)', 1)
+     ON DUPLICATE KEY UPDATE coins=VALUES(coins), price_inr=VALUES(price_inr), label=VALUES(label), is_popular=VALUES(is_popular)`,
   ];
   for (const sql of migrations) {
     try { await pool.query(sql); } catch (e) { console.warn('[Migration]', e.message); }

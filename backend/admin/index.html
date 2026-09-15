@@ -349,6 +349,16 @@ td b{color:var(--text);font-weight:600;}
           <div class="stat-num" id="s-online">–</div>
           <div class="stat-label">Online Now</div>
         </div>
+        <div class="stat-card c-green">
+          <div class="stat-top"><div class="stat-icon-wrap">💰</div><span class="stat-trend" style="background:#f0fdf4;color:#16a34a">30% Share</span></div>
+          <div class="stat-num" id="s-plat-rev">₹0</div>
+          <div class="stat-label">Platform Revenue (₹)</div>
+        </div>
+        <div class="stat-card c-purple">
+          <div class="stat-top"><div class="stat-icon-wrap">👧</div><span class="stat-trend" style="background:#F5F3FF;color:#7C3AED">70% Share</span></div>
+          <div class="stat-num" id="s-girl-earn">₹0</div>
+          <div class="stat-label">Host Earnings (₹)</div>
+        </div>
         <div class="stat-card c-blue">
           <div class="stat-top"><div class="stat-icon-wrap">👦</div></div>
           <div class="stat-num" id="s-boys">–</div>
@@ -364,10 +374,10 @@ td b{color:var(--text);font-weight:600;}
           <div class="stat-num" id="s-calls">–</div>
           <div class="stat-label">Total Calls Made</div>
         </div>
-        <div class="stat-card c-green">
-          <div class="stat-top"><div class="stat-icon-wrap">⏱️</div></div>
-          <div class="stat-num" id="s-mins">–</div>
-          <div class="stat-label">Minutes Talked</div>
+        <div class="stat-card c-orange">
+          <div class="stat-top"><div class="stat-icon-wrap">🪙</div></div>
+          <div class="stat-num" id="s-coins">–</div>
+          <div class="stat-label">Coins Consumed</div>
         </div>
         <div class="stat-card c-orange">
           <div class="stat-top"><div class="stat-icon-wrap">💸</div><span class="stat-trend" style="background:#fffbeb;color:#d97706" id="s-w-badge"></span></div>
@@ -569,10 +579,10 @@ td b{color:var(--text);font-weight:600;}
       <div class="table-card">
         <table>
           <thead><tr>
-            <th>Caller</th><th>Receiver</th><th>Type</th><th>Duration</th><th>Coins</th><th>Status</th><th>Date</th>
+            <th>Caller</th><th>Receiver</th><th>Type</th><th>Duration</th><th>Coins</th><th>Girl Earned (70%)</th><th>Platform (30%)</th><th>Status</th><th>Date</th>
           </tr></thead>
           <tbody id="c-body">
-            <tr><td colspan="7"><div class="empty-state"><div class="e-icon">⏳</div><p>Loading...</p></div></td></tr>
+            <tr><td colspan="9"><div class="empty-state"><div class="e-icon">⏳</div><p>Loading...</p></div></td></tr>
           </tbody>
         </table>
       </div>
@@ -634,21 +644,37 @@ async function loadDash() {
     const s = await api('/admin/stats');
     animateNum('s-total',       s.users ?? 0);
     animateNum('s-online',      s.online ?? 0);
+    animateCurrency('s-plat-rev', s.platformRevenue ?? 0);
+    animateCurrency('s-girl-earn', s.girlEarnings ?? 0);
     animateNum('s-boys',        s.boys ?? 0);
     animateNum('s-girls',       s.girls ?? 0);
     animateNum('s-calls',       s.totalCalls ?? 0);
-    animateNum('s-mins',        s.totalMins ?? 0);
+    animateNum('s-coins',       s.totalCoins ?? 0);
     animateNum('s-withdrawals', s.pendingWithdrawals ?? 0);
     animateNum('s-reports',     s.pendingReports ?? 0);
     animateNum('s-verify',      s.pendingVerifications ?? 0);
     const wb = document.getElementById('s-w-badge');
     const rb = document.getElementById('s-r-badge');
     const vb = document.getElementById('s-v-badge');
-    if ((s.pendingWithdrawals||0) > 0) { wb.textContent='⚡ '+s.pendingWithdrawals+' pending'; wb.style.display=''; document.getElementById('nb-w').style.display=''; document.getElementById('nb-w').textContent=s.pendingWithdrawals; }
+    if ((s.pendingWithdrawals||0) > 0) { wb.textContent='⚡ '+s.pendingWithdrawals+' pending (₹'+(s.pendingWithdrawalAmount||0)+')'; wb.style.display=''; document.getElementById('nb-w').style.display=''; document.getElementById('nb-w').textContent=s.pendingWithdrawals; }
     if ((s.pendingReports||0) > 0)    { rb.textContent='⚠️ '+s.pendingReports+' new'; rb.style.display=''; document.getElementById('nb-r').style.display=''; document.getElementById('nb-r').textContent=s.pendingReports; }
     if ((s.pendingVerifications||0) > 0) { vb.textContent='👀 '+s.pendingVerifications+' waiting'; vb.style.display=''; document.getElementById('nb-v').style.display=''; document.getElementById('nb-v').textContent=s.pendingVerifications; }
   } catch(e) { showToast(e.message, false); }
   loadLiveGirls();
+}
+
+function animateCurrency(id, target) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (!target || target === 0) { el.textContent = '₹0.00'; return; }
+  const dur = 600, step = 16, steps = dur / step;
+  let cur = 0;
+  const inc = target / steps;
+  const t = setInterval(() => {
+    cur = Math.min(cur + inc, target);
+    el.textContent = '₹' + cur.toFixed(2);
+    if (cur >= target) clearInterval(t);
+  }, step);
 }
 
 function animateNum(id, target) {
@@ -708,7 +734,13 @@ function renderUsers(list) {
         <span style="color:${u.is_online?'#16a34a':'#bbb'};font-size:12px;font-weight:600">${u.is_online?'Online':'Offline'}</span>
       </td>
       <td><b>${u.name||'(no name)'}</b></td>
-      <td><span class="badge ${isGirl?'b-purple':'b-blue'}">${isGirl?'👧':'👦'} ${u.gender||'–'}</span></td>
+      <td>
+        <select onchange="changeGender('${u.id}', this.value)" style="border-radius:12px;padding:3px 8px;font-size:12px;border:1px solid #e2e8f0;background:${isGirl?'#fdf2f8':'#eff6ff'};color:${isGirl?'#db2777':'#2563eb'};font-weight:600;cursor:pointer">
+          <option value="girl" ${isGirl?'selected':''}>👧 girl</option>
+          <option value="boy" ${(!isGirl && (u.gender==='boy'||u.gender==='male'))?'selected':''}>👦 boy</option>
+          <option value="" ${(!u.gender)?'selected':''}>❓ unset</option>
+        </select>
+      </td>
       <td style="color:#aaa;font-size:12px">${u.phone||'–'}</td>
       <td><b style="color:#FF3870">🪙 ${u.minutes||0}</b></td>
       <td>${u.is_premium?'<span class="badge b-yellow">⭐ Premium</span>':'<span class="badge b-gray">Free</span>'}</td>
@@ -756,6 +788,23 @@ async function delUser(id, name) {
   try {
     await api('/admin/users/'+id, { method:'DELETE' });
     showToast(`${name} deleted`);
+    loadUsers();
+  } catch(e) { showToast(e.message, false); }
+}
+
+async function changeGender(id, gender) {
+  if (!gender) return;
+  try {
+    await api('/admin/users/'+id+'/gender', { method:'PUT', body:JSON.stringify({gender}) });
+    showToast(`✓ Gender updated to ${gender}`);
+    loadUsers();
+  } catch(e) { showToast(e.message, false); }
+}
+
+async function fixMissingGenders() {
+  try {
+    const res = await api('/admin/fix-genders', { method:'POST' });
+    showToast(`✓ Fixed ${res.updated || 0} user profile(s) to girl`);
     loadUsers();
   } catch(e) { showToast(e.message, false); }
 }
@@ -873,16 +922,19 @@ async function loadCalls() {
   try {
     const rows = await api('/admin/calls');
     const tb = document.getElementById('c-body');
-    if (!rows.length) { tb.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="e-icon">📞</div><p>No calls yet</p></div></td></tr>'; return; }
+    if (!rows.length) { tb.innerHTML = '<tr><td colspan="9"><div class="empty-state"><div class="e-icon">📞</div><p>No calls yet</p></div></td></tr>'; return; }
     tb.innerHTML = rows.map(c => {
       const d = c.duration_seconds || 0;
       const dur = d >= 60 ? Math.floor(d/60)+'m '+(d%60)+'s' : d ? d+'s' : '–';
+      const isFree = !!c.free_trial;
       return `<tr>
         <td><b>${c.caller||'–'}</b></td>
         <td>${c.receiver||'–'}</td>
-        <td><span class="badge ${c.call_type==='video'?'b-purple':'b-blue'}">${c.call_type==='video'?'📹 Video':'🎙️ Audio'}</span></td>
+        <td><span class="badge ${isFree?'b-green':(c.call_type==='video'?'b-purple':'b-blue')}">${isFree?'🎁 Trial':(c.call_type==='video'?'📹 Video':'🎙️ Audio')}</span></td>
         <td style="color:#aaa">${dur}</td>
         <td><b style="color:#FF3870">🪙 ${c.mins_deducted||0}</b></td>
+        <td><b style="color:#7C3AED">₹${Number(c.girl_earnings_inr||0).toFixed(2)}</b></td>
+        <td><b style="color:#16a34a">₹${Number(c.platform_revenue_inr||0).toFixed(2)}</b></td>
         <td><span class="badge ${c.status==='ended'?'b-green':'b-yellow'}">${c.status}</span></td>
         <td style="color:#bbb;font-size:12px">${new Date(c.created_at).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})}</td>
       </tr>`;

@@ -50,7 +50,21 @@ module.exports = (io) => {
 
     socket.on('room:join',    ({ roomId }) => { socket.join(`room:${roomId}`);  socket.to(`room:${roomId}`).emit('room:user_joined', { userId }); });
     socket.on('room:leave',   ({ roomId }) => { socket.leave(`room:${roomId}`); socket.to(`room:${roomId}`).emit('room:user_left',  { userId }); });
-    socket.on('room:message', ({ roomId, message }) => io.to(`room:${roomId}`).emit('room:message', { userId, message, ts: Date.now() }));
+    socket.on('user:online', () => {
+      if (socket.userId) {
+        online.set(socket.userId, socket.id);
+        pool.query('UPDATE users SET is_online=1 WHERE id=?', [socket.userId]).catch(() => {});
+        console.log(`[SOCKET] 🟢 user:online: ${socket.userId}`);
+      }
+    });
+
+    socket.on('user:offline', () => {
+      if (socket.userId) {
+        online.delete(socket.userId);
+        pool.query('UPDATE users SET is_online=0, last_seen=NOW() WHERE id=?', [socket.userId]).catch(() => {});
+        console.log(`[SOCKET] ⚫ user:offline: ${socket.userId}`);
+      }
+    });
 
     socket.on('disconnect', () => {
       if (socket.userId) {

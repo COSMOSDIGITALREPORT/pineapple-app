@@ -35,7 +35,7 @@ const userSlice = createSlice({
       state.gender = u.gender ?? state.gender;
       state.bio = u.bio ?? state.bio;
       state.avatarUrl = u.avatar_url ?? state.avatarUrl;
-      state.coins = 0;
+      state.coins = u.coins ?? u.minutes ?? state.coins;
       state.isPremium = u.is_premium ?? false;
       state.planId = u.plan_id ?? null;
       state.freeTrialUsed = !!u.free_trial_used;
@@ -57,7 +57,8 @@ const userSlice = createSlice({
       if (action.payload.hasSpun !== undefined) state.hasSpun = action.payload.hasSpun;
       if (action.payload.free_trial_used !== undefined) state.freeTrialUsed = !!action.payload.free_trial_used;
       if (action.payload.intro_9_used !== undefined) state.intro9Used = !!action.payload.intro_9_used;
-      state.coins = 0;
+      if (action.payload.coins !== undefined) state.coins = action.payload.coins;
+      else if (action.payload.minutes !== undefined) state.coins = action.payload.minutes;
     },
     setLoggedIn: (state, action) => {
       state.isLoggedIn = action.payload;

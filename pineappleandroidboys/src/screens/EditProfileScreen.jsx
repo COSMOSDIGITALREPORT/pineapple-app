@@ -82,6 +82,7 @@ export default function EditProfileScreen({ onBack, onPremium }) {
         bio:        bio.trim(),
         language:   language.trim(),
         city:       city.trim(),
+        gender:     'boy',
         avatar_url: finalAvatarUrl,
       });
       dispatch(setProfile(updated));

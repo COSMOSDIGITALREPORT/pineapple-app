@@ -5,9 +5,11 @@ const pool   = require('../config/db');
 const { generateAgoraToken } = require('../config/agora');
 const { sendPush } = require('../config/fcm');
 
-const MINS_PER_MIN_AUDIO = 1;   // 1 minute deducted per minute of audio call
-const MINS_PER_MIN_VIDEO = 2;   // 2 minutes deducted per minute of video call
-const GIRL_RATIO         = 0.5; // girl gets 50% of caller's minutes as earnings
+const MINS_PER_MIN_AUDIO = 1;   // 1 coin deducted per minute of audio call
+const MINS_PER_MIN_VIDEO = 2;   // 2 coins deducted per minute of video call
+const GIRL_RATIO         = 0.70; // girl gets 70% of caller's spent coins
+const PLATFORM_RATIO     = 0.30; // platform keeps 30% of caller's spent coins
+const COIN_TO_INR_RATE   = 0.50; // 1 coin = ₹0.50 (0.7 coins = ₹0.35, 1.4 coins = ₹0.70)
 
 router.post('/initiate', auth, async (req, res) => {
   const { receiverId, type = 'audio', freeTrialCall } = req.body;
@@ -21,13 +23,14 @@ router.post('/initiate', auth, async (req, res) => {
         'INSERT INTO calls (id,caller_id,receiver_id,call_type,status,agora_channel,started_at,free_trial) VALUES (?,?,?,?,"initiated",?,NOW(),1)',
         [callId, req.user.userId, receiverId, type, channelName]);
     } else {
-      // Check caller has enough minutes
+      const rate = type === 'video' ? MINS_PER_MIN_VIDEO : MINS_PER_MIN_AUDIO;
+      // Check caller has enough coins for at least 1 minute
       const [caller] = await pool.query('SELECT minutes FROM users WHERE id=?', [req.user.userId]);
-      if (!caller.length || caller[0].minutes < 1)
-        return res.status(400).json({ error: 'Not enough minutes. Please recharge.' });
+      if (!caller.length || caller[0].minutes < rate)
+        return res.status(400).json({ error: 'Not enough coins. Please recharge.' });
 
       await pool.query(
-        'INSERT INTO calls (id,caller_id,receiver_id,call_type,status,agora_channel,started_at) VALUES (?,?,?,?,"initiated",?,NOW())',
+        'INSERT INTO calls (id,caller_id,receiver_id,call_type,status,agora_channel,started_at,free_trial) VALUES (?,?,?,?,"initiated",?,NOW(),0)',
         [callId, req.user.userId, receiverId, type, channelName]);
     }
 
@@ -47,40 +50,58 @@ router.get('/:id/receiver-token', auth, async (req, res) => {
 });
 
 router.put('/:id/end', auth, async (req, res) => {
-  const { duration } = req.body; // seconds
+  const { duration = 0 } = req.body; // seconds
   try {
     const [rows] = await pool.query('SELECT * FROM calls WHERE id=?', [req.params.id]);
     if (!rows.length) return res.status(404).json({ error: 'Call not found' });
     const call = rows[0];
     if (call.status === 'ended') return res.json({ success: true, already_ended: true });
 
+    const isFreeTrial = !!call.free_trial;
     const rate        = call.call_type === 'video' ? MINS_PER_MIN_VIDEO : MINS_PER_MIN_AUDIO;
-    const minsUsed    = Math.ceil((duration / 60) * rate);
-    const girlMins    = Math.floor(minsUsed * GIRL_RATIO);
+    const durationSec = Math.max(0, parseInt(duration) || 0);
+
+    let coinsUsed = 0;
+    let girlCoins = 0;
+    let girlInr = 0;
+    let platformInr = 0;
+
+    if (!isFreeTrial && durationSec > 0) {
+      const billableMins = Math.max(1, Math.ceil(durationSec / 60));
+      coinsUsed   = billableMins * rate;
+      girlCoins   = parseFloat((coinsUsed * GIRL_RATIO).toFixed(2));
+      girlInr     = parseFloat((girlCoins * COIN_TO_INR_RATE).toFixed(2));
+      platformInr = parseFloat(((coinsUsed * PLATFORM_RATIO) * COIN_TO_INR_RATE).toFixed(2));
+    }
 
     await pool.query(
-      'UPDATE calls SET status="ended",ended_at=NOW(),duration_seconds=?,mins_deducted=? WHERE id=?',
-      [duration, minsUsed, req.params.id]);
+      `UPDATE calls SET status="ended", ended_at=NOW(), duration_seconds=?, mins_deducted=?,
+        girl_earnings_inr=?, platform_revenue_inr=?, girl_coins=? WHERE id=?`,
+      [durationSec, coinsUsed, girlInr, platformInr, girlCoins, req.params.id]
+    );
 
-    // Free trial calls: don't deduct from caller
-    if (!call.free_trial) {
-      await pool.query('UPDATE users SET minutes=GREATEST(0,minutes-?) WHERE id=?', [minsUsed, call.caller_id]);
+    // Free trial calls: don't deduct from caller, girl gets 0 (platform absorbs)
+    if (!isFreeTrial && coinsUsed > 0) {
+      await pool.query('UPDATE users SET minutes=GREATEST(0,minutes-?) WHERE id=?', [coinsUsed, call.caller_id]);
       await pool.query(
         'INSERT INTO wallet_transactions (id,user_id,type,amount,description,ref_id) VALUES (?,?,?,?,?,?)',
-        [uuidv4(), call.caller_id, 'spend', minsUsed, `${call.call_type} call`, req.params.id]);
+        [uuidv4(), call.caller_id, 'spend', coinsUsed, `${call.call_type} call (${Math.ceil(durationSec/60)}m)`, req.params.id]
+      );
+
+      // Add 70% earnings to girl's account
+      if (girlCoins > 0) {
+        await pool.query(
+          'INSERT INTO earnings (id,girl_id,call_id,mins_received,amount_inr) VALUES (?,?,?,?,?)',
+          [uuidv4(), call.receiver_id, req.params.id, girlCoins, girlInr]
+        );
+        await pool.query(
+          'INSERT INTO wallet_transactions (id,user_id,type,amount,description,ref_id) VALUES (?,?,?,?,?,?)',
+          [uuidv4(), call.receiver_id, 'earn', girlCoins, `${call.call_type} call earnings (₹${girlInr})`, req.params.id]
+        );
+      }
     }
 
-    // Add minutes to girl's earnings
-    if (girlMins > 0) {
-      await pool.query(
-        'INSERT INTO earnings (id,girl_id,call_id,mins_received,amount_inr) VALUES (?,?,?,?,?)',
-        [uuidv4(), call.receiver_id, req.params.id, girlMins, (girlMins * 0.5).toFixed(2)]);
-      await pool.query(
-        'INSERT INTO wallet_transactions (id,user_id,type,amount,description,ref_id) VALUES (?,?,?,?,?,?)',
-        [uuidv4(), call.receiver_id, 'earn', girlMins, `${call.call_type} call earnings`, req.params.id]);
-    }
-
-    res.json({ success: true, minsUsed, girlMins, duration });
+    res.json({ success: true, coinsUsed, girlCoins, girlInr, platformInr, duration: durationSec, isFreeTrial });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
