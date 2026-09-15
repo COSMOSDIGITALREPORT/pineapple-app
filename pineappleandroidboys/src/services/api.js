@@ -4,7 +4,7 @@ import { Platform } from 'react-native';
 // 👇 Yahan apna ngrok URL daal do (ngrok http 3000 run karo terminal mein)
 // Simulator: localhost:3000 (iOS) / 10.0.2.2:3000 (Android emulator)
 // Real device: ngrok URL daal do jaise 'https://abc123.ngrok-free.app'
-const NGROK_URL = 'https://pineapple-eynu.onrender.com';
+const NGROK_URL = 'https://pineapple-backend-f0yj.onrender.com';
 const IS_REAL_DEVICE = true;
 
 const BASE_URL = IS_REAL_DEVICE

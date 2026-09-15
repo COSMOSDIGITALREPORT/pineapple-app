@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
 // 👇 Yahan apna ngrok URL daal do (ngrok http 3000 run karo terminal mein)
-const NGROK_URL = 'https://pineapple-eynu.onrender.com';
+const NGROK_URL = 'https://pineapple-backend-f0yj.onrender.com';
 const LOCAL_IP  = 'http://192.168.31.238:3000';
 const IS_REAL_DEVICE = true; // simulator ke liye false, real device ke liye true
 

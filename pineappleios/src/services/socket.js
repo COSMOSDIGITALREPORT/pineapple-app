@@ -1,6 +1,6 @@
 import { io } from 'socket.io-client';
 
-const BASE_URL = 'https://pineapple-eynu.onrender.com';
+const BASE_URL = 'https://pineapple-backend-f0yj.onrender.com';
 
 let socket = null;
 let keepAliveInterval = null;
