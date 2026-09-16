@@ -485,6 +485,49 @@ router.delete('/seed-girls', adminAuth, async (req, res) => {
     }
     res.json({ success: true, removed });
   } catch (err) { res.status(500).json({ error: err.message }); }
+// POST /admin/reconcile-earnings — recalculate & backfill host earnings and ledger records
+router.post('/reconcile-earnings', adminAuth, async (req, res) => {
+  try {
+    // 1. Calculate and update any ended call where coins were spent
+    await pool.query(
+      `UPDATE calls 
+       SET girl_earnings_inr = ROUND(mins_deducted * 0.70 * 0.50, 2),
+           platform_revenue_inr = ROUND(mins_deducted * 0.30 * 0.50, 2),
+           girl_coins = ROUND(mins_deducted * 0.70, 2)
+       WHERE status = 'ended' AND free_trial = 0 AND mins_deducted > 0`
+    );
+
+    // 2. Insert missing earnings
+    await pool.query(
+      `INSERT INTO earnings (id, girl_id, call_id, mins_received, coins_received, amount_inr, created_at)
+       SELECT UUID(), c.receiver_id, c.id, c.girl_coins, c.girl_coins, c.girl_earnings_inr, c.created_at
+       FROM calls c
+       WHERE c.status = 'ended' AND c.free_trial = 0 AND c.mins_deducted > 0 AND c.girl_earnings_inr > 0
+         AND c.id NOT IN (SELECT COALESCE(call_id, '') FROM (SELECT call_id FROM earnings WHERE call_id IS NOT NULL) AS e)`
+    );
+
+    // 3. Backfill wallet transactions for girl earnings if missing
+    await pool.query(
+      `INSERT INTO wallet_transactions (id, user_id, type, amount, description, ref_id, created_at)
+       SELECT UUID(), c.receiver_id, 'earn', c.girl_coins, CONCAT(c.call_type, ' call earnings (₹', c.girl_earnings_inr, ')'), c.id, c.ended_at
+       FROM calls c
+       WHERE c.status = 'ended' AND c.free_trial = 0 AND c.mins_deducted > 0 AND c.girl_coins > 0
+         AND c.id NOT IN (SELECT COALESCE(ref_id, '') FROM (SELECT ref_id FROM wallet_transactions WHERE type='earn' AND ref_id IS NOT NULL) AS w)`
+    );
+
+    // 4. Update girls' wallet balance
+    await pool.query(
+      `UPDATE users u
+       JOIN (
+         SELECT girl_id, SUM(COALESCE(mins_received, coins_received, 0)) AS total_earned_coins
+         FROM earnings
+         GROUP BY girl_id
+       ) e ON u.id = e.girl_id
+       SET u.minutes = GREATEST(u.minutes, e.total_earned_coins)`
+    );
+
+    res.json({ success: true, message: 'Earnings reconciled successfully' });
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 module.exports = router;
