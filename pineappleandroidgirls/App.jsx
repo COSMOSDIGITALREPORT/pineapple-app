@@ -3,13 +3,6 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Provider, useDispatch } from 'react-redux';
 import { Modal, View, Text, TextInput, TouchableOpacity, StyleSheet, Platform, StatusBar } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-// Prevent Android system font size from breaking layouts
-Text.defaultProps = { ...(Text.defaultProps || {}), allowFontScaling: false };
-TextInput.defaultProps = { ...(TextInput.defaultProps || {}), allowFontScaling: false };
-
-if (Platform.OS === 'android') {
-  StatusBar.setTranslucent(false);
-}
 import LinearGradient from 'react-native-linear-gradient';
 import { store } from './src/store';
 import { acceptWarning, setProfile, setLoggedIn, setAuthUser } from './src/store/slices/userSlice';

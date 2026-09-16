@@ -7,12 +7,6 @@ import '@react-native-firebase/app';
 import '@react-native-firebase/auth';
 
 // Prevent Android system font size from breaking layouts
-Text.defaultProps = { ...(Text.defaultProps || {}), allowFontScaling: false };
-TextInput.defaultProps = { ...(TextInput.defaultProps || {}), allowFontScaling: false };
-
-if (Platform.OS === 'android') {
-  StatusBar.setTranslucent(false);
-}
 import LinearGradient from 'react-native-linear-gradient';
 import { store } from './src/store';
 import { acceptWarning, setProfile, setLoggedIn, setAuthUser } from './src/store/slices/userSlice';
