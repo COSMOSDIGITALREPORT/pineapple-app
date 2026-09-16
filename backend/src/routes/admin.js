@@ -322,13 +322,61 @@ router.get('/financials', adminAuth, async (req, res) => {
     const totalPendingPayout = parseFloat(payoutsPending.total) || 0;
     const unpaidHostBalance = Math.max(0, totalGirlEarnings - totalPaidOut);
 
-    // 6. Recent Transaction Ledger Feed
+    // 6. Host-Wise Earnings Breakdown
+    const [hostBreakdown] = await pool.query(`
+      SELECT 
+        u.id, 
+        u.name, 
+        u.phone, 
+        u.avatar_url, 
+        u.city,
+        u.is_online,
+        u.is_verified,
+        u.minutes AS wallet_coins,
+        COALESCE(e.total_earned_inr, 0) AS total_earned_inr,
+        COALESCE(e.total_earned_coins, 0) AS total_earned_coins,
+        COALESCE(c.total_calls, 0) AS total_calls,
+        COALESCE(c.total_call_secs, 0) AS total_call_secs,
+        COALESCE(c.call_earned_inr, 0) AS call_earned_inr,
+        COALESCE(w_app.paid_out, 0) AS total_paid_out,
+        COALESCE(w_pen.pending_payout, 0) AS pending_payout,
+        (GREATEST(COALESCE(e.total_earned_inr, 0), COALESCE(c.call_earned_inr, 0)) - COALESCE(w_app.paid_out, 0)) AS unpaid_balance
+      FROM users u
+      LEFT JOIN (
+        SELECT girl_id, 
+               SUM(amount_inr) AS total_earned_inr,
+               SUM(COALESCE(mins_received, coins_received, 0)) AS total_earned_coins
+        FROM earnings GROUP BY girl_id
+      ) e ON u.id = e.girl_id
+      LEFT JOIN (
+        SELECT receiver_id, 
+               COUNT(*) AS total_calls, 
+               SUM(duration_seconds) AS total_call_secs, 
+               SUM(girl_earnings_inr) AS call_earned_inr
+        FROM calls WHERE status='ended' GROUP BY receiver_id
+      ) c ON u.id = c.receiver_id
+      LEFT JOIN (
+        SELECT girl_id, SUM(amount) AS paid_out FROM withdrawals WHERE status='approved' GROUP BY girl_id
+      ) w_app ON u.id = w_app.girl_id
+      LEFT JOIN (
+        SELECT girl_id, SUM(amount) AS pending_payout FROM withdrawals WHERE status='pending' GROUP BY girl_id
+      ) w_pen ON u.id = w_pen.girl_id
+      WHERE u.gender IN ('girl', 'female')
+      ORDER BY unpaid_balance DESC, total_earned_inr DESC, u.created_at DESC
+    `);
+
+    // 7. Recent Transaction Ledger Feed with Full Party Mapping
     const [recentTxns] = await pool.query(
-      `SELECT t.id, t.user_id, t.type, t.amount, t.description, t.created_at,
-              u.name AS user_name, u.gender AS user_gender
+      `SELECT t.id, t.user_id, t.type, t.amount, t.description, t.created_at, t.ref_id,
+              u.name AS user_name, u.gender AS user_gender, u.phone AS user_phone,
+              c.receiver_id AS call_receiver_id,
+              u_rec.name AS receiver_name,
+              u_rec.phone AS receiver_phone
        FROM wallet_transactions t
        LEFT JOIN users u ON t.user_id=u.id
-       ORDER BY t.created_at DESC LIMIT 100`
+       LEFT JOIN calls c ON t.ref_id=c.id
+       LEFT JOIN users u_rec ON c.receiver_id=u_rec.id
+       ORDER BY t.created_at DESC LIMIT 200`
     );
 
     res.json({
@@ -362,6 +410,7 @@ router.get('/financials', adminAuth, async (req, res) => {
         girlsWalletCoins: Number(girlsCoins.total) || 0,
         netPlatformProfit: Math.max(0, estimatedGrossInflowInr - totalPaidOut),
       },
+      hosts: hostBreakdown,
       recentGifts,
       recentTxns,
     });

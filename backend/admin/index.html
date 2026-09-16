@@ -693,9 +693,47 @@ td b{color:var(--text);font-weight:600;}
         </div>
       </div>
 
+      <!-- HOST-WISE EARNINGS & PAYOUT BREAKDOWN -->
+      <div class="ph" style="margin-top:24px;margin-bottom:12px;">
+        <div>
+          <div class="ph-title" style="font-size:18px;">👧 Host-Wise Earnings & Payout Breakdown</div>
+          <div class="ph-sub">Individual earnings, call stats, and unpaid balance for each host / girl</div>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <input type="text" id="host-search" placeholder="Search host by name or phone..." oninput="filterHostTable()" style="padding:6px 12px;border:1px solid #CBD5E1;border-radius:8px;font-size:13px;width:240px;background:#fff;" />
+        </div>
+      </div>
+
+      <div class="table-card" style="margin-bottom:28px;">
+        <table>
+          <thead><tr>
+            <th>Host Profile</th>
+            <th>Phone</th>
+            <th>Calls & Time</th>
+            <th>Coins Earned</th>
+            <th>Gross Earned (70%)</th>
+            <th>Paid Out (₹)</th>
+            <th>Unpaid Balance (₹)</th>
+            <th>Actions</th>
+          </tr></thead>
+          <tbody id="hosts-breakdown-body">
+            <tr><td colspan="8"><div class="empty-state"><div class="e-icon">⏳</div><p>Loading host earnings...</p></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+
       <!-- Financial Transaction Ledger Table -->
       <div class="ph" style="margin-bottom:12px;">
-        <div class="ph-title" style="font-size:18px;">📜 All Financial Transactions Ledger</div>
+        <div>
+          <div class="ph-title" style="font-size:18px;">📜 All Financial Transactions Ledger</div>
+          <div class="ph-sub">Real-time audit log of purchases, call deductions, and host earnings</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <select id="ledger-host-select" onchange="renderLedger()" style="padding:7px 12px;border:1px solid #CBD5E1;border-radius:8px;font-size:13px;background:#fff;font-weight:600;color:#1E293B;">
+            <option value="all">👧 All Hosts & Parties</option>
+          </select>
+          <input type="text" id="ledger-search" placeholder="Search user, host, txn..." oninput="renderLedger()" style="padding:6px 12px;border:1px solid #CBD5E1;border-radius:8px;font-size:13px;width:180px;background:#fff;" />
+        </div>
       </div>
 
       <!-- Ledger Tabs -->
@@ -1269,11 +1307,118 @@ async function loadFinancials(isAuto=false) {
       `).join('');
     }
 
-    // Recent Ledger Feed
+    // Host Breakdown & Ledger Feed
+    allHostsList = f.hosts || [];
+    renderHostTable();
+    updateLedgerHostDropdown();
+
     allLedgerTxns = f.recentTxns || [];
     renderLedger();
 
   } catch(e) { if (!isAuto) showToast(e.message, false); }
+}
+
+let allHostsList = [];
+
+function updateLedgerHostDropdown() {
+  const sel = document.getElementById('ledger-host-select');
+  if (!sel) return;
+  const currentVal = sel.value;
+  sel.innerHTML = '<option value="all">👧 All Hosts & Parties</option>' +
+    allHostsList.map(h => `<option value="${h.id}">${h.name} (${h.phone||'–'}) — Earned: ₹${Number(h.total_earned_inr||0).toFixed(2)} | Unpaid: ₹${Number(h.unpaid_balance||0).toFixed(2)}</option>`).join('');
+  if (allHostsList.some(h => h.id === currentVal)) {
+    sel.value = currentVal;
+  }
+}
+
+function filterHostTable() {
+  renderHostTable();
+}
+
+function renderHostTable() {
+  const tb = document.getElementById('hosts-breakdown-body');
+  if (!tb) return;
+  const q = (document.getElementById('host-search')?.value || '').toLowerCase().trim();
+
+  let list = allHostsList;
+  if (q) {
+    list = list.filter(h =>
+      (h.name || '').toLowerCase().includes(q) ||
+      (h.phone || '').includes(q) ||
+      (h.city || '').toLowerCase().includes(q)
+    );
+  }
+
+  if (!list.length) {
+    tb.innerHTML = '<tr><td colspan="8"><div class="empty-state"><div class="e-icon">👧</div><p>No host earnings found matching search</p></div></td></tr>';
+    return;
+  }
+
+  tb.innerHTML = list.map(h => {
+    const isOnline = !!h.is_online;
+    const isVerified = !!h.is_verified;
+    const grossEarned = Number(h.total_earned_inr || 0);
+    const paidOut = Number(h.total_paid_out || 0);
+    const unpaidBal = Number(h.unpaid_balance || 0);
+    const coinsEarned = Number(h.total_earned_coins || 0);
+    const totalCalls = Number(h.total_calls || 0);
+    const totalMins = Math.round(Number(h.total_call_secs || 0) / 60);
+
+    const avatarHtml = h.avatar_url
+      ? `<img src="${h.avatar_url}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid #E2E8F0;" />`
+      : `<div style="width:36px;height:36px;border-radius:50%;background:#F3E8FF;color:#7C3AED;font-weight:700;display:flex;align-items:center;justify-content:center;font-size:14px;">${(h.name||'?')[0].toUpperCase()}</div>`;
+
+    return `<tr>
+      <td>
+        <div style="display:flex;align-items:center;gap:10px;">
+          ${avatarHtml}
+          <div>
+            <div style="font-weight:700;display:flex;align-items:center;gap:5px;">
+              ${h.name || 'Host'}
+              ${isVerified ? '<span style="color:#16a34a;font-size:12px;" title="Verified Profile">✓</span>' : ''}
+            </div>
+            <div style="font-size:11px;color:${isOnline ? '#16a34a' : '#888'};">
+              ${isOnline ? '🟢 Live Online' : '⚫ Offline'} ${h.city ? '· 📍 '+h.city : ''}
+            </div>
+          </div>
+        </div>
+      </td>
+      <td style="font-size:12px;color:#555;font-weight:600;">${h.phone || '–'}</td>
+      <td>
+        <div style="font-weight:700;font-size:13px;">${totalCalls} calls</div>
+        <div style="font-size:11px;color:#888;">⏱️ ${totalMins} mins talked</div>
+      </td>
+      <td>
+        <b style="color:#FF3870;">🪙 ${coinsEarned.toFixed(1)}</b>
+      </td>
+      <td>
+        <b style="color:#7C3AED;font-size:14px;">₹${grossEarned.toFixed(2)}</b>
+      </td>
+      <td>
+        <span style="color:#16a34a;font-weight:700;">₹${paidOut.toFixed(2)}</span>
+      </td>
+      <td>
+        <span style="background:${unpaidBal > 0 ? '#FFF0F4' : '#F8FAFC'};color:${unpaidBal > 0 ? '#FF3870' : '#64748B'};padding:4px 8px;border-radius:6px;font-weight:800;font-size:13px;border:1px solid ${unpaidBal > 0 ? '#FFE4E6' : '#E2E8F0'};">
+          ₹${unpaidBal.toFixed(2)}
+        </span>
+      </td>
+      <td>
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-sm" onclick="filterLedgerForHost('${h.id}')" style="font-size:11px;padding:4px 8px;background:#F1F5F9;color:#334155;" title="View all calls & earnings for this host in ledger">🔍 Filter Ledger</button>
+          <button class="btn btn-sm btn-green" onclick="go('withdrawals')" style="font-size:11px;padding:4px 8px;" title="Review Payout Requests">💸 Payouts</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function filterLedgerForHost(hostId) {
+  const sel = document.getElementById('ledger-host-select');
+  if (sel) {
+    sel.value = hostId;
+    renderLedger();
+    sel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
 }
 
 async function reconcileEarnings() {
@@ -1296,13 +1441,45 @@ function setLedgerTab(tab) {
 
 function renderLedger() {
   const tb = document.getElementById('ledger-body');
+  if (!tb) return;
   let list = allLedgerTxns;
+
+  // Filter 1: Tab
   if (ledgerFilterTab !== 'all') {
     list = list.filter(t => t.type === ledgerFilterTab);
   }
 
+  // Filter 2: Host Filter Dropdown
+  const hostSelect = document.getElementById('ledger-host-select')?.value;
+  if (hostSelect && hostSelect !== 'all') {
+    const hostObj = allHostsList.find(x => x.id === hostSelect);
+    list = list.filter(t =>
+      t.user_id === hostSelect ||
+      t.call_receiver_id === hostSelect ||
+      (hostObj && (
+        t.user_name === hostObj.name ||
+        t.receiver_name === hostObj.name ||
+        t.user_phone === hostObj.phone ||
+        t.receiver_phone === hostObj.phone
+      ))
+    );
+  }
+
+  // Filter 3: Search text
+  const searchQ = (document.getElementById('ledger-search')?.value || '').toLowerCase().trim();
+  if (searchQ) {
+    list = list.filter(t =>
+      (t.user_name || '').toLowerCase().includes(searchQ) ||
+      (t.receiver_name || '').toLowerCase().includes(searchQ) ||
+      (t.description || '').toLowerCase().includes(searchQ) ||
+      (t.user_phone || '').includes(searchQ) ||
+      (t.receiver_phone || '').includes(searchQ) ||
+      String(t.amount || '').includes(searchQ)
+    );
+  }
+
   if (!list.length) {
-    tb.innerHTML = '<tr><td colspan="8"><div class="empty-state"><div class="e-icon">📜</div><p>No ledger records</p></div></td></tr>';
+    tb.innerHTML = '<tr><td colspan="8"><div class="empty-state"><div class="e-icon">📜</div><p>No ledger records matching criteria</p></div></td></tr>';
     return;
   }
 
@@ -1318,10 +1495,18 @@ function renderLedger() {
     const badgeClass = isPurchase ? 'b-green' : isSpend ? 'b-red' : 'b-purple';
     const badgeText = isPurchase ? '💰 Purchase' : isSpend ? '📞 Spent' : '👧 Earned';
 
+    // Party label
+    let partyHtml = `<b>${t.user_name||'User'}</b>`;
+    if (isSpend && t.receiver_name) {
+      partyHtml = `<b>${t.user_name||'Boy'}</b> <span style="color:#aaa;font-size:11px;">➔</span> <b style="color:#7C3AED;">👧 ${t.receiver_name}</b>`;
+    } else if (isEarn) {
+      partyHtml = `<b style="color:#7C3AED;">👧 ${t.user_name||'Host'}</b>`;
+    }
+
     return `<tr>
       <td style="color:#bbb;font-size:12px">${new Date(t.created_at).toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</td>
       <td><span class="badge ${badgeClass}">${badgeText}</span></td>
-      <td><b>${t.user_name||'User'}</b></td>
+      <td>${partyHtml}</td>
       <td style="color:#555;max-width:240px">${t.description||'Transaction'}</td>
       <td><b style="color:${isSpend?'#DC2626':'#16a34a'}">${isSpend?'-':'+'}${t.amount}</b></td>
       <td style="font-weight:700">${grossInr}</td>
