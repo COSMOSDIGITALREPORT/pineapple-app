@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Pineapple Admin</title>
+<title>Pineapple Admin Dashboard</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Pacifico&display=swap');
 *{margin:0;padding:0;box-sizing:border-box;}
@@ -11,6 +11,7 @@
   --pink:#FF3870;--crimson:#C0004A;--purple:#3A0068;
   --bg:#FFF5F8;--card:#fff;--border:#FFE0EA;
   --text:#1C1C1C;--muted:#6B7280;--light:#9CA3AF;
+  --green:#16a34a;--orange:#d97706;--blue:#2563eb;
 }
 body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
 
@@ -46,10 +47,10 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 /* ── LAYOUT ── */
 #app{display:none;}
 .sidebar{
-  position:fixed;left:0;top:0;width:248px;height:100vh;
+  position:fixed;left:0;top:0;width:250px;height:100vh;
   background:linear-gradient(180deg,#2A004A 0%,#1A002E 60%,#0F001E 100%);
   display:flex;flex-direction:column;padding:0 12px 20px;
-  box-shadow:4px 0 32px rgba(0,0,0,0.3);
+  box-shadow:4px 0 32px rgba(0,0,0,0.3);z-index:100;
 }
 .sidebar-header{
   padding:24px 10px 20px;margin-bottom:4px;
@@ -64,16 +65,16 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 }
 .sidebar-brand{font-family:'Pacifico',cursive;font-size:19px;font-weight:400;color:#fff;}
 .sidebar-sub{font-size:10px;color:rgba(255,255,255,0.4);font-weight:600;text-transform:uppercase;letter-spacing:.1em;margin-top:2px;}
-.nav{display:flex;flex-direction:column;gap:2px;flex:1;padding-top:16px;}
+.nav{display:flex;flex-direction:column;gap:3px;flex:1;padding-top:16px;overflow-y:auto;}
 .nav-btn{
   display:flex;align-items:center;gap:12px;padding:11px 14px;
-  background:transparent;border:none;color:rgba(255,255,255,0.5);border-radius:12px;
+  background:transparent;border:none;color:rgba(255,255,255,0.55);border-radius:12px;
   cursor:pointer;font-size:13.5px;font-weight:500;text-align:left;
   font-family:'Inter',sans-serif;transition:all .15s;
 }
 .nav-btn .ic{font-size:16px;width:20px;text-align:center;}
-.nav-btn:hover{background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.9);}
-.nav-btn.active{background:linear-gradient(135deg,rgba(255,56,112,0.25),rgba(192,0,74,0.15));color:#fff;font-weight:700;box-shadow:inset 0 0 0 1px rgba(255,56,112,0.3);}
+.nav-btn:hover{background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.95);}
+.nav-btn.active{background:linear-gradient(135deg,rgba(255,56,112,0.3),rgba(192,0,74,0.2));color:#fff;font-weight:700;box-shadow:inset 0 0 0 1px rgba(255,56,112,0.4);}
 .nav-badge{margin-left:auto;background:var(--pink);color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:20px;}
 .sidebar-footer{padding-top:14px;border-top:1px solid rgba(255,255,255,0.08);}
 .logout-btn{
@@ -83,17 +84,18 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 }
 .logout-btn:hover{background:rgba(255,56,112,0.3);color:#fff;}
 
-.main{margin-left:248px;padding:28px 32px;min-height:100vh;}
+.main{margin-left:250px;padding:28px 32px;min-height:100vh;}
 .page{display:none;}
 .page.active{display:block;animation:fadeIn .2s ease;}
 @keyframes fadeIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
 
 /* ── PAGE HEADER ── */
-.ph{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;}
+.ph{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px;}
 .ph-title{font-size:24px;font-weight:900;color:var(--text);}
 .ph-sub{font-size:13px;color:var(--light);margin-top:3px;}
+.ph-actions{display:flex;align-items:center;gap:10px;}
 .refresh-btn{
-  display:flex;align-items:center;gap:6px;padding:10px 20px;
+  display:flex;align-items:center;gap:6px;padding:10px 18px;
   background:#fff;border:1.5px solid var(--border);color:var(--muted);
   border-radius:12px;cursor:pointer;font-size:13px;font-weight:600;
   font-family:'Inter',sans-serif;transition:all .15s;
@@ -104,18 +106,30 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 .stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:14px;margin-bottom:28px;}
 .stat-card{
   background:#fff;border:1px solid var(--border);border-radius:20px;
-  padding:22px 20px;box-shadow:0 2px 12px rgba(0,0,0,0.04);
-  position:relative;overflow:hidden;transition:transform .15s,box-shadow .15s;
+  padding:20px 18px;box-shadow:0 2px 12px rgba(0,0,0,0.04);
+  position:relative;overflow:hidden;transition:transform .18s,box-shadow .18s,border-color .18s;
+  cursor:pointer;user-select:none;
 }
-.stat-card:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,0.08);}
-.stat-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px;}
+.stat-card:hover{transform:translateY(-3px);box-shadow:0 10px 28px rgba(255,56,112,0.12);border-color:var(--pink);}
+.stat-card:active{transform:translateY(0);}
+.stat-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px;}
 .stat-icon-wrap{
-  width:42px;height:42px;border-radius:13px;
+  width:40px;height:40px;border-radius:12px;
   display:flex;align-items:center;justify-content:center;font-size:18px;
 }
 .stat-trend{font-size:11px;font-weight:700;padding:3px 8px;border-radius:20px;}
-.stat-num{font-size:34px;font-weight:900;line-height:1;letter-spacing:-1px;}
-.stat-label{font-size:12px;color:var(--light);margin-top:6px;font-weight:500;}
+.stat-num{font-size:32px;font-weight:900;line-height:1;letter-spacing:-1px;}
+.stat-label{font-size:12px;color:var(--light);margin-top:6px;font-weight:600;}
+
+.stat-card::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:20px 20px 0 0;
+}
+.c-pink::before{background:linear-gradient(90deg,var(--pink),var(--crimson));}
+.c-green::before{background:linear-gradient(90deg,#22c55e,#16a34a);}
+.c-blue::before{background:linear-gradient(90deg,#3b82f6,#2563eb);}
+.c-purple::before{background:linear-gradient(90deg,#a855f7,#7c3aed);}
+.c-orange::before{background:linear-gradient(90deg,#f59e0b,#d97706);}
+.c-red::before{background:linear-gradient(90deg,#ef4444,#dc2626);}
 
 .c-pink .stat-icon-wrap{background:#FFF0F4;}
 .c-pink .stat-num{color:var(--pink);}
@@ -130,6 +144,19 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 .c-red .stat-icon-wrap{background:#FEF2F2;}
 .c-red .stat-num{color:#DC2626;}
 
+/* ── TABS FILTER BAR ── */
+.filter-tabs{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;}
+.ft-btn{
+  padding:8px 16px;border-radius:12px;border:1.5px solid var(--border);
+  background:#fff;color:var(--muted);font-size:12.5px;font-weight:700;
+  cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s;
+  display:inline-flex;align-items:center;gap:6px;
+}
+.ft-btn:hover{border-color:var(--pink);color:var(--pink);background:#FFF9FB;}
+.ft-btn.active{background:linear-gradient(135deg,var(--pink),var(--crimson));color:#fff;border-color:transparent;box-shadow:0 4px 12px rgba(255,56,112,0.25);}
+.ft-pill{background:rgba(0,0,0,0.06);padding:2px 7px;border-radius:20px;font-size:11px;}
+.ft-btn.active .ft-pill{background:rgba(255,255,255,0.25);color:#fff;}
+
 /* ── SEARCH ── */
 .search-wrap{position:relative;margin-bottom:16px;}
 .search-inp{
@@ -142,17 +169,17 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 .search-icon-abs{position:absolute;left:14px;top:50%;transform:translateY(-50%);font-size:15px;}
 
 /* ── TABLE ── */
-.table-card{background:#fff;border:1px solid var(--border);border-radius:20px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.04);}
+.table-card{background:#fff;border:1px solid var(--border);border-radius:20px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.04);margin-bottom:24px;}
 table{width:100%;border-collapse:collapse;}
 thead{background:#FAFBFC;}
 th{padding:13px 16px;text-align:left;font-size:11px;font-weight:700;color:var(--light);text-transform:uppercase;letter-spacing:.09em;border-bottom:1px solid var(--border);}
-td{padding:13px 16px;font-size:13px;border-bottom:1px solid #FAFBFC;color:var(--muted);}
+td{padding:13px 16px;font-size:13px;border-bottom:1px solid #FAFBFC;color:var(--muted);vertical-align:middle;}
 tr:last-child td{border:none;}
 tbody tr{transition:background .1s;}
 tbody tr:hover td{background:#FFFBFC;}
 td b{color:var(--text);font-weight:600;}
-.empty-state{text-align:center;padding:60px 20px;color:var(--light);}
-.empty-state .e-icon{font-size:40px;margin-bottom:12px;}
+.empty-state{text-align:center;padding:50px 20px;color:var(--light);}
+.empty-state .e-icon{font-size:36px;margin-bottom:10px;}
 .empty-state p{font-size:14px;}
 
 /* ── BADGES ── */
@@ -166,11 +193,12 @@ td b{color:var(--text);font-weight:600;}
 .b-pink{background:#fff1f2;color:#e11d48;border:1px solid #fecdd3;}
 
 /* ── BUTTONS ── */
-.btn{padding:7px 14px;border-radius:9px;border:none;cursor:pointer;font-size:12px;font-weight:600;font-family:'Inter',sans-serif;transition:all .15s;}
-.btn:hover{opacity:.85;}
+.btn{padding:7px 14px;border-radius:9px;border:none;cursor:pointer;font-size:12px;font-weight:700;font-family:'Inter',sans-serif;transition:all .15s;}
+.btn:hover{opacity:.85;transform:translateY(-1px);}
 .btn-green{background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0;}
 .btn-red{background:#fef2f2;color:#dc2626;border:1px solid #fecaca;}
 .btn-yellow{background:#fffbeb;color:#d97706;border:1px solid #fde68a;}
+.btn-pink{background:linear-gradient(135deg,var(--pink),var(--crimson));color:#fff;}
 .actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
 .coin-input{
   width:72px;padding:6px 10px;background:#F9FAFB;border:1.5px solid var(--border);
@@ -178,7 +206,7 @@ td b{color:var(--text);font-weight:600;}
 }
 .coin-input:focus{border-color:var(--pink);}
 
-/* ── ONLINE DOT ── */
+/* ── ONLINE PULSE ── */
 .online-dot{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:5px;vertical-align:middle;}
 .dot-online{background:#22c55e;box-shadow:0 0 6px #22c55e88;}
 .dot-offline{background:#E5E7EB;}
@@ -196,28 +224,16 @@ td b{color:var(--text);font-weight:600;}
 .toast.err{background:linear-gradient(135deg,#dc2626,#b91c1c);}
 @keyframes slideUp{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:none;}}
 
-/* ── STAT CARD top gradient bar ── */
-.stat-card::before{
-  content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:20px 20px 0 0;
-}
-.c-pink::before{background:linear-gradient(90deg,var(--pink),var(--crimson));}
-.c-green::before{background:linear-gradient(90deg,#22c55e,#16a34a);}
-.c-blue::before{background:linear-gradient(90deg,#3b82f6,#2563eb);}
-.c-purple::before{background:linear-gradient(90deg,#a855f7,#7c3aed);}
-.c-orange::before{background:linear-gradient(90deg,#f59e0b,#d97706);}
-.c-red::before{background:linear-gradient(90deg,#ef4444,#dc2626);}
+/* ── DASHBOARD TWO-COL ── */
+.dash-bottom{display:grid;grid-template-columns:1fr 340px;gap:20px;margin-top:4px;}
 
-/* ── DASH TWO-COL ── */
-.dash-bottom{display:grid;grid-template-columns:1fr 320px;gap:20px;margin-top:4px;}
-
-/* ── WIDGET CARD ── */
+/* ── WIDGETS ── */
 .widget{background:#fff;border:1px solid var(--border);border-radius:20px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.04);}
 .widget-header{display:flex;align-items:center;justify-content:space-between;padding:18px 20px 14px;}
 .widget-title{font-size:14px;font-weight:800;color:var(--text);}
 .widget-badge{font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0;}
-.widget-body{padding:0 12px 14px;}
+.widget-body{padding:0 16px 14px;}
 
-/* ── LIVE GIRL ROW ── */
 .live-row{display:flex;align-items:center;gap:12px;padding:9px 8px;border-radius:12px;transition:background .15s;}
 .live-row:hover{background:#FFF9FB;}
 .live-av{width:38px;height:38px;border-radius:50%;object-fit:cover;border:2px solid #FFE0EB;}
@@ -229,7 +245,6 @@ td b{color:var(--text);font-weight:600;}
 .ls-online{background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0;}
 .ls-oncall{background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;}
 
-/* ── QUICK ACTIONS ── */
 .quick-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 16px 16px;}
 .qa-btn{
   padding:12px 10px;border-radius:14px;border:1.5px solid var(--border);
@@ -240,27 +255,35 @@ td b{color:var(--text);font-weight:600;}
 .qa-btn:hover{border-color:var(--pink);color:var(--pink);background:#FFF0F4;transform:translateY(-1px);}
 .qa-icon{font-size:16px;}
 
-/* ── ACTIVITY FEED ── */
 .activity-item{display:flex;align-items:flex-start;gap:12px;padding:10px 8px;border-radius:10px;}
 .activity-item:hover{background:#FFF9FB;}
 .act-dot{width:8px;height:8px;border-radius:50%;margin-top:4px;flex-shrink:0;}
 .act-text{font-size:12px;color:var(--muted);line-height:1.5;}
 .act-time{font-size:10px;color:var(--light);margin-top:2px;}
 
-/* ── COUNTER ANIMATION ── */
-@keyframes countUp{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
-.stat-num{animation:countUp .4s ease both;}
-
-/* ── SUMMARY ROW ── */
-.section-row{display:flex;gap:14px;margin-bottom:24px;}
-.mini-stat{
-  flex:1;background:#fff;border:1px solid var(--border);border-radius:16px;
-  padding:16px 18px;display:flex;align-items:center;gap:14px;
-  box-shadow:0 2px 8px rgba(0,0,0,0.03);
+/* ── ECONOMICS SECTION STYLES ── */
+.econ-banner{
+  background:linear-gradient(135deg,#3A0068 0%,#7B0050 50%,#C0003A 100%);
+  border-radius:24px;padding:26px 30px;color:#fff;margin-bottom:24px;
+  box-shadow:0 12px 36px rgba(123,0,80,0.25);position:relative;overflow:hidden;
 }
-.mini-stat .ms-icon{font-size:22px;}
-.ms-val{font-size:22px;font-weight:900;color:var(--text);}
-.ms-label{font-size:11px;color:var(--light);font-weight:500;margin-top:1px;}
+.econ-banner-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;}
+.econ-banner-title{font-size:19px;font-weight:900;display:flex;align-items:center;gap:10px;}
+.econ-banner-rule{font-size:12.5px;color:rgba(255,255,255,0.8);max-width:680px;line-height:1.6;}
+.econ-flow-bar{
+  display:flex;align-items:center;background:rgba(255,255,255,0.12);
+  border-radius:16px;padding:16px 20px;gap:12px;margin-top:20px;flex-wrap:wrap;
+}
+.ef-step{display:flex;align-items:center;gap:8px;}
+.ef-pill{background:#fff;color:#3A0068;font-weight:900;font-size:12px;padding:4px 10px;border-radius:10px;}
+.ef-text{font-size:13px;font-weight:700;}
+.ef-arrow{color:rgba(255,255,255,0.4);font-size:18px;}
+
+.econ-grid-2{display:grid;grid-template-columns:1.1fr 0.9fr;gap:20px;margin-bottom:24px;}
+.gift-chip{
+  display:inline-flex;align-items:center;gap:6px;background:#FFF0F4;
+  border:1px solid #FFE0EA;border-radius:12px;padding:6px 12px;font-size:12px;font-weight:700;color:var(--crimson);
+}
 </style>
 </head>
 <body>
@@ -301,15 +324,18 @@ td b{color:var(--text);font-weight:600;}
       <button class="nav-btn active" id="n-dash" onclick="go('dash')">
         <span class="ic">📊</span> Dashboard
       </button>
-      <button class="nav-btn" id="n-users" onclick="go('users')">
+      <button class="nav-btn" id="n-users" onclick="goUsers('all')">
         <span class="ic">👥</span> Users
+      </button>
+      <button class="nav-btn" id="n-economics" onclick="go('economics')">
+        <span class="ic">💰</span> Economics & Ledger
       </button>
       <button class="nav-btn" id="n-verify" onclick="go('verify')">
         <span class="ic">✅</span> Verification
         <span class="nav-badge" id="nb-v" style="display:none">0</span>
       </button>
       <button class="nav-btn" id="n-withdrawals" onclick="go('withdrawals')">
-        <span class="ic">💰</span> Withdrawals
+        <span class="ic">💸</span> Withdrawals
         <span class="nav-badge" id="nb-w" style="display:none">0</span>
       </button>
       <button class="nav-btn" id="n-reports" onclick="go('reports')">
@@ -337,64 +363,64 @@ td b{color:var(--text);font-weight:600;}
           <div class="ph-title">Dashboard</div>
           <div class="ph-sub" id="dash-ts">Live overview of Pineapple</div>
         </div>
-        <div style="display:flex;align-items:center;gap:10px;">
+        <div class="ph-actions">
           <span class="badge b-green" style="padding:7px 12px;font-size:12px;"><span class="live-pulse-dot"></span>Live Sync (4s)</span>
           <button class="refresh-btn" onclick="loadDash()">↻ &nbsp;Refresh</button>
         </div>
       </div>
 
       <div class="stats">
-        <div class="stat-card c-pink">
+        <div class="stat-card c-pink" onclick="goUsers('all')" title="Click to view all users">
           <div class="stat-top"><div class="stat-icon-wrap">👤</div><span class="stat-trend" style="background:#FFF0F4;color:var(--pink)">Total</span></div>
           <div class="stat-num" id="s-total">–</div>
           <div class="stat-label">Total Users</div>
         </div>
-        <div class="stat-card c-green">
+        <div class="stat-card c-green" onclick="goUsers('online')" title="Click to view online users">
           <div class="stat-top"><div class="stat-icon-wrap">🟢</div><span class="stat-trend" style="background:#f0fdf4;color:#16a34a">Live</span></div>
           <div class="stat-num" id="s-online">–</div>
           <div class="stat-label">Online Now</div>
         </div>
-        <div class="stat-card c-green">
+        <div class="stat-card c-green" onclick="go('economics')" title="Click to view economics & revenue ledger">
           <div class="stat-top"><div class="stat-icon-wrap">💰</div><span class="stat-trend" style="background:#f0fdf4;color:#16a34a">30% Share</span></div>
           <div class="stat-num" id="s-plat-rev">₹0</div>
           <div class="stat-label">Platform Revenue (₹)</div>
         </div>
-        <div class="stat-card c-purple">
+        <div class="stat-card c-purple" onclick="go('economics')" title="Click to view host earnings & economics">
           <div class="stat-top"><div class="stat-icon-wrap">👧</div><span class="stat-trend" style="background:#F5F3FF;color:#7C3AED">70% Share</span></div>
           <div class="stat-num" id="s-girl-earn">₹0</div>
           <div class="stat-label">Host Earnings (₹)</div>
         </div>
-        <div class="stat-card c-blue">
+        <div class="stat-card c-blue" onclick="goUsers('boy')" title="Click to filter boys">
           <div class="stat-top"><div class="stat-icon-wrap">👦</div></div>
           <div class="stat-num" id="s-boys">–</div>
           <div class="stat-label">Boys Registered</div>
         </div>
-        <div class="stat-card c-purple">
+        <div class="stat-card c-purple" onclick="goUsers('girl')" title="Click to filter girls">
           <div class="stat-top"><div class="stat-icon-wrap">👧</div></div>
           <div class="stat-num" id="s-girls">–</div>
           <div class="stat-label">Girls Registered</div>
         </div>
-        <div class="stat-card c-pink">
+        <div class="stat-card c-pink" onclick="go('calls')" title="Click to view call history">
           <div class="stat-top"><div class="stat-icon-wrap">📞</div></div>
           <div class="stat-num" id="s-calls">–</div>
           <div class="stat-label">Total Calls Made</div>
         </div>
-        <div class="stat-card c-orange">
+        <div class="stat-card c-orange" onclick="go('economics')" title="Click to view coin consumption & ledger">
           <div class="stat-top"><div class="stat-icon-wrap">🪙</div></div>
           <div class="stat-num" id="s-coins">–</div>
           <div class="stat-label">Coins Consumed</div>
         </div>
-        <div class="stat-card c-orange">
+        <div class="stat-card c-orange" onclick="go('withdrawals')" title="Click to view pending payout requests">
           <div class="stat-top"><div class="stat-icon-wrap">💸</div><span class="stat-trend" style="background:#fffbeb;color:#d97706" id="s-w-badge"></span></div>
           <div class="stat-num" id="s-withdrawals">–</div>
           <div class="stat-label">Pending Payouts</div>
         </div>
-        <div class="stat-card c-red">
+        <div class="stat-card c-red" onclick="go('reports')" title="Click to view & resolve reports">
           <div class="stat-top"><div class="stat-icon-wrap">⚠️</div><span class="stat-trend" style="background:#fef2f2;color:#dc2626" id="s-r-badge"></span></div>
           <div class="stat-num" id="s-reports">–</div>
           <div class="stat-label">Pending Reports</div>
         </div>
-        <div class="stat-card c-pink" style="cursor:pointer" onclick="go('verify')">
+        <div class="stat-card c-pink" onclick="go('verify')" title="Click to review pending verifications">
           <div class="stat-top"><div class="stat-icon-wrap">✅</div><span class="stat-trend" style="background:#FFF0F4;color:var(--pink)" id="s-v-badge"></span></div>
           <div class="stat-num" id="s-verify">–</div>
           <div class="stat-label">Pending Verification</div>
@@ -425,12 +451,12 @@ td b{color:var(--text);font-weight:600;}
               <div class="widget-title">⚡ Quick Actions</div>
             </div>
             <div class="quick-actions">
-              <button class="qa-btn" onclick="go('users')"><span class="qa-icon">👥</span>Users</button>
+              <button class="qa-btn" onclick="goUsers('all')"><span class="qa-icon">👥</span>Users</button>
+              <button class="qa-btn" onclick="go('economics')"><span class="qa-icon">💰</span>Economics</button>
               <button class="qa-btn" onclick="go('withdrawals')"><span class="qa-icon">💸</span>Payouts</button>
               <button class="qa-btn" onclick="go('reports')"><span class="qa-icon">🚨</span>Reports</button>
               <button class="qa-btn" onclick="go('reviews')"><span class="qa-icon">💬</span>Reviews</button>
               <button class="qa-btn" onclick="go('calls')"><span class="qa-icon">📞</span>Calls</button>
-              <button class="qa-btn" onclick="loadDash()"><span class="qa-icon">↻</span>Refresh</button>
             </div>
           </div>
 
@@ -446,15 +472,15 @@ td b{color:var(--text);font-weight:600;}
               </div>
               <div class="activity-item">
                 <div class="act-dot" style="background:#22c55e"></div>
-                <div><div class="act-text">Database <b style="color:#16a34a">Connected</b></div><div class="act-time">TiDB MySQL</div></div>
+                <div><div class="act-text">Database <b style="color:#16a34a">Connected</b></div><div class="act-time">TiDB Cloud MySQL</div></div>
               </div>
               <div class="activity-item">
                 <div class="act-dot" style="background:#22c55e"></div>
-                <div><div class="act-text">Payments <b style="color:#16a34a">Active</b></div><div class="act-time">Razorpay integration</div></div>
+                <div><div class="act-text">Razorpay Gateway <b style="color:#16a34a">Active</b></div><div class="act-time">₹ Inflow Processing</div></div>
               </div>
               <div class="activity-item">
                 <div class="act-dot" style="background:#22c55e"></div>
-                <div><div class="act-text">Calls <b style="color:#16a34a">Live</b></div><div class="act-time">Agora WebRTC</div></div>
+                <div><div class="act-text">Agora WebRTC <b style="color:#16a34a">Ready</b></div><div class="act-time">Voice & Video Calling</div></div>
               </div>
             </div>
           </div>
@@ -466,23 +492,227 @@ td b{color:var(--text);font-weight:600;}
     <div class="page" id="p-users">
       <div class="ph">
         <div>
-          <div class="ph-title">Users</div>
-          <div class="ph-sub">Manage all registered users</div>
+          <div class="ph-title">Users Directory</div>
+          <div class="ph-sub">Manage, filter, add coins, and moderate registered users</div>
         </div>
-        <button class="refresh-btn" onclick="loadUsers()">↻ &nbsp;Refresh</button>
+        <div class="ph-actions">
+          <button class="btn btn-pink" onclick="fixMissingGenders()">Fix Missing Genders</button>
+          <button class="refresh-btn" onclick="loadUsers()">↻ &nbsp;Refresh</button>
+        </div>
       </div>
+
+      <!-- Filter Tabs -->
+      <div class="filter-tabs">
+        <button class="ft-btn active" id="uf-all" onclick="setUserTab('all')">👥 All Users <span class="ft-pill" id="uc-all">0</span></button>
+        <button class="ft-btn" id="uf-boy" onclick="setUserTab('boy')">👦 Boys <span class="ft-pill" id="uc-boy">0</span></button>
+        <button class="ft-btn" id="uf-girl" onclick="setUserTab('girl')">👧 Girls <span class="ft-pill" id="uc-girl">0</span></button>
+        <button class="ft-btn" id="uf-online" onclick="setUserTab('online')">🟢 Online <span class="ft-pill" id="uc-online">0</span></button>
+        <button class="ft-btn" id="uf-premium" onclick="setUserTab('premium')">⭐ Premium <span class="ft-pill" id="uc-premium">0</span></button>
+        <button class="ft-btn" id="uf-blocked" onclick="setUserTab('blocked')">🚫 Suspended <span class="ft-pill" id="uc-blocked">0</span></button>
+      </div>
+
       <div class="search-wrap">
         <span class="search-icon-abs">🔍</span>
         <input class="search-inp" id="usearch" placeholder="Search by name or phone..." oninput="filterUsers()" />
       </div>
+
       <div class="table-card">
         <table>
           <thead><tr>
             <th>Status</th><th>Name</th><th>Gender</th><th>Phone</th>
-            <th>Coins</th><th>Plan</th><th>Rating</th><th>Joined</th><th>Actions</th>
+            <th>Coins Balance</th><th>Plan</th><th>Rating</th><th>Joined</th><th>Actions</th>
           </tr></thead>
           <tbody id="users-body">
             <tr><td colspan="9"><div class="empty-state"><div class="e-icon">⏳</div><p>Loading...</p></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ECONOMICS & FINANCIAL LEDGER -->
+    <div class="page" id="p-economics">
+      <div class="ph">
+        <div>
+          <div class="ph-title">💰 Economics & Financial Ledger</div>
+          <div class="ph-sub">Complete accounts ledger: Boys Coin Purchases ➔ Calls & Gifts Consumption ➔ Host Earnings & Platform Profit</div>
+        </div>
+        <button class="refresh-btn" onclick="loadFinancials()">↻ &nbsp;Refresh Ledger</button>
+      </div>
+
+      <!-- Golden Rule Banner -->
+      <div class="econ-banner">
+        <div class="econ-banner-top">
+          <div class="econ-banner-title">⚖️ Financial Balance & Circulation Ledger</div>
+          <span class="badge b-green" style="font-size:12px;padding:6px 12px;">Balanced Ecosystem</span>
+        </div>
+        <div class="econ-banner-rule">
+          <b>Rule of Circulation:</b> <i>"What comes inside from Boys purchasing coins is spent on Calls & Virtual Gifts. From every coin consumed, 70% goes to Host/Girl earnings (eligible for UPI payout) and 30% is Platform Net Profit."</i>
+        </div>
+        <div class="econ-flow-bar">
+          <div class="ef-step"><span class="ef-pill">1. INFLOW</span><span class="ef-text">👦 Boys Pay ₹ & Get Coins</span></div>
+          <div class="ef-arrow">➔</div>
+          <div class="ef-step"><span class="ef-pill">2. CONSUMPTION</span><span class="ef-text">📞 Voice/Video Calls + 🎁 Gifts</span></div>
+          <div class="ef-arrow">➔</div>
+          <div class="ef-step"><span class="ef-pill">3. HOST EARNS</span><span class="ef-text">👧 70% Girl Wallet (₹ Payout)</span></div>
+          <div class="ef-arrow">+</div>
+          <div class="ef-step"><span class="ef-pill">4. PLATFORM</span><span class="ef-text">🏢 30% Platform Profit</span></div>
+        </div>
+      </div>
+
+      <!-- Economics Metric Cards -->
+      <div class="stats">
+        <div class="stat-card c-green">
+          <div class="stat-top"><div class="stat-icon-wrap">💵</div><span class="stat-trend" style="background:#f0fdf4;color:#16a34a">Total Inflow</span></div>
+          <div class="stat-num" id="ec-inflow-inr">₹0</div>
+          <div class="stat-label">Gross Money Inflow (₹)</div>
+        </div>
+        <div class="stat-card c-blue">
+          <div class="stat-top"><div class="stat-icon-wrap">🪙</div><span class="stat-trend" style="background:#eff6ff;color:#2563eb">Minted</span></div>
+          <div class="stat-num" id="ec-coins-purchased">0</div>
+          <div class="stat-label">Coins Purchased by Boys</div>
+        </div>
+        <div class="stat-card c-orange">
+          <div class="stat-top"><div class="stat-icon-wrap">🔥</div><span class="stat-trend" style="background:#fffbeb;color:#d97706">Spent</span></div>
+          <div class="stat-num" id="ec-coins-burned">0</div>
+          <div class="stat-label">Coins Consumed (Calls+Gifts)</div>
+        </div>
+        <div class="stat-card c-purple">
+          <div class="stat-top"><div class="stat-icon-wrap">👧</div><span class="stat-trend" style="background:#F5F3FF;color:#7C3AED">70% Split</span></div>
+          <div class="stat-num" id="ec-girl-gross">₹0</div>
+          <div class="stat-label">Total Host Earnings (₹)</div>
+        </div>
+        <div class="stat-card c-pink">
+          <div class="stat-top"><div class="stat-icon-wrap">🏢</div><span class="stat-trend" style="background:#FFF0F4;color:var(--pink)">30% Cut</span></div>
+          <div class="stat-num" id="ec-plat-rev">₹0</div>
+          <div class="stat-label">Platform Net Revenue (₹)</div>
+        </div>
+        <div class="stat-card c-green">
+          <div class="stat-top"><div class="stat-icon-wrap">💸</div><span class="stat-trend" style="background:#f0fdf4;color:#16a34a">Approved</span></div>
+          <div class="stat-num" id="ec-paid-out">₹0</div>
+          <div class="stat-label">Total Payouts Disbursed (₹)</div>
+        </div>
+        <div class="stat-card c-orange" onclick="go('withdrawals')">
+          <div class="stat-top"><div class="stat-icon-wrap">⏳</div><span class="stat-trend" style="background:#fffbeb;color:#d97706">Pending</span></div>
+          <div class="stat-num" id="ec-pending-payout">₹0</div>
+          <div class="stat-label">Pending Payout Queue (₹)</div>
+        </div>
+        <div class="stat-card c-purple">
+          <div class="stat-top"><div class="stat-icon-wrap">🏦</div><span class="stat-trend" style="background:#F5F3FF;color:#7C3AED">Unpaid</span></div>
+          <div class="stat-num" id="ec-host-balance">₹0</div>
+          <div class="stat-label">Host Unpaid Balance (₹)</div>
+        </div>
+        <div class="stat-card c-blue">
+          <div class="stat-top"><div class="stat-icon-wrap">👛</div><span class="stat-trend" style="background:#eff6ff;color:#2563eb">In Wallets</span></div>
+          <div class="stat-num" id="ec-boys-wallet">0</div>
+          <div class="stat-label">Boys Unspent Coins</div>
+        </div>
+      </div>
+
+      <!-- 2-Column Split Details -->
+      <div class="econ-grid-2">
+        <!-- LEFT: Consumption Breakdown -->
+        <div class="widget">
+          <div class="widget-header">
+            <div class="widget-title">🔥 Coins Consumption Channels</div>
+            <span class="widget-badge" id="ec-consumption-badge">Detailed Split</span>
+          </div>
+          <div class="widget-body">
+            <div style="display:flex;flex-direction:column;gap:12px;padding:6px 0;">
+              <!-- Audio Calls -->
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:#F9FAFB;border-radius:14px;">
+                <div style="display:flex;align-items:center;gap:10px;">
+                  <span style="font-size:22px">🎙️</span>
+                  <div>
+                    <div style="font-weight:700;font-size:14px">Audio Calls</div>
+                    <div style="font-size:12px;color:#888" id="ec-audio-detail">0 calls · 0 coins</div>
+                  </div>
+                </div>
+                <div style="text-align:right">
+                  <div style="font-weight:800;color:#7C3AED" id="ec-audio-girl">Host: ₹0</div>
+                  <div style="font-size:11px;color:#16a34a" id="ec-audio-plat">Platform: ₹0</div>
+                </div>
+              </div>
+
+              <!-- Video Calls -->
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:#F9FAFB;border-radius:14px;">
+                <div style="display:flex;align-items:center;gap:10px;">
+                  <span style="font-size:22px">📹</span>
+                  <div>
+                    <div style="font-weight:700;font-size:14px">Video Calls</div>
+                    <div style="font-size:12px;color:#888" id="ec-video-detail">0 calls · 0 coins</div>
+                  </div>
+                </div>
+                <div style="text-align:right">
+                  <div style="font-weight:800;color:#7C3AED" id="ec-video-girl">Host: ₹0</div>
+                  <div style="font-size:11px;color:#16a34a" id="ec-video-plat">Platform: ₹0</div>
+                </div>
+              </div>
+
+              <!-- Virtual Gifts -->
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:#F9FAFB;border-radius:14px;">
+                <div style="display:flex;align-items:center;gap:10px;">
+                  <span style="font-size:22px">🎁</span>
+                  <div>
+                    <div style="font-weight:700;font-size:14px">Virtual Gifts Sent</div>
+                    <div style="font-size:12px;color:#888" id="ec-gifts-detail">0 gifts · 0 coins</div>
+                  </div>
+                </div>
+                <div style="text-align:right">
+                  <div style="font-weight:800;color:#7C3AED" id="ec-gifts-girl">Host: ₹0</div>
+                  <div style="font-size:11px;color:#16a34a" id="ec-gifts-plat">Platform: ₹0</div>
+                </div>
+              </div>
+
+              <!-- Gift types chips -->
+              <div style="margin-top:6px;">
+                <div style="font-size:11px;font-weight:700;color:#999;text-transform:uppercase;margin-bottom:8px;">Gift Catalog Breakdown</div>
+                <div id="ec-gift-chips" style="display:flex;gap:6px;flex-wrap:wrap;">
+                  <span class="gift-chip">🌹 Rose: 0</span>
+                  <span class="gift-chip">🍫 Chocolate: 0</span>
+                  <span class="gift-chip">🍰 Pastry: 0</span>
+                  <span class="gift-chip">🍍 Pineapple: 0</span>
+                  <span class="gift-chip">❤️ Heart: 0</span>
+                  <span class="gift-chip">🌸 Perfume: 0</span>
+                  <span class="gift-chip">👑 Crown: 0</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT: Recent Virtual Gifts Feed -->
+        <div class="widget">
+          <div class="widget-header">
+            <div class="widget-title">🎁 Recent Virtual Gifts Sent</div>
+            <span class="widget-badge" id="ec-gifts-badge">Live Feed</span>
+          </div>
+          <div class="widget-body" id="ec-recent-gifts-body" style="max-height:360px;overflow-y:auto;">
+            <div style="text-align:center;padding:24px;color:#bbb;font-size:13px">No gifts sent yet</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Financial Transaction Ledger Table -->
+      <div class="ph" style="margin-bottom:12px;">
+        <div class="ph-title" style="font-size:18px;">📜 All Financial Transactions Ledger</div>
+      </div>
+
+      <!-- Ledger Tabs -->
+      <div class="filter-tabs">
+        <button class="ft-btn active" id="lt-all" onclick="setLedgerTab('all')">All Transactions</button>
+        <button class="ft-btn" id="lt-purchase" onclick="setLedgerTab('purchase')">💰 Coin Purchases</button>
+        <button class="ft-btn" id="lt-spend" onclick="setLedgerTab('spend')">📞 Spending / Calls</button>
+        <button class="ft-btn" id="lt-earn" onclick="setLedgerTab('earn')">👧 Host Earnings</button>
+      </div>
+
+      <div class="table-card">
+        <table>
+          <thead><tr>
+            <th>Date & Time</th><th>Type</th><th>User / Party</th><th>Description</th>
+            <th>Coins</th><th>Gross ₹</th><th>Host Cut (70%)</th><th>Platform (30%)</th>
+          </tr></thead>
+          <tbody id="ledger-body">
+            <tr><td colspan="8"><div class="empty-state"><div class="e-icon">⏳</div><p>Loading ledger...</p></div></td></tr>
           </tbody>
         </table>
       </div>
@@ -492,8 +722,8 @@ td b{color:var(--text);font-weight:600;}
     <div class="page" id="p-verify">
       <div class="ph">
         <div>
-          <div class="ph-title">Verification</div>
-          <div class="ph-sub">Girls awaiting profile approval before they can go live</div>
+          <div class="ph-title">Girl Verification Queue</div>
+          <div class="ph-sub">Girls awaiting profile approval before they can appear live to boys</div>
         </div>
         <button class="refresh-btn" onclick="loadPending()">↻ &nbsp;Refresh</button>
       </div>
@@ -513,15 +743,15 @@ td b{color:var(--text);font-weight:600;}
     <div class="page" id="p-withdrawals">
       <div class="ph">
         <div>
-          <div class="ph-title">Withdrawals</div>
-          <div class="ph-sub">Girls ke pending payout requests</div>
+          <div class="ph-title">Withdrawals & Payouts</div>
+          <div class="ph-sub">Review host earnings withdrawal requests via UPI</div>
         </div>
         <button class="refresh-btn" onclick="loadWithdrawals()">↻ &nbsp;Refresh</button>
       </div>
       <div class="table-card">
         <table>
           <thead><tr>
-            <th>Girl</th><th>Phone</th><th>Amount</th><th>Type</th><th>UPI ID</th><th>Status</th><th>Date</th><th>Actions</th>
+            <th>Girl Name</th><th>Phone</th><th>Amount</th><th>Payout Speed</th><th>UPI ID</th><th>Status</th><th>Requested Date</th><th>Actions</th>
           </tr></thead>
           <tbody id="w-body">
             <tr><td colspan="8"><div class="empty-state"><div class="e-icon">⏳</div><p>Loading...</p></div></td></tr>
@@ -534,18 +764,29 @@ td b{color:var(--text);font-weight:600;}
     <div class="page" id="p-reports">
       <div class="ph">
         <div>
-          <div class="ph-title">Reports</div>
-          <div class="ph-sub">Review and action pending reports</div>
+          <div class="ph-title">User Reports & Moderation</div>
+          <div class="ph-sub">Review user reports, take action, or resolve complaints</div>
         </div>
-        <button class="refresh-btn" onclick="loadReports()">↻ &nbsp;Refresh</button>
+        <div class="ph-actions">
+          <button class="btn btn-green" onclick="settleAllReports()" style="padding:10px 18px;font-size:13px;">✓ Settle / Resolve All Pending Reports</button>
+          <button class="refresh-btn" onclick="loadReports()">↻ &nbsp;Refresh</button>
+        </div>
       </div>
+
+      <!-- Reports Filter Tabs -->
+      <div class="filter-tabs">
+        <button class="ft-btn active" id="rf-pending" onclick="setReportsTab('pending')">⏳ Pending Reports <span class="ft-pill" id="rc-pending">0</span></button>
+        <button class="ft-btn" id="rf-resolved" onclick="setReportsTab('resolved')">✓ Resolved</button>
+        <button class="ft-btn" id="rf-all" onclick="setReportsTab('all')">All Reports</button>
+      </div>
+
       <div class="table-card">
         <table>
           <thead><tr>
-            <th>Reporter</th><th>Reported User</th><th>Reason</th><th>Date</th><th>Actions</th>
+            <th>Reporter</th><th>Reported User</th><th>Reason</th><th>Status</th><th>Date</th><th>Moderation Actions</th>
           </tr></thead>
           <tbody id="r-body">
-            <tr><td colspan="5"><div class="empty-state"><div class="e-icon">⏳</div><p>Loading...</p></div></td></tr>
+            <tr><td colspan="6"><div class="empty-state"><div class="e-icon">⏳</div><p>Loading...</p></div></td></tr>
           </tbody>
         </table>
       </div>
@@ -555,8 +796,8 @@ td b{color:var(--text);font-weight:600;}
     <div class="page" id="p-reviews">
       <div class="ph">
         <div>
-          <div class="ph-title">Reviews</div>
-          <div class="ph-sub">User reviews after calls</div>
+          <div class="ph-title">Call Reviews & Ratings</div>
+          <div class="ph-sub">Feedback submitted by users after audio and video calls</div>
         </div>
         <button class="refresh-btn" onclick="loadReviews()">↻ &nbsp;Refresh</button>
       </div>
@@ -576,15 +817,15 @@ td b{color:var(--text);font-weight:600;}
     <div class="page" id="p-calls">
       <div class="ph">
         <div>
-          <div class="ph-title">Call History</div>
-          <div class="ph-sub">Recent calls on Pineapple</div>
+          <div class="ph-title">Call History & Logs</div>
+          <div class="ph-sub">Complete history of audio and video calls made on Pineapple</div>
         </div>
         <button class="refresh-btn" onclick="loadCalls()">↻ &nbsp;Refresh</button>
       </div>
       <div class="table-card">
         <table>
           <thead><tr>
-            <th>Caller</th><th>Receiver</th><th>Type</th><th>Duration</th><th>Coins</th><th>Girl Earned (70%)</th><th>Platform (30%)</th><th>Status</th><th>Date</th>
+            <th>Caller (Boy)</th><th>Receiver (Girl)</th><th>Type</th><th>Duration</th><th>Coins Deducted</th><th>Girl Earned (70%)</th><th>Platform Cut (30%)</th><th>Status</th><th>Date</th>
           </tr></thead>
           <tbody id="c-body">
             <tr><td colspan="9"><div class="empty-state"><div class="e-icon">⏳</div><p>Loading...</p></div></td></tr>
@@ -602,6 +843,13 @@ td b{color:var(--text);font-weight:600;}
 const BASE = window.location.origin;
 let token = localStorage.getItem('adm_tok') || '';
 let allUsers = [];
+let userFilterTab = 'all';
+let allReports = [];
+let reportsFilterTab = 'pending';
+let allLedgerTxns = [];
+let ledgerFilterTab = 'all';
+let currentTab = 'dash';
+let autoRefreshTimer = null;
 
 function showToast(msg, ok=true) {
   const t = document.getElementById('toast');
@@ -639,9 +887,6 @@ function logout() {
   location.reload();
 }
 
-let currentTab = 'dash';
-let autoRefreshTimer = null;
-
 function startAutoRefresh() {
   if (autoRefreshTimer) clearInterval(autoRefreshTimer);
   autoRefreshTimer = setInterval(() => {
@@ -655,6 +900,8 @@ function startAutoRefresh() {
     } else if (currentTab === 'users') {
       const q = document.getElementById('usearch')?.value;
       if (!q) loadUsers(true);
+    } else if (currentTab === 'economics') {
+      loadFinancials(true);
     } else if (currentTab === 'verify') {
       loadPending(true);
     } else if (currentTab === 'withdrawals') {
@@ -673,9 +920,23 @@ function go(name) {
   currentTab = name;
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('p-'+name).classList.add('active');
-  document.getElementById('n-'+name).classList.add('active');
-  ({ dash:loadDash, users:loadUsers, verify:loadPending, withdrawals:loadWithdrawals, reports:loadReports, reviews:loadReviews, calls:loadCalls })[name]?.();
+  document.getElementById('p-'+name)?.classList.add('active');
+  document.getElementById('n-'+name)?.classList.add('active');
+  ({
+    dash: loadDash,
+    users: loadUsers,
+    economics: loadFinancials,
+    verify: loadPending,
+    withdrawals: loadWithdrawals,
+    reports: loadReports,
+    reviews: loadReviews,
+    calls: loadCalls
+  })[name]?.();
+}
+
+function goUsers(tab) {
+  go('users');
+  setUserTab(tab);
 }
 
 async function loadDash(isAuto=false) {
@@ -694,15 +955,40 @@ async function loadDash(isAuto=false) {
     animateNum('s-withdrawals', s.pendingWithdrawals ?? 0);
     animateNum('s-reports',     s.pendingReports ?? 0);
     animateNum('s-verify',      s.pendingVerifications ?? 0);
+
     const wb = document.getElementById('s-w-badge');
     const rb = document.getElementById('s-r-badge');
     const vb = document.getElementById('s-v-badge');
-    if ((s.pendingWithdrawals||0) > 0) { wb.textContent='⚡ '+s.pendingWithdrawals+' pending (₹'+(s.pendingWithdrawalAmount||0)+')'; wb.style.display=''; document.getElementById('nb-w').style.display=''; document.getElementById('nb-w').textContent=s.pendingWithdrawals; }
-    else { wb.style.display='none'; document.getElementById('nb-w').style.display='none'; }
-    if ((s.pendingReports||0) > 0)    { rb.textContent='⚠️ '+s.pendingReports+' new'; rb.style.display=''; document.getElementById('nb-r').style.display=''; document.getElementById('nb-r').textContent=s.pendingReports; }
-    else { rb.style.display='none'; document.getElementById('nb-r').style.display='none'; }
-    if ((s.pendingVerifications||0) > 0) { vb.textContent='👀 '+s.pendingVerifications+' waiting'; vb.style.display=''; document.getElementById('nb-v').style.display=''; document.getElementById('nb-v').textContent=s.pendingVerifications; }
-    else { vb.style.display='none'; document.getElementById('nb-v').style.display='none'; }
+
+    if ((s.pendingWithdrawals||0) > 0) {
+      wb.textContent = '⚡ '+s.pendingWithdrawals+' pending (₹'+(s.pendingWithdrawalAmount||0)+')';
+      wb.style.display = '';
+      document.getElementById('nb-w').style.display = '';
+      document.getElementById('nb-w').textContent = s.pendingWithdrawals;
+    } else {
+      wb.style.display = 'none';
+      document.getElementById('nb-w').style.display = 'none';
+    }
+
+    if ((s.pendingReports||0) > 0) {
+      rb.textContent = '⚠️ '+s.pendingReports+' new';
+      rb.style.display = '';
+      document.getElementById('nb-r').style.display = '';
+      document.getElementById('nb-r').textContent = s.pendingReports;
+    } else {
+      rb.style.display = 'none';
+      document.getElementById('nb-r').style.display = 'none';
+    }
+
+    if ((s.pendingVerifications||0) > 0) {
+      vb.textContent = '👀 '+s.pendingVerifications+' waiting';
+      vb.style.display = '';
+      document.getElementById('nb-v').style.display = '';
+      document.getElementById('nb-v').textContent = s.pendingVerifications;
+    } else {
+      vb.style.display = 'none';
+      document.getElementById('nb-v').style.display = 'none';
+    }
   } catch(e) { if (!isAuto) showToast(e.message, false); }
   loadLiveGirls(isAuto);
 }
@@ -778,15 +1064,64 @@ async function loadLiveGirls(isAuto=false) {
 }
 
 async function loadUsers(isAuto=false) {
-  try { allUsers = await api('/admin/users'); renderUsers(allUsers); }
-  catch(e) { if (!isAuto) showToast(e.message, false); }
+  try {
+    allUsers = await api('/admin/users');
+    updateUserCountPills();
+    filterUsers();
+  } catch(e) { if (!isAuto) showToast(e.message, false); }
+}
+
+function updateUserCountPills() {
+  const boys = allUsers.filter(u => ['boy','male','m'].includes((u.gender||'').toLowerCase()));
+  const girls = allUsers.filter(u => ['girl','female','f'].includes((u.gender||'').toLowerCase()));
+  const online = allUsers.filter(u => u.is_online);
+  const premium = allUsers.filter(u => u.is_premium);
+  const blocked = allUsers.filter(u => u.is_blocked);
+
+  document.getElementById('uc-all').textContent = allUsers.length;
+  document.getElementById('uc-boy').textContent = boys.length;
+  document.getElementById('uc-girl').textContent = girls.length;
+  document.getElementById('uc-online').textContent = online.length;
+  document.getElementById('uc-premium').textContent = premium.length;
+  document.getElementById('uc-blocked').textContent = blocked.length;
+}
+
+function setUserTab(tab) {
+  userFilterTab = tab;
+  document.querySelectorAll('.filter-tabs .ft-btn').forEach(b => {
+    if (b.id.startsWith('uf-')) b.classList.remove('active');
+  });
+  document.getElementById('uf-' + tab)?.classList.add('active');
+  filterUsers();
+}
+
+function filterUsers() {
+  const q = document.getElementById('usearch')?.value?.toLowerCase() || '';
+  let filtered = allUsers;
+
+  if (userFilterTab === 'boy') {
+    filtered = filtered.filter(u => ['boy','male','m'].includes((u.gender||'').toLowerCase()));
+  } else if (userFilterTab === 'girl') {
+    filtered = filtered.filter(u => ['girl','female','f'].includes((u.gender||'').toLowerCase()));
+  } else if (userFilterTab === 'online') {
+    filtered = filtered.filter(u => u.is_online);
+  } else if (userFilterTab === 'premium') {
+    filtered = filtered.filter(u => u.is_premium);
+  } else if (userFilterTab === 'blocked') {
+    filtered = filtered.filter(u => u.is_blocked);
+  }
+
+  if (q) {
+    filtered = filtered.filter(u => (u.name||'').toLowerCase().includes(q) || (u.phone||'').includes(q));
+  }
+  renderUsers(filtered);
 }
 
 function renderUsers(list) {
   const tb = document.getElementById('users-body');
-  if (!list.length) { tb.innerHTML = '<tr><td colspan="9"><div class="empty-state"><div class="e-icon">👤</div><p>No users found</p></div></td></tr>'; return; }
+  if (!list.length) { tb.innerHTML = '<tr><td colspan="9"><div class="empty-state"><div class="e-icon">👤</div><p>No users matching filter</p></div></td></tr>'; return; }
   tb.innerHTML = list.map(u => {
-    const isGirl = u.gender?.includes('girl') || u.gender?.includes('female');
+    const isGirl = ['girl','female','f'].includes((u.gender||'').toLowerCase());
     return `<tr>
       <td>
         <span class="online-dot ${u.is_online?'dot-online':'dot-offline'}"></span>
@@ -815,11 +1150,6 @@ function renderUsers(list) {
       </td>
     </tr>`;
   }).join('');
-}
-
-function filterUsers() {
-  const q = document.getElementById('usearch').value.toLowerCase();
-  renderUsers(q ? allUsers.filter(u => (u.name||'').toLowerCase().includes(q)||(u.phone||'').includes(q)) : allUsers);
 }
 
 async function addCoins(id) {
@@ -868,6 +1198,120 @@ async function fixMissingGenders() {
   } catch(e) { showToast(e.message, false); }
 }
 
+/* ── ECONOMICS & FINANCIAL LEDGER ── */
+async function loadFinancials(isAuto=false) {
+  try {
+    const f = await api('/admin/financials');
+
+    // Inflow & Balances
+    animateCurrency('ec-inflow-inr', f.inflow.estimatedGrossInflowInr || 0);
+    animateNum('ec-coins-purchased', f.inflow.totalCoinsPurchased || 0);
+    animateNum('ec-coins-burned', f.consumption.totalCoinsConsumed || 0);
+    animateCurrency('ec-girl-gross', f.economics.girlEarnings || 0);
+    animateCurrency('ec-plat-rev', f.economics.platformRevenue || 0);
+    animateCurrency('ec-paid-out', f.economics.totalPaidOut || 0);
+    animateCurrency('ec-pending-payout', f.economics.totalPendingPayout || 0);
+    animateCurrency('ec-host-balance', f.economics.unpaidHostBalance || 0);
+    animateNum('ec-boys-wallet', f.economics.boysWalletCoins || 0);
+
+    // Consumption details
+    document.getElementById('ec-audio-detail').textContent = `${f.consumption.audioCalls.count} calls · ${f.consumption.audioCalls.coins} coins`;
+    document.getElementById('ec-audio-girl').textContent = `Host: ₹${f.consumption.audioCalls.girlInr.toFixed(2)}`;
+    document.getElementById('ec-audio-plat').textContent = `Platform: ₹${f.consumption.audioCalls.platInr.toFixed(2)}`;
+
+    document.getElementById('ec-video-detail').textContent = `${f.consumption.videoCalls.count} calls · ${f.consumption.videoCalls.coins} coins`;
+    document.getElementById('ec-video-girl').textContent = `Host: ₹${f.consumption.videoCalls.girlInr.toFixed(2)}`;
+    document.getElementById('ec-video-plat').textContent = `Platform: ₹${f.consumption.videoCalls.platInr.toFixed(2)}`;
+
+    document.getElementById('ec-gifts-detail').textContent = `${f.consumption.giftsCount} gifts · ${f.consumption.giftCoins} coins`;
+    document.getElementById('ec-gifts-girl').textContent = `Host: ₹${f.economics.giftGirlEarnings.toFixed(2)}`;
+    document.getElementById('ec-gifts-plat').textContent = `Platform: ₹${f.economics.giftPlatformRev.toFixed(2)}`;
+
+    // Gift chips
+    const giftTypes = f.consumption.giftTypes || [];
+    if (giftTypes.length > 0) {
+      document.getElementById('ec-gift-chips').innerHTML = giftTypes.map(gt => 
+        `<span class="gift-chip">${gt.gift_type}: ${gt.count} (${gt.coins} coins)</span>`
+      ).join('');
+    }
+
+    // Recent Gifts Feed
+    const rgBody = document.getElementById('ec-recent-gifts-body');
+    const recentGifts = f.recentGifts || [];
+    if (!recentGifts.length) {
+      rgBody.innerHTML = '<div style="text-align:center;padding:24px;color:#bbb;font-size:13px">No virtual gifts sent yet</div>';
+    } else {
+      rgBody.innerHTML = recentGifts.map(g => `
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 8px;border-bottom:1px solid #FAFBFC;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span style="font-size:20px">🎁</span>
+            <div>
+              <div style="font-size:13px;font-weight:700"><b>${g.sender_name||'Boy'}</b> ➔ <b>${g.receiver_name||'Girl'}</b></div>
+              <div style="font-size:11px;color:#888">${g.gift_type} · ${new Date(g.created_at).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})}</div>
+            </div>
+          </div>
+          <div style="text-align:right">
+            <div style="color:#FF3870;font-weight:800;font-size:13px">🪙 ${g.coins_spent}</div>
+            <div style="color:#7C3AED;font-size:11px;font-weight:700">+₹${(g.coins_spent * 0.5).toFixed(2)}</div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // Recent Ledger Feed
+    allLedgerTxns = f.recentTxns || [];
+    renderLedger();
+
+  } catch(e) { if (!isAuto) showToast(e.message, false); }
+}
+
+function setLedgerTab(tab) {
+  ledgerFilterTab = tab;
+  document.querySelectorAll('.filter-tabs .ft-btn').forEach(b => {
+    if (b.id.startsWith('lt-')) b.classList.remove('active');
+  });
+  document.getElementById('lt-' + tab)?.classList.add('active');
+  renderLedger();
+}
+
+function renderLedger() {
+  const tb = document.getElementById('ledger-body');
+  let list = allLedgerTxns;
+  if (ledgerFilterTab !== 'all') {
+    list = list.filter(t => t.type === ledgerFilterTab);
+  }
+
+  if (!list.length) {
+    tb.innerHTML = '<tr><td colspan="8"><div class="empty-state"><div class="e-icon">📜</div><p>No ledger records</p></div></td></tr>';
+    return;
+  }
+
+  tb.innerHTML = list.map(t => {
+    const isPurchase = t.type === 'purchase';
+    const isSpend = t.type === 'spend';
+    const isEarn = t.type === 'earn';
+
+    const grossInr = isPurchase ? (t.description?.match(/₹(\d+)/)?.[0] || '₹'+Math.round(t.amount * 0.83)) : '₹'+(t.amount * 0.5).toFixed(2);
+    const hostCut = isSpend ? '₹'+(t.amount * 0.5 * 0.7).toFixed(2) : isEarn ? '₹'+(t.amount * 0.5).toFixed(2) : '–';
+    const platCut = isSpend ? '₹'+(t.amount * 0.5 * 0.3).toFixed(2) : isPurchase ? grossInr : '–';
+
+    const badgeClass = isPurchase ? 'b-green' : isSpend ? 'b-red' : 'b-purple';
+    const badgeText = isPurchase ? '💰 Purchase' : isSpend ? '📞 Spent' : '👧 Earned';
+
+    return `<tr>
+      <td style="color:#bbb;font-size:12px">${new Date(t.created_at).toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</td>
+      <td><span class="badge ${badgeClass}">${badgeText}</span></td>
+      <td><b>${t.user_name||'User'}</b></td>
+      <td style="color:#555;max-width:240px">${t.description||'Transaction'}</td>
+      <td><b style="color:${isSpend?'#DC2626':'#16a34a'}">${isSpend?'-':'+'}${t.amount}</b></td>
+      <td style="font-weight:700">${grossInr}</td>
+      <td style="color:#7C3AED;font-weight:700">${hostCut}</td>
+      <td style="color:#16a34a;font-weight:700">${platCut}</td>
+    </tr>`;
+  }).join('');
+}
+
+/* ── VERIFICATION ── */
 async function loadPending(isAuto=false) {
   try {
     const rows = await api('/admin/users/pending');
@@ -903,6 +1347,7 @@ async function verifyGirl(id, approve, name) {
   } catch(e) { showToast(e.message, false); }
 }
 
+/* ── WITHDRAWALS ── */
 async function loadWithdrawals(isAuto=false) {
   try {
     const rows = await api('/admin/withdrawals');
@@ -914,11 +1359,11 @@ async function loadWithdrawals(isAuto=false) {
         <td style="color:#aaa;font-size:12px">${w.phone||'–'}</td>
         <td><b style="color:#16a34a;font-size:16px">₹${w.amount}</b>${w.fee_amount > 0 ? `<div style="color:#d97706;font-size:11px;font-weight:600">−₹${w.fee_amount} fee</div>` : ''}</td>
         <td>${w.same_day ? '<span class="badge b-yellow">⚡ Instant</span>' : '<span class="badge b-gray">Standard</span>'}</td>
-        <td style="color:#aaa;font-size:12px">${w.upi_id}</td>
+        <td style="color:#aaa;font-size:12px"><b>${w.upi_id}</b></td>
         <td><span class="badge ${w.status==='approved'?'b-green':w.status==='rejected'?'b-red':'b-yellow'}">${w.status==='approved'?'✓ Approved':w.status==='rejected'?'✕ Rejected':'⏳ Pending'}</span></td>
         <td style="color:#bbb;font-size:12px">${new Date(w.created_at).toLocaleDateString('en-IN',{day:'2-digit',month:'short'})}</td>
         <td>${w.status==='pending'
-          ? `<div class="actions"><button class="btn btn-green" onclick="updateW('${w.id}','approved')">✓ Approve</button><button class="btn btn-red" onclick="updateW('${w.id}','rejected')">✕ Reject</button></div>`
+          ? `<div class="actions"><button class="btn btn-green" onclick="updateW('${w.id}','approved')">✓ Approve Payout</button><button class="btn btn-red" onclick="updateW('${w.id}','rejected')">✕ Reject</button></div>`
           : '–'}</td>
       </tr>`).join('');
   } catch(e) { if (!isAuto) showToast(e.message, false); }
@@ -932,32 +1377,104 @@ async function updateW(id, status) {
   } catch(e) { showToast(e.message, false); }
 }
 
+/* ── REPORTS & MODERATION ── */
 async function loadReports(isAuto=false) {
   try {
-    const rows = await api('/admin/reports');
-    const tb = document.getElementById('r-body');
-    if (!rows.length) { tb.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="e-icon">🎉</div><p>No pending reports</p></div></td></tr>'; return; }
-    tb.innerHTML = rows.map(r => `
-      <tr>
-        <td style="color:#888">${r.reporter_name||'–'}</td>
-        <td><b>${r.reported_name||'–'}</b></td>
-        <td><span class="badge b-red">${r.reason||'–'}</span></td>
-        <td style="color:#bbb;font-size:12px">${new Date(r.created_at).toLocaleDateString('en-IN',{day:'2-digit',month:'short'})}</td>
-        <td><div class="actions">
-          <button class="btn btn-green" onclick="resolveR('${r.id}','resolved')">✓ Resolve</button>
-          <button class="btn btn-red" onclick="resolveR('${r.id}','actioned')">⚡ Action</button>
-        </div></td>
-      </tr>`).join('');
+    allReports = await api('/admin/reports?status=all');
+    updateReportsCount();
+    renderReports();
   } catch(e) { if (!isAuto) showToast(e.message, false); }
 }
 
-async function resolveR(id, status) {
+function updateReportsCount() {
+  const pending = allReports.filter(r => r.status === 'pending');
+  document.getElementById('rc-pending').textContent = pending.length;
+  const nb = document.getElementById('nb-r');
+  if (pending.length > 0) {
+    nb.style.display = '';
+    nb.textContent = pending.length;
+  } else {
+    nb.style.display = 'none';
+  }
+}
+
+function setReportsTab(tab) {
+  reportsFilterTab = tab;
+  document.querySelectorAll('.filter-tabs .ft-btn').forEach(b => {
+    if (b.id.startsWith('rf-')) b.classList.remove('active');
+  });
+  document.getElementById('rf-' + tab)?.classList.add('active');
+  renderReports();
+}
+
+function renderReports() {
+  const tb = document.getElementById('r-body');
+  let list = allReports;
+  if (reportsFilterTab === 'pending') {
+    list = list.filter(r => r.status === 'pending');
+  } else if (reportsFilterTab === 'resolved') {
+    list = list.filter(r => r.status !== 'pending');
+  }
+
+  if (!list.length) {
+    tb.innerHTML = '<tr><td colspan="6"><div class="empty-state"><div class="e-icon">🎉</div><p>No reports found in this view</p></div></td></tr>';
+    return;
+  }
+
+  tb.innerHTML = list.map(r => {
+    const isPending = r.status === 'pending';
+    const isResolved = r.status === 'resolved' || r.status === 'actioned';
+    const statusBadge = isPending ? 'b-red' : isResolved ? 'b-green' : 'b-gray';
+
+    return `<tr>
+      <td style="color:#888"><b>${r.reporter_name||'User'}</b><br><span style="font-size:11px;color:#aaa">${r.reporter_phone||''}</span></td>
+      <td><b>${r.reported_name||'User'}</b> ${r.reported_is_blocked ? '<span class="badge b-red">🚫 Suspended</span>' : ''}<br><span style="font-size:11px;color:#aaa">${r.reported_phone||''}</span></td>
+      <td><span class="badge b-red">${r.reason||'Violation'}</span></td>
+      <td><span class="badge ${statusBadge}">${r.status}</span></td>
+      <td style="color:#bbb;font-size:12px">${new Date(r.created_at).toLocaleDateString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</td>
+      <td>
+        <div class="actions">
+          ${isPending ? `<button class="btn btn-green" onclick="resolveR('${r.id}','resolved')">✓ Resolve</button>` : ''}
+          <button class="btn btn-yellow" onclick="resolveR('${r.id}','actioned',true)">⚡ Suspend User</button>
+          ${isPending ? `<button class="btn btn-red" onclick="resolveR('${r.id}','dismissed')">✕ Dismiss</button>` : ''}
+          <button class="btn btn-red" onclick="deleteReport('${r.id}')" title="Delete report permanently">🗑️</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+async function resolveR(id, status, suspendUser=false) {
+  if (suspendUser && !confirm('Suspend reported user and resolve this report?')) return;
   try {
-    await api('/admin/reports/'+id, { method:'PUT', body:JSON.stringify({status}) });
-    showToast('Report updated'); loadReports(); loadDash();
+    await api('/admin/reports/'+id, { method:'PUT', body:JSON.stringify({status, suspendUser}) });
+    showToast(suspendUser ? 'User suspended & report resolved' : `Report marked as ${status}`);
+    loadReports();
+    loadDash();
   } catch(e) { showToast(e.message, false); }
 }
 
+async function settleAllReports() {
+  if (!confirm('Mark all pending reports as resolved?')) return;
+  try {
+    const res = await api('/admin/reports/resolve-all', { method:'POST' });
+    showToast(`✓ Settled ${res.updated || 0} report(s)`);
+    loadReports();
+    loadDash();
+  } catch(e) { showToast(e.message, false); }
+}
+
+async function deleteReport(id) {
+  if (!confirm('Permanently delete this report record?')) return;
+  try {
+    await api('/admin/reports/'+id, { method:'DELETE' });
+    showToast('Report deleted');
+    loadReports();
+    loadDash();
+  } catch(e) { showToast(e.message, false); }
+}
+
+/* ── REVIEWS ── */
 async function loadReviews(isAuto=false) {
   try {
     const rows = await api('/admin/reviews');
@@ -977,6 +1494,7 @@ async function loadReviews(isAuto=false) {
   } catch(e) { if (!isAuto) showToast(e.message, false); }
 }
 
+/* ── CALLS ── */
 async function loadCalls(isAuto=false) {
   try {
     const rows = await api('/admin/calls');

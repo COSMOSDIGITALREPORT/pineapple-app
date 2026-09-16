@@ -181,20 +181,193 @@ router.put('/withdrawals/:id', adminAuth, async (req, res) => {
 // GET /admin/reports
 router.get('/reports', adminAuth, async (req, res) => {
   try {
-    const [rows] = await pool.query(
-      `SELECT r.*, u1.name AS reporter_name, u2.name AS reported_name
-       FROM reports r JOIN users u1 ON r.reporter_id=u1.id JOIN users u2 ON r.reported_id=u2.id
-       WHERE r.status="pending" ORDER BY r.created_at DESC`);
+    const statusFilter = req.query.status;
+    let q = `SELECT r.*, 
+                    u1.name AS reporter_name, u1.phone AS reporter_phone,
+                    u2.name AS reported_name, u2.phone AS reported_phone, u2.is_blocked AS reported_is_blocked
+             FROM reports r
+             LEFT JOIN users u1 ON r.reporter_id=u1.id
+             LEFT JOIN users u2 ON r.reported_id=u2.id`;
+    const params = [];
+    if (statusFilter && statusFilter !== 'all') {
+      q += ' WHERE r.status=?';
+      params.push(statusFilter);
+    }
+    q += ' ORDER BY CASE WHEN r.status="pending" THEN 0 ELSE 1 END, r.created_at DESC LIMIT 200';
+    const [rows] = await pool.query(q, params);
     res.json(rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// POST /admin/reports/resolve-all — settle all pending reports in 1 click
+router.post('/reports/resolve-all', adminAuth, async (req, res) => {
+  try {
+    const [result] = await pool.query('UPDATE reports SET status="resolved" WHERE status="pending"');
+    res.json({ success: true, updated: result.affectedRows });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // PUT /admin/reports/:id
 router.put('/reports/:id', adminAuth, async (req, res) => {
+  const { status, suspendUser } = req.body;
   try {
-    await pool.query('UPDATE reports SET status=? WHERE id=?', [req.body.status, req.params.id]);
+    await pool.query('UPDATE reports SET status=? WHERE id=?', [status || 'resolved', req.params.id]);
+    if (suspendUser) {
+      const [rows] = await pool.query('SELECT reported_id FROM reports WHERE id=?', [req.params.id]);
+      if (rows.length && rows[0].reported_id) {
+        await pool.query('UPDATE users SET is_blocked=1 WHERE id=?', [rows[0].reported_id]);
+      }
+    }
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// DELETE /admin/reports/:id
+router.delete('/reports/:id', adminAuth, async (req, res) => {
+  try {
+    await pool.query('DELETE FROM reports WHERE id=?', [req.params.id]);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// GET /admin/financials — Full economics ledger (Inflow, Outflow, Platform Share, Host Share, Gifts, Coin usage)
+router.get('/financials', adminAuth, async (req, res) => {
+  try {
+    // 1. Coin Purchases & Inflow
+    const [[purchases]] = await pool.query(
+      `SELECT COUNT(*) AS total_purchases,
+              COALESCE(SUM(amount), 0) AS total_coins_purchased
+       FROM wallet_transactions WHERE type='purchase'`
+    );
+
+    // Approximate INR based on purchase records or descriptions
+    const [purchaseRows] = await pool.query(
+      `SELECT description, amount, created_at FROM wallet_transactions WHERE type='purchase'`
+    );
+    let estimatedGrossInflowInr = 0;
+    const packCounts = { pack_9: 0, pack_100: 0, pack_200: 0, pack_500: 0, custom: 0 };
+    for (const p of purchaseRows) {
+      const desc = p.description || '';
+      if (desc.includes('₹9') || p.amount === 15) { estimatedGrossInflowInr += 9; packCounts.pack_9++; }
+      else if (desc.includes('₹100') || p.amount === 120) { estimatedGrossInflowInr += 100; packCounts.pack_100++; }
+      else if (desc.includes('₹200') || p.amount === 240) { estimatedGrossInflowInr += 200; packCounts.pack_200++; }
+      else if (desc.includes('₹500') || p.amount === 700) { estimatedGrossInflowInr += 500; packCounts.pack_500++; }
+      else {
+        const inr = Math.round(p.amount * 0.83);
+        estimatedGrossInflowInr += inr;
+        packCounts.custom++;
+      }
+    }
+
+    // 2. Call Consumption & Revenue
+    const [[callsStats]] = await pool.query(
+      `SELECT COUNT(*) AS total_ended_calls,
+              COALESCE(SUM(mins_deducted), 0) AS total_call_coins,
+              COALESCE(SUM(duration_seconds), 0) AS total_call_secs,
+              COALESCE(SUM(platform_revenue_inr), 0) AS call_platform_rev,
+              COALESCE(SUM(girl_earnings_inr), 0) AS call_girl_earnings
+       FROM calls WHERE status='ended'`
+    );
+
+    const [[audioCalls]] = await pool.query(
+      `SELECT COUNT(*) AS count, COALESCE(SUM(mins_deducted),0) AS coins, COALESCE(SUM(girl_earnings_inr),0) AS girl_inr, COALESCE(SUM(platform_revenue_inr),0) AS plat_inr FROM calls WHERE status='ended' AND call_type='audio'`
+    );
+    const [[videoCalls]] = await pool.query(
+      `SELECT COUNT(*) AS count, COALESCE(SUM(mins_deducted),0) AS coins, COALESCE(SUM(girl_earnings_inr),0) AS girl_inr, COALESCE(SUM(platform_revenue_inr),0) AS plat_inr FROM calls WHERE status='ended' AND call_type='video'`
+    );
+
+    // 3. Gift Consumption & Revenue
+    let giftsCount = 0, giftsCoins = 0, giftTypes = [], recentGifts = [];
+    try {
+      const [[giftsSummary]] = await pool.query(
+        `SELECT COUNT(*) AS total_gifts, COALESCE(SUM(coins_spent), 0) AS total_gift_coins FROM gifts`
+      );
+      giftsCount = giftsSummary.total_gifts || 0;
+      giftsCoins = Number(giftsSummary.total_gift_coins) || 0;
+
+      const [gtRows] = await pool.query(
+        `SELECT gift_type, COUNT(*) AS count, COALESCE(SUM(coins_spent),0) AS coins FROM gifts GROUP BY gift_type ORDER BY coins DESC`
+      );
+      giftTypes = gtRows;
+
+      const [rgRows] = await pool.query(
+        `SELECT g.id, g.gift_type, g.coins_spent, g.created_at,
+                u1.name AS sender_name, u1.gender AS sender_gender,
+                u2.name AS receiver_name
+         FROM gifts g
+         LEFT JOIN users u1 ON g.sender_id=u1.id
+         LEFT JOIN users u2 ON g.receiver_id=u2.id
+         ORDER BY g.created_at DESC LIMIT 50`
+      );
+      recentGifts = rgRows;
+    } catch (e) { console.warn('Gifts query:', e.message); }
+
+    const giftGirlEarningsInr = parseFloat((giftsCoins * 0.5).toFixed(2));
+    const giftPlatformRevInr = parseFloat((giftsCoins * 0.33).toFixed(2));
+
+    // 4. Host Earnings & Withdrawals
+    const [[totalEarnings]] = await pool.query('SELECT COALESCE(SUM(amount_inr),0) AS total FROM earnings');
+    const [[payoutsApproved]] = await pool.query('SELECT COUNT(*) AS count, COALESCE(SUM(amount),0) AS total FROM withdrawals WHERE status="approved"');
+    const [[payoutsPending]] = await pool.query('SELECT COUNT(*) AS count, COALESCE(SUM(amount),0) AS total FROM withdrawals WHERE status="pending"');
+
+    // 5. Circulating Wallet Balances
+    const [[boysCoins]] = await pool.query('SELECT COALESCE(SUM(minutes),0) AS total FROM users WHERE gender IN ("boy","male")');
+    const [[girlsCoins]] = await pool.query('SELECT COALESCE(SUM(minutes),0) AS total FROM users WHERE gender IN ("girl","female")');
+
+    const totalCoinsConsumed = (Number(callsStats.total_call_coins) || 0) + giftsCoins;
+    const totalGirlEarnings = parseFloat(totalEarnings.total) || 0;
+    const totalPlatformRev = (parseFloat(callsStats.call_platform_rev) || 0) + giftPlatformRevInr;
+    const totalPaidOut = parseFloat(payoutsApproved.total) || 0;
+    const totalPendingPayout = parseFloat(payoutsPending.total) || 0;
+    const unpaidHostBalance = Math.max(0, totalGirlEarnings - totalPaidOut);
+
+    // 6. Recent Transaction Ledger Feed
+    const [recentTxns] = await pool.query(
+      `SELECT t.id, t.user_id, t.type, t.amount, t.description, t.created_at,
+              u.name AS user_name, u.gender AS user_gender
+       FROM wallet_transactions t
+       LEFT JOIN users u ON t.user_id=u.id
+       ORDER BY t.created_at DESC LIMIT 100`
+    );
+
+    res.json({
+      inflow: {
+        totalPurchases: purchases.total_purchases || 0,
+        totalCoinsPurchased: Number(purchases.total_coins_purchased) || 0,
+        estimatedGrossInflowInr,
+        packCounts,
+      },
+      consumption: {
+        totalCoinsConsumed,
+        callCoins: Number(callsStats.total_call_coins) || 0,
+        totalCallSecs: Number(callsStats.total_call_secs) || 0,
+        audioCalls: { count: audioCalls.count, coins: Number(audioCalls.coins), girlInr: parseFloat(audioCalls.girl_inr), platInr: parseFloat(audioCalls.plat_inr) },
+        videoCalls: { count: videoCalls.count, coins: Number(videoCalls.coins), girlInr: parseFloat(videoCalls.girl_inr), platInr: parseFloat(videoCalls.plat_inr) },
+        giftCoins: giftsCoins,
+        giftsCount,
+        giftTypes,
+      },
+      economics: {
+        platformRevenue: totalPlatformRev,
+        girlEarnings: totalGirlEarnings,
+        callPlatformRev: parseFloat(callsStats.call_platform_rev) || 0,
+        callGirlEarnings: parseFloat(callsStats.call_girl_earnings) || 0,
+        giftPlatformRev: giftPlatformRevInr,
+        giftGirlEarnings: giftGirlEarningsInr,
+        totalPaidOut,
+        totalPendingPayout,
+        unpaidHostBalance,
+        boysWalletCoins: Number(boysCoins.total) || 0,
+        girlsWalletCoins: Number(girlsCoins.total) || 0,
+        netPlatformProfit: Math.max(0, estimatedGrossInflowInr - totalPaidOut),
+      },
+      recentGifts,
+      recentTxns,
+    });
+  } catch (err) {
+    console.error('financials error:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // GET /admin/calls
