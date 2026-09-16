@@ -89,6 +89,23 @@ async function runMigrations() {
       ('pack_200', 240, 200, '240 Coins (Standard)', 0),
       ('pack_500', 700, 500, '700 Coins (Premium)', 1)
      ON DUPLICATE KEY UPDATE coins=VALUES(coins), price_inr=VALUES(price_inr), label=VALUES(label), is_popular=VALUES(is_popular)`,
+    `UPDATE calls 
+     SET girl_earnings_inr = ROUND(mins_deducted * 0.70 * 0.50, 2),
+         platform_revenue_inr = ROUND(mins_deducted * 0.30 * 0.50, 2),
+         girl_coins = ROUND(mins_deducted * 0.70, 2)
+     WHERE status = 'ended' AND free_trial = 0 AND mins_deducted > 0 AND (girl_earnings_inr = 0 OR girl_earnings_inr IS NULL)`,
+    `INSERT INTO earnings (id, girl_id, call_id, mins_received, coins_received, amount_inr, created_at)
+     SELECT UUID(), c.receiver_id, c.id, c.girl_coins, c.girl_coins, c.girl_earnings_inr, c.created_at
+     FROM calls c
+     WHERE c.status = 'ended' AND c.free_trial = 0 AND c.mins_deducted > 0 AND c.girl_earnings_inr > 0
+       AND c.id NOT IN (SELECT COALESCE(call_id, '') FROM (SELECT call_id FROM earnings WHERE call_id IS NOT NULL) AS e)`,
+    `UPDATE users u
+     JOIN (
+       SELECT girl_id, SUM(COALESCE(mins_received, coins_received, 0)) AS total_earned_coins
+       FROM earnings
+       GROUP BY girl_id
+     ) e ON u.id = e.girl_id
+     SET u.minutes = GREATEST(u.minutes, e.total_earned_coins)`,
   ];
   for (const sql of migrations) {
     try { await pool.query(sql); } catch (e) { console.warn('[Migration]', e.message); }
