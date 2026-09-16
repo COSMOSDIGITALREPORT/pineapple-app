@@ -26,10 +26,16 @@ export default function GirlsEarningsScreen({ onDrawer, onRedeem }) {
 
   const loadData = async () => {
     try {
-      const [e, c, w] = await Promise.all([getEarnings(), getCallHistory(), getWallet()]);
-      setEarnings(e || { earnings: [], summary: { total_mins: 0, total_inr: 0 } });
-      setCalls(c || []);
-      setGifts(w?.gifts || []);
+      const [eRes, cRes, wRes] = await Promise.allSettled([getEarnings(), getCallHistory(), getWallet()]);
+      if (eRes.status === 'fulfilled' && eRes.value) {
+        setEarnings(eRes.value);
+      }
+      if (cRes.status === 'fulfilled' && cRes.value) {
+        setCalls(cRes.value || []);
+      }
+      if (wRes.status === 'fulfilled' && wRes.value) {
+        setGifts(wRes.value?.gifts || []);
+      }
     } catch {}
   };
 

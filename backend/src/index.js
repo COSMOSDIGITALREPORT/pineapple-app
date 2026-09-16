@@ -61,6 +61,15 @@ async function runMigrations() {
     `ALTER TABLE earnings MODIFY COLUMN mins_received DECIMAL(10,2) NOT NULL DEFAULT 0`,
     `ALTER TABLE earnings MODIFY COLUMN coins_received DECIMAL(10,2) NOT NULL DEFAULT 0`,
     `ALTER TABLE earnings MODIFY COLUMN amount_inr DECIMAL(10,2) NOT NULL DEFAULT 0`,
+    `CREATE TABLE IF NOT EXISTS gifts (
+      id           CHAR(36)     PRIMARY KEY,
+      sender_id    CHAR(36)     NOT NULL,
+      receiver_id  CHAR(36)     NOT NULL,
+      gift_type    VARCHAR(50)  NOT NULL,
+      coins_spent  INT          NOT NULL,
+      created_at   DATETIME     DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_receiver (receiver_id)
+    )`,
     `CREATE TABLE IF NOT EXISTS reports (
       id           CHAR(36)     PRIMARY KEY DEFAULT (UUID()),
       reporter_id  CHAR(36),
