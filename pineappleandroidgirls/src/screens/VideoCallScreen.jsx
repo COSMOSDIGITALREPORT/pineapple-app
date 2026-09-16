@@ -15,9 +15,10 @@ import {
   ChannelProfileType,
   ClientRoleType,
   RtcSurfaceView,
-  VideoEncoderConfiguration,
-  VideoDimensions,
+  RtcTextureView,
 } from 'react-native-agora';
+
+const RenderView = Platform.OS === 'android' ? RtcTextureView : RtcSurfaceView;
 
 export default function VideoCallScreen({ onBack, onHangup, callerUser, incomingCallData }) {
   const insets = useSafeAreaInsets();
@@ -39,6 +40,7 @@ export default function VideoCallScreen({ onBack, onHangup, callerUser, incoming
 
   const startTimer = () => {
     if (callRef.current?._started) return;
+    if (!callRef.current) callRef.current = {};
     callRef.current._started = true;
     setCallStatus('Connected');
     const t = setInterval(() => {
@@ -54,14 +56,21 @@ export default function VideoCallScreen({ onBack, onHangup, callerUser, incoming
     if (cleanupRef.current) return;
     cleanupRef.current = true;
     clearInterval(callRef.current?._timer);
-    engineRef.current?.leaveChannel();
-    engineRef.current?.release();
+    try {
+      if (engineRef.current) {
+        try { engineRef.current.unregisterEventHandler(); } catch {}
+        try { engineRef.current.leaveChannel(); } catch {}
+        try { engineRef.current.release(); } catch {}
+        engineRef.current = null;
+      }
+    } catch {}
     if (callRef.current?.id) {
       try { await endCall(callRef.current.id, callRef.current._secs || 0); } catch {}
     }
     const s = callRef.current?._secs || 0;
     const ts = `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
-    (onHangup || onBack)(ts);
+    if (typeof onHangup === 'function') onHangup(ts);
+    else if (typeof onBack === 'function') onBack(ts);
   };
 
   useEffect(() => {
@@ -86,9 +95,15 @@ export default function VideoCallScreen({ onBack, onHangup, callerUser, incoming
     }
 
     return () => {
-      engineRef.current?.leaveChannel();
-      engineRef.current?.release();
       clearInterval(callRef.current?._timer);
+      try {
+        if (engineRef.current) {
+          try { engineRef.current.unregisterEventHandler(); } catch {}
+          try { engineRef.current.leaveChannel(); } catch {}
+          try { engineRef.current.release(); } catch {}
+          engineRef.current = null;
+        }
+      } catch {}
       if (socket) {
         socket.off('call:accepted', handlers.accepted);
         socket.off('call:ended', handlers.ended);
@@ -140,6 +155,12 @@ export default function VideoCallScreen({ onBack, onHangup, callerUser, incoming
 
       const engine = createAgoraRtcEngine();
       engineRef.current = engine;
+
+      engine.initialize({
+        appId,
+        channelProfile: ChannelProfileType.ChannelProfileCommunication,
+      });
+
       engine.registerEventHandler({
         onJoinChannelSuccess: () => {
           setEngineReady(true);
@@ -156,21 +177,10 @@ export default function VideoCallScreen({ onBack, onHangup, callerUser, incoming
         },
       });
 
-      await engine.initialize({ appId });
-      try { engine.setChannelProfile(ChannelProfileType.ChannelProfileCommunication); } catch {}
       try { await engine.enableVideo(); } catch {}
-      try {
-        engine.setVideoEncoderConfiguration({
-          dimensions: { width: 960, height: 720 },
-          frameRate: 30,
-          bitrate: 1500,
-          orientationMode: 0,
-          degradationPreference: 0,
-        });
-      } catch {}
       try { await engine.enableAudio(); } catch {}
-      try { engine.setAudioProfile(1, 3); } catch {}
       try { engine.startPreview(); } catch {}
+      try { engine.setEnableSpeakerphone(true); } catch {}
 
       const uid = incomingCallData ? 2 : 1;
       await engine.joinChannel(token, channelName, uid, {
@@ -225,7 +235,7 @@ export default function VideoCallScreen({ onBack, onHangup, callerUser, incoming
 
       {/* Remote full screen video */}
       {engineReady && remoteUid ? (
-        <RtcSurfaceView canvas={{ uid: remoteUid, renderMode: 1 }} style={StyleSheet.absoluteFill} />
+        <RenderView canvas={{ uid: remoteUid, renderMode: 1 }} style={StyleSheet.absoluteFill} />
       ) : (
         <View style={[StyleSheet.absoluteFill, styles.connectingBg]}>
           <View style={styles.connectingAvatar}>
@@ -274,7 +284,7 @@ export default function VideoCallScreen({ onBack, onHangup, callerUser, incoming
             <Icon name="video-off" size={18} color="rgba(255,255,255,0.6)" />
           </View>
         ) : (
-          <RtcSurfaceView canvas={{ uid: 0, renderMode: 2 }} style={StyleSheet.absoluteFill} zOrderMediaOverlay />
+          <RenderView canvas={{ uid: 0, renderMode: 2 }} style={StyleSheet.absoluteFill} />
         )}
       </View>
 

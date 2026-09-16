@@ -45,16 +45,26 @@ export default function AudioCallScreen({ onBack, onHangup, callerUser, incoming
     callRef.current._timer = t;
   };
 
+  const cleanupRef = useRef(false);
   const cleanupCall = async (dur) => {
+    if (cleanupRef.current) return;
+    cleanupRef.current = true;
     clearInterval(callRef.current?._timer);
-    engineRef.current?.leaveChannel();
-    engineRef.current?.release();
+    try {
+      if (engineRef.current) {
+        try { engineRef.current.unregisterEventHandler(); } catch {}
+        try { engineRef.current.leaveChannel(); } catch {}
+        try { engineRef.current.release(); } catch {}
+        engineRef.current = null;
+      }
+    } catch {}
     if (callRef.current?.id) {
       try { await endCall(callRef.current.id, callRef.current._secs || 0); } catch {}
     }
     const s = callRef.current?._secs || 0;
     const ts = dur || `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
-    (onHangup || onBack)(ts);
+    if (typeof onHangup === 'function') onHangup(ts);
+    else if (typeof onBack === 'function') onBack(ts);
   };
 
   useEffect(() => {
@@ -84,9 +94,15 @@ export default function AudioCallScreen({ onBack, onHangup, callerUser, incoming
     }
 
     return () => {
-      engineRef.current?.leaveChannel();
-      engineRef.current?.release();
       clearInterval(callRef.current?._timer);
+      try {
+        if (engineRef.current) {
+          try { engineRef.current.unregisterEventHandler(); } catch {}
+          try { engineRef.current.leaveChannel(); } catch {}
+          try { engineRef.current.release(); } catch {}
+          engineRef.current = null;
+        }
+      } catch {}
       socket?.off('call:accepted');
       socket?.off('call:ended');
     };
@@ -132,6 +148,12 @@ export default function AudioCallScreen({ onBack, onHangup, callerUser, incoming
 
       const engine = createAgoraRtcEngine();
       engineRef.current = engine;
+
+      engine.initialize({
+        appId,
+        channelProfile: ChannelProfileType.ChannelProfileCommunication,
+      });
+
       engine.registerEventHandler({
         onJoinChannelSuccess: () => {
           try { engine.setEnableSpeakerphone(true); } catch {}
@@ -142,11 +164,9 @@ export default function AudioCallScreen({ onBack, onHangup, callerUser, incoming
           console.warn('[Agora] error:', err);
         },
       });
-      await engine.initialize({ appId });
-      try { engine.setChannelProfile(ChannelProfileType.ChannelProfileCommunication); } catch {}
+
       try { engine.enableAudio(); } catch {}
       try { engine.setEnableSpeakerphone(true); } catch {}
-      try { engine.setAudioProfile(1, 3); } catch {}
 
       const uid = incomingCallData ? 2 : 1;
       await engine.joinChannel(token, channelName, uid, {

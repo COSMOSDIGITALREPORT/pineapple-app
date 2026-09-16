@@ -80,8 +80,14 @@ export default function AudioCallScreen({ onBack, onHangup, callerUser, incoming
     if (cleanupRef.current) return;
     cleanupRef.current = true;
     clearInterval(callRef.current?._timer);
-    try { engineRef.current?.leaveChannel(); } catch {}
-    try { engineRef.current?.release(); } catch {}
+    try {
+      if (engineRef.current) {
+        try { engineRef.current.unregisterEventHandler(); } catch {}
+        try { engineRef.current.leaveChannel(); } catch {}
+        try { engineRef.current.release(); } catch {}
+        engineRef.current = null;
+      }
+    } catch {}
     if (callRef.current?.id) {
       try { await endCall(callRef.current.id, callRef.current._secs || 0); } catch {}
     }
@@ -126,9 +132,15 @@ export default function AudioCallScreen({ onBack, onHangup, callerUser, incoming
     }
 
     return () => {
-      engineRef.current?.leaveChannel();
-      engineRef.current?.release();
       clearInterval(callRef.current?._timer);
+      try {
+        if (engineRef.current) {
+          try { engineRef.current.unregisterEventHandler(); } catch {}
+          try { engineRef.current.leaveChannel(); } catch {}
+          try { engineRef.current.release(); } catch {}
+          engineRef.current = null;
+        }
+      } catch {}
       socket?.off('call:accepted');
       socket?.off('call:rejected');
       socket?.off('call:unavailable');
@@ -183,6 +195,12 @@ export default function AudioCallScreen({ onBack, onHangup, callerUser, incoming
     try {
       const engine = createAgoraRtcEngine();
       engineRef.current = engine;
+
+      engine.initialize({
+        appId,
+        channelProfile: ChannelProfileType.ChannelProfileCommunication,
+      });
+
       engine.registerEventHandler({
         onJoinChannelSuccess: () => {
           try { engine.setEnableSpeakerphone(true); } catch {}
@@ -196,8 +214,6 @@ export default function AudioCallScreen({ onBack, onHangup, callerUser, incoming
         },
       });
 
-      await engine.initialize({ appId });
-      try { engine.setChannelProfile(ChannelProfileType.ChannelProfileCommunication); } catch {}
       try { engine.enableAudio(); } catch {}
       try { engine.setEnableSpeakerphone(true); } catch {}
 
