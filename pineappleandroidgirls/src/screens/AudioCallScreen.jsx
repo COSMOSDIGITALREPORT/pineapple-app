@@ -58,11 +58,21 @@ export default function AudioCallScreen({ onBack, onHangup, callerUser, incoming
         engineRef.current = null;
       }
     } catch {}
+    let ts = dur;
     if (callRef.current?.id) {
-      try { await endCall(callRef.current.id, callRef.current._secs || 0); } catch {}
+      try {
+        const res = await endCall(callRef.current.id, callRef.current._secs || 0);
+        if (res?.formattedDuration) {
+          ts = res.formattedDuration;
+          getSocket()?.emit('call:ended', { otherUserId, duration: res.duration, formattedDuration: res.formattedDuration });
+        }
+      } catch {}
     }
-    const s = callRef.current?._secs || 0;
-    const ts = dur || `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+    if (!ts) {
+      const s = callRef.current?._secs || 0;
+      ts = `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+      getSocket()?.emit('call:ended', { otherUserId, duration: s, formattedDuration: ts });
+    }
     if (typeof onHangup === 'function') onHangup(ts);
     else if (typeof onBack === 'function') onBack(ts);
   };
@@ -90,7 +100,7 @@ export default function AudioCallScreen({ onBack, onHangup, callerUser, incoming
         socket.on('call:accepted', () => startTimer());
       }
       // Both sides: when other person ends call → auto cleanup
-      socket.on('call:ended', () => cleanupCall());
+      socket.on('call:ended', (data) => cleanupCall(data?.formattedDuration));
     }
 
     return () => {

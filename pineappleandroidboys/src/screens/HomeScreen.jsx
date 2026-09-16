@@ -81,8 +81,13 @@ export default function HomeScreen({ onLogout }) {
         setIncomingCall(data);
       });
 
-      socket.on('call:ended', () => {
-        setCurrentSubScreen(null);
+      socket.on('call:ended', (data) => {
+        if (data?.formattedDuration) {
+          setCallDuration(data.formattedDuration);
+          setCurrentSubScreen('callDuration');
+        } else {
+          setCurrentSubScreen(null);
+        }
         setIncomingCall(null);
       });
     };

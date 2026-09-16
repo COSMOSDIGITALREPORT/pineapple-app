@@ -85,15 +85,26 @@ router.put('/:id/end', auth, async (req, res) => {
       await pool.query('UPDATE users SET minutes=GREATEST(0,minutes-?) WHERE id=?', [coinsUsed, call.caller_id]);
       await pool.query(
         'INSERT INTO wallet_transactions (id,user_id,type,amount,description,ref_id) VALUES (?,?,?,?,?,?)',
-        [uuidv4(), call.caller_id, 'spend', coinsUsed, `${call.call_type} call (${Math.ceil(durationSec/60)}m)`, req.params.id]
+        [uuidv4(), call.caller_id, 'spend', coinsUsed, `${call.call_type} call (${billableMins}m)`, req.params.id]
       );
 
-      // Add 70% earnings to girl's account
+      // Add 70% earnings to girl's account & credit girl balance
       if (girlCoins > 0) {
-        await pool.query(
-          'INSERT INTO earnings (id,girl_id,call_id,mins_received,amount_inr) VALUES (?,?,?,?,?)',
-          [uuidv4(), call.receiver_id, req.params.id, girlCoins, girlInr]
-        );
+        try {
+          await pool.query(
+            'INSERT INTO earnings (id,girl_id,call_id,mins_received,coins_received,amount_inr) VALUES (?,?,?,?,?,?)',
+            [uuidv4(), call.receiver_id, req.params.id, girlCoins, girlCoins, girlInr]
+          );
+        } catch (e) {
+          console.error('Earnings insert error:', e.message);
+          try {
+            await pool.query(
+              'INSERT INTO earnings (id,girl_id,call_id,coins_received,amount_inr) VALUES (?,?,?,?,?)',
+              [uuidv4(), call.receiver_id, req.params.id, girlCoins, girlInr]
+            );
+          } catch (_) {}
+        }
+        await pool.query('UPDATE users SET minutes=minutes+? WHERE id=?', [girlCoins, call.receiver_id]);
         await pool.query(
           'INSERT INTO wallet_transactions (id,user_id,type,amount,description,ref_id) VALUES (?,?,?,?,?,?)',
           [uuidv4(), call.receiver_id, 'earn', girlCoins, `${call.call_type} call earnings (₹${girlInr})`, req.params.id]
@@ -101,7 +112,8 @@ router.put('/:id/end', auth, async (req, res) => {
       }
     }
 
-    res.json({ success: true, coinsUsed, girlCoins, girlInr, platformInr, duration: durationSec, isFreeTrial });
+    const fmt = `${String(Math.floor(durationSec / 60)).padStart(2, '0')}:${String(durationSec % 60).padStart(2, '0')}`;
+    res.json({ success: true, coinsUsed, girlCoins, girlInr, platformInr, duration: durationSec, formattedDuration: fmt, isFreeTrial });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

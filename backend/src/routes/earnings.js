@@ -9,7 +9,7 @@ router.get('/', auth, async (req, res) => {
     const [rows] = await pool.query(
       'SELECT * FROM earnings WHERE girl_id=? ORDER BY created_at DESC LIMIT 50', [req.user.userId]);
     const [summary] = await pool.query(
-      'SELECT COALESCE(SUM(mins_received),0) AS total_mins, COALESCE(SUM(amount_inr),0) AS total_inr FROM earnings WHERE girl_id=?',
+      'SELECT COALESCE(SUM(COALESCE(mins_received, coins_received, 0)),0) AS total_mins, COALESCE(SUM(amount_inr),0) AS total_inr FROM earnings WHERE girl_id=?',
       [req.user.userId]);
     res.json({ earnings: rows, summary: summary[0] });
   } catch (err) { res.status(500).json({ error: err.message }); }

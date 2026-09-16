@@ -71,7 +71,7 @@ export default function VideoCallScreen({ onBack, onHangup, callerUser, incoming
   };
 
   const cleanupRef = useRef(false);
-  const cleanupCall = async () => {
+  const cleanupCall = async (dur) => {
     if (cleanupRef.current) return;
     cleanupRef.current = true;
     clearInterval(callRef.current?._timer);
@@ -83,11 +83,21 @@ export default function VideoCallScreen({ onBack, onHangup, callerUser, incoming
         engineRef.current = null;
       }
     } catch {}
+    let ts = dur;
     if (callRef.current?.id) {
-      try { await endCall(callRef.current.id, callRef.current._secs || 0); } catch {}
+      try {
+        const res = await endCall(callRef.current.id, callRef.current._secs || 0);
+        if (res?.formattedDuration) {
+          ts = res.formattedDuration;
+          getSocket()?.emit('call:ended', { otherUserId, duration: res.duration, formattedDuration: res.formattedDuration });
+        }
+      } catch {}
     }
-    const s = callRef.current?._secs || 0;
-    const ts = `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+    if (!ts) {
+      const s = callRef.current?._secs || 0;
+      ts = `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+      getSocket()?.emit('call:ended', { otherUserId, duration: s, formattedDuration: ts });
+    }
     if (typeof onHangup === 'function') onHangup(ts);
     else if (typeof onBack === 'function') onBack(ts);
   };
@@ -108,24 +118,18 @@ export default function VideoCallScreen({ onBack, onHangup, callerUser, incoming
       if (!incomingCallData) {
         handlers.accepted = () => startTimer();
         handlers.rejected = () => {
-          if (cleanupRef.current) return;
-          cleanupRef.current = true;
           Alert.alert('Call Declined', 'The other person declined your call.');
-          if (typeof onHangup === 'function') onHangup('00:00');
-          else if (typeof onBack === 'function') onBack();
+          (onHangup || onBack)('00:00');
         };
         handlers.unavailable = () => {
-          if (cleanupRef.current) return;
-          cleanupRef.current = true;
           Alert.alert('Offline', 'User is not available right now.');
-          if (typeof onHangup === 'function') onHangup('00:00');
-          else if (typeof onBack === 'function') onBack();
+          (onHangup || onBack)('00:00');
         };
-        socket.on('call:accepted', handlers.accepted);
-        socket.on('call:rejected', handlers.rejected);
+        socket.on('call:accepted',    handlers.accepted);
+        socket.on('call:rejected',    handlers.rejected);
         socket.on('call:unavailable', handlers.unavailable);
       }
-      handlers.ended = () => cleanupCall();
+      handlers.ended = (data) => cleanupCall(data?.formattedDuration);
       socket.on('call:ended', handlers.ended);
     }
 

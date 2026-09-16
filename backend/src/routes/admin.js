@@ -65,7 +65,7 @@ router.get('/stats', adminAuth, async (req, res) => {
 
     const totalCoinsSpent = Number(calls.total_coins) || 0;
     const totalPlatformCallRev = parseFloat(calls.call_platform_rev) || 0;
-    const totalGirlEarnings = parseFloat(earnings.total_girl_earned) || 0;
+    const totalGirlEarnings = Math.max(parseFloat(earnings.total_girl_earned) || 0, parseFloat(calls.call_girl_earnings) || 0);
     const pendingWithdrawalAmount = parseFloat(pending.total_amount) || 0;
     const totalMinsTalked = Math.round((Number(calls.total_secs) || 0) / 60);
 
@@ -315,7 +315,8 @@ router.get('/financials', adminAuth, async (req, res) => {
     const [[girlsCoins]] = await pool.query('SELECT COALESCE(SUM(minutes),0) AS total FROM users WHERE gender IN ("girl","female")');
 
     const totalCoinsConsumed = (Number(callsStats.total_call_coins) || 0) + giftsCoins;
-    const totalGirlEarnings = parseFloat(totalEarnings.total) || 0;
+    const recordedCallGirlEarnings = parseFloat(callsStats.call_girl_earnings) || 0;
+    const totalGirlEarnings = Math.max(parseFloat(totalEarnings.total) || 0, recordedCallGirlEarnings) + giftGirlEarningsInr;
     const totalPlatformRev = (parseFloat(callsStats.call_platform_rev) || 0) + giftPlatformRevInr;
     const totalPaidOut = parseFloat(payoutsApproved.total) || 0;
     const totalPendingPayout = parseFloat(payoutsPending.total) || 0;

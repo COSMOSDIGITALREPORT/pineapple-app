@@ -45,8 +45,7 @@ module.exports = (io) => {
     });
 
     socket.on('call:accepted',  ({ callerId })              => { const d = online.get(callerId);  if (d) io.to(d).emit('call:accepted',  {}); });
-    socket.on('call:rejected',  ({ callerId })              => { const d = online.get(callerId);  if (d) io.to(d).emit('call:rejected'); });
-    socket.on('call:ended',     ({ otherUserId })           => { const d = online.get(otherUserId); if (d) io.to(d).emit('call:ended'); });
+    socket.on('call:ended',     ({ otherUserId, duration, formattedDuration }) => { const d = online.get(otherUserId); if (d) io.to(d).emit('call:ended', { duration, formattedDuration }); });
 
     socket.on('room:join',    ({ roomId }) => { socket.join(`room:${roomId}`);  socket.to(`room:${roomId}`).emit('room:user_joined', { userId }); });
     socket.on('room:leave',   ({ roomId }) => { socket.leave(`room:${roomId}`); socket.to(`room:${roomId}`).emit('room:user_left',  { userId }); });

@@ -29,9 +29,17 @@ router.post('/gift', auth, async (req, res) => {
 
     // Girl ki earnings table mein bhi add karo (1 coin = ₹0.5)
     const inrAmount = (coinsCost * 0.5).toFixed(2);
-    await pool.query(
-      'INSERT INTO earnings (id,girl_id,call_id,mins_received,amount_inr) VALUES (?,?,?,?,?)',
-      [uuidv4(), receiverId, null, coinsCost, inrAmount]);
+    try {
+      await pool.query(
+        'INSERT INTO earnings (id,girl_id,call_id,mins_received,coins_received,amount_inr) VALUES (?,?,?,?,?,?)',
+        [uuidv4(), receiverId, null, coinsCost, coinsCost, inrAmount]);
+    } catch (e) {
+      try {
+        await pool.query(
+          'INSERT INTO earnings (id,girl_id,call_id,coins_received,amount_inr) VALUES (?,?,?,?,?)',
+          [uuidv4(), receiverId, null, coinsCost, inrAmount]);
+      } catch (_) {}
+    }
     await pool.query(
       'INSERT INTO wallet_transactions (id,user_id,type,amount,description) VALUES (?,?,?,?,?)',
       [uuidv4(), receiverId, 'earn', coinsCost, `${giftType} gift received`]);
