@@ -8,10 +8,17 @@ router.get('/', auth, async (req, res) => {
   try {
     const [rows] = await pool.query(
       'SELECT * FROM earnings WHERE girl_id=? ORDER BY created_at DESC LIMIT 50', [req.user.userId]);
-    const [summary] = await pool.query(
+    const [[earnSummary]] = await pool.query(
       'SELECT COALESCE(SUM(COALESCE(mins_received, coins_received, 0)),0) AS total_mins, COALESCE(SUM(amount_inr),0) AS total_inr FROM earnings WHERE girl_id=?',
       [req.user.userId]);
-    res.json({ earnings: rows, summary: summary[0] });
+    const [[callSummary]] = await pool.query(
+      'SELECT COALESCE(SUM(girl_coins),0) AS call_coins, COALESCE(SUM(girl_earnings_inr),0) AS call_inr FROM calls WHERE receiver_id=? AND status="ended" AND free_trial=0',
+      [req.user.userId]);
+
+    const totalMins = Math.max(parseFloat(earnSummary?.total_mins) || 0, parseFloat(callSummary?.call_coins) || 0);
+    const totalInr  = Math.max(parseFloat(earnSummary?.total_inr) || 0, parseFloat(callSummary?.call_inr) || 0);
+
+    res.json({ earnings: rows, summary: { total_mins: totalMins, total_inr: totalInr } });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -23,13 +30,18 @@ router.post('/withdraw', auth, async (req, res) => {
   if (!amount || !upi_id) return res.status(400).json({ error: 'amount and upi_id required' });
   if (amount < 100) return res.status(400).json({ error: 'Minimum withdrawal ₹100' });
   try {
-    const [earnedRows] = await pool.query(
+    const [[earnedRows]] = await pool.query(
       'SELECT COALESCE(SUM(amount_inr),0) AS total_earned FROM earnings WHERE girl_id=?',
+      [req.user.userId]);
+    const [[callRows]] = await pool.query(
+      'SELECT COALESCE(SUM(girl_earnings_inr),0) AS total_call_earned FROM calls WHERE receiver_id=? AND status="ended" AND free_trial=0',
       [req.user.userId]);
     const [withdrawnRows] = await pool.query(
       'SELECT COALESCE(SUM(amount),0) AS total_withdrawn FROM withdrawals WHERE girl_id=? AND status != "rejected"',
       [req.user.userId]);
-    const available = Math.max(0, (parseFloat(earnedRows[0].total_earned) || 0) - (parseFloat(withdrawnRows[0].total_withdrawn) || 0));
+
+    const totalGross = Math.max(parseFloat(earnedRows.total_earned) || 0, parseFloat(callRows.total_call_earned) || 0);
+    const available = Math.max(0, totalGross - (parseFloat(withdrawnRows[0].total_withdrawn) || 0));
     if (available < parseFloat(amount))
       return res.status(400).json({ error: `Insufficient earnings. Available: ₹${available.toFixed(2)}` });
 

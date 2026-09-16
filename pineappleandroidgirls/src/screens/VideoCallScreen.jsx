@@ -235,7 +235,6 @@ export default function VideoCallScreen({ onBack, onHangup, callerUser, incoming
   const handleFlip = () => engineRef.current?.switchCamera();
 
   const handleHangupPress = () => {
-    getSocket()?.emit('call:ended', { otherUserId });
     cleanupCall();
   };
 

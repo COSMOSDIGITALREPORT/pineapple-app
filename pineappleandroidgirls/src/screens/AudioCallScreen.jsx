@@ -217,8 +217,6 @@ export default function AudioCallScreen({ onBack, onHangup, callerUser, incoming
   };
 
   const handleHangupPress = async () => {
-    // Tell other person call ended
-    getSocket()?.emit('call:ended', { otherUserId });
     cleanupCall();
   };
 

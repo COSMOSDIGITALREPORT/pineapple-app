@@ -40,9 +40,9 @@ export default function GirlsEarningsScreen({ onDrawer, onRedeem }) {
     getSocket()?.emit(val ? 'user:online' : 'user:offline');
   };
 
-  const todayCoins = earnings.earnings
+  const todayCoins = (earnings.earnings || [])
     .filter(e => new Date(e.created_at).toDateString() === new Date().toDateString())
-    .reduce((s, e) => s + (parseFloat(e.mins_received) || 0), 0);
+    .reduce((s, e) => s + (parseFloat(e.mins_received) || parseFloat(e.coins_received) || 0), 0);
   const totalCoins    = parseFloat(earnings.summary?.total_mins || 0);
   const totalInr      = parseFloat(earnings.summary?.total_inr  || 0);
   const totalCalls    = calls.length;

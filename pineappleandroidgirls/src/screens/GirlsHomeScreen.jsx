@@ -48,6 +48,7 @@ export default function GirlsHomeScreen({ onLogout }) {
   const [currentSubScreen, setCurrentSubScreen] = useState(null);
   const [selectedUser, setSelectedUser] = useState(null);
   const [callDuration, setCallDuration] = useState('00:00');
+  const [lastCallType, setLastCallType] = useState('audio');
   const [incomingCall, setIncomingCall] = useState(null);
   const [acceptedCallData, setAcceptedCallData] = useState(null);
   const incomingCallRef = useRef(null);
@@ -68,6 +69,7 @@ export default function GirlsHomeScreen({ onLogout }) {
       socket.on('call:ended', (data) => {
         if (data?.formattedDuration) {
           setCallDuration(data.formattedDuration);
+          if (data?.callType) setLastCallType(data.callType);
           setCurrentSubScreen('callDuration');
         } else {
           setCurrentSubScreen(null);
@@ -97,6 +99,8 @@ export default function GirlsHomeScreen({ onLogout }) {
   const handleAcceptCall = () => {
     const call = incomingCallRef.current;
     if (!call) return;
+    const cType = call.type === 'video' ? 'video' : 'audio';
+    setLastCallType(cType);
     getSocket()?.emit('call:accepted', {
       callerId: call.callerId,
       channelName: call.channelName,
@@ -108,7 +112,7 @@ export default function GirlsHomeScreen({ onLogout }) {
     });
     setAcceptedCallData({ callId: call.callId, channelName: call.channelName, callerId: call.callerId });
     setIncomingCall(null);
-    setCurrentSubScreen(call.type === 'video' ? 'videoCall' : 'audioCall');
+    setCurrentSubScreen(cType === 'video' ? 'videoCall' : 'audioCall');
   };
 
   const handleRejectCall = () => {
@@ -131,9 +135,9 @@ export default function GirlsHomeScreen({ onLogout }) {
     );
   }
 
-  if (currentSubScreen === 'videoCall')    return <VideoCallScreen callerUser={selectedUser} onBack={goHome} onHangup={handleHangup} incomingCallData={acceptedCallData} />;
-  if (currentSubScreen === 'audioCall')    return <AudioCallScreen callerUser={selectedUser} onBack={goHome} onHangup={handleHangup} incomingCallData={acceptedCallData} />;
-  if (currentSubScreen === 'callDuration') return <CallDurationScreen duration={callDuration} callerUser={selectedUser} onRate={() => setCurrentSubScreen('callReview')} onSkip={goHome} />;
+  if (currentSubScreen === 'videoCall')    return <VideoCallScreen callerUser={selectedUser} onBack={goHome} onHangup={(d) => { setLastCallType('video'); handleHangup(d); }} incomingCallData={acceptedCallData} />;
+  if (currentSubScreen === 'audioCall')    return <AudioCallScreen callerUser={selectedUser} onBack={goHome} onHangup={(d) => { setLastCallType('audio'); handleHangup(d); }} incomingCallData={acceptedCallData} />;
+  if (currentSubScreen === 'callDuration') return <CallDurationScreen duration={callDuration} callerUser={selectedUser} callType={lastCallType} onRate={() => setCurrentSubScreen('callReview')} onSkip={goHome} />;
   if (currentSubScreen === 'callReview')   return <CallReviewScreen callerName={selectedUser?.name || 'User'} callerAvatar={selectedUser?.avatar_url} callerUserId={selectedUser?.id} callId={acceptedCallData?.callId} onSubmit={goHome} onBack={() => setCurrentSubScreen('callDuration')} />;
   if (currentSubScreen === 'redeem')       return <GirlsRedeemScreen onBack={goHome} />;
   if (currentSubScreen === 'settings')     return <SettingsScreen onBack={goHome} onLogout={onLogout} />;

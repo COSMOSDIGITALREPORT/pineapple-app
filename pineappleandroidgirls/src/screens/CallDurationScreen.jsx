@@ -72,10 +72,16 @@ function FloatingHeart({ x, size, dur, delay, opacity }) {
   );
 }
 
-export default function CallDurationScreen({ duration, callerUser, onRate, onSkip }) {
+export default function CallDurationScreen({ duration, callerUser, onRate, onSkip, callType = 'audio' }) {
   const insets = useSafeAreaInsets();
   const user = useSelector((s) => s.user);
   const isGirl = ['girl', 'female'].includes((user.gender || '').toLowerCase());
+
+  const billableMins = minutesUsed(duration);
+  const ratePerMin = callType === 'video' ? 2 : 1;
+  const earnedCoins = (billableMins * ratePerMin * 0.70).toFixed(1);
+  const earnedInr = (parseFloat(earnedCoins) * 0.50).toFixed(2);
+  const coinsSpent = billableMins * ratePerMin;
 
   return (
     <View style={styles.root}>
@@ -98,29 +104,21 @@ export default function CallDurationScreen({ duration, callerUser, onRate, onSki
           { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 32 },
         ]}>
 
-        {/* Call Ended badge */}
-        <LinearGradient
-          colors={['#FF3870', '#C0004A']}
-          start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-          style={styles.endedBadge}>
-          <Svg width={16} height={16} viewBox="0 0 24 24">
-            <Path
-              d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07C9.44 16.29 8.76 15.62 8 14.89m-3.5-3.07A19.79 19.79 0 0 1 1.43 3.2 2 2 0 0 1 3.41 1h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L7.39 8.91"
-              stroke="#fff"
-              strokeWidth={2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              fill="none"
-            />
-            <Line x1="23" y1="1" x2="1" y2="23" stroke="#fff" strokeWidth={2} strokeLinecap="round" />
-          </Svg>
-          <Text style={styles.endedText}>Call Ended</Text>
-        </LinearGradient>
+        {/* Top badge */}
+        <View style={styles.topBadge}>
+          <LinearGradient
+            colors={['#FF3870', '#C0004A']}
+            start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+            style={StyleSheet.absoluteFill}
+          />
+          <Text style={styles.topBadgeIcon}>📵</Text>
+          <Text style={styles.topBadgeText}>Call Ended</Text>
+        </View>
 
-        {/* Avatar */}
-        <View style={styles.avatarWrap}>
-          <View style={styles.avatarRing}>
-            <View style={styles.avatarInner}>
+        {/* Avatar with double pulse ring */}
+        <View style={styles.avatarOuterWrap}>
+          <View style={styles.avatarRing2}>
+            <View style={styles.avatarRing1}>
               {callerUser?.avatar_url ? (
                 <Image source={{ uri: callerUser.avatar_url }} style={styles.avatar} />
               ) : (
@@ -151,7 +149,9 @@ export default function CallDurationScreen({ duration, callerUser, onRate, onSki
         <View style={styles.coinsBadge}>
           <Text style={styles.coinsEmoji}>{isGirl ? '🍍' : '⏱️'}</Text>
           <Text style={styles.coinsText}>
-            {isGirl ? '+50 coins earned' : `${minutesUsed(duration)} min${minutesUsed(duration) === 1 ? '' : 's'} used`}
+            {isGirl
+              ? `+${earnedCoins} coins earned (₹${earnedInr})`
+              : `${billableMins} min${billableMins === 1 ? '' : 's'} used (${coinsSpent} coin${coinsSpent === 1 ? '' : 's'})`}
           </Text>
         </View>
 

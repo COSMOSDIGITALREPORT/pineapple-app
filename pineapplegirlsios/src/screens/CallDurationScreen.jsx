@@ -72,10 +72,16 @@ function FloatingHeart({ x, size, dur, delay, opacity }) {
   );
 }
 
-export default function CallDurationScreen({ duration, callerUser, onRate, onSkip }) {
+export default function CallDurationScreen({ duration, callerUser, onRate, onSkip, callType = 'audio' }) {
   const insets = useSafeAreaInsets();
   const user = useSelector((s) => s.user);
   const isGirl = ['girl', 'female'].includes((user.gender || '').toLowerCase());
+
+  const billableMins = minutesUsed(duration);
+  const ratePerMin = callType === 'video' ? 2 : 1;
+  const earnedCoins = (billableMins * ratePerMin * 0.70).toFixed(1);
+  const earnedInr = (parseFloat(earnedCoins) * 0.50).toFixed(2);
+  const coinsSpent = billableMins * ratePerMin;
 
   return (
     <View style={styles.root}>
@@ -151,7 +157,9 @@ export default function CallDurationScreen({ duration, callerUser, onRate, onSki
         <View style={styles.coinsBadge}>
           <Text style={styles.coinsEmoji}>{isGirl ? '🍍' : '⏱️'}</Text>
           <Text style={styles.coinsText}>
-            {isGirl ? '+50 coins earned' : `${minutesUsed(duration)} min${minutesUsed(duration) === 1 ? '' : 's'} used`}
+            {isGirl
+              ? `+${earnedCoins} coins earned (₹${earnedInr})`
+              : `${billableMins} min${billableMins === 1 ? '' : 's'} used (${coinsSpent} coin${coinsSpent === 1 ? '' : 's'})`}
           </Text>
         </View>
 

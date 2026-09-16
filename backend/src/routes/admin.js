@@ -485,6 +485,8 @@ router.delete('/seed-girls', adminAuth, async (req, res) => {
     }
     res.json({ success: true, removed });
   } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // POST /admin/reconcile-earnings — recalculate & backfill host earnings and ledger records
 router.post('/reconcile-earnings', adminAuth, async (req, res) => {
   try {
