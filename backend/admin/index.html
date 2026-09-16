@@ -330,6 +330,9 @@ td b{color:var(--text);font-weight:600;}
       <button class="nav-btn" id="n-economics" onclick="go('economics')">
         <span class="ic">💰</span> Economics & Ledger
       </button>
+      <button class="nav-btn" id="n-hosts" onclick="go('hosts')">
+        <span class="ic">👧</span> Host Earnings
+      </button>
       <button class="nav-btn" id="n-verify" onclick="go('verify')">
         <span class="ic">✅</span> Verification
         <span class="nav-badge" id="nb-v" style="display:none">0</span>
@@ -385,7 +388,7 @@ td b{color:var(--text);font-weight:600;}
           <div class="stat-num" id="s-plat-rev">₹0</div>
           <div class="stat-label">Platform Revenue (₹)</div>
         </div>
-        <div class="stat-card c-purple" onclick="go('economics')" title="Click to view host earnings & economics">
+        <div class="stat-card c-purple" onclick="go('hosts')" title="Click to view individual host earnings & breakdown">
           <div class="stat-top"><div class="stat-icon-wrap">👧</div><span class="stat-trend" style="background:#F5F3FF;color:#7C3AED">70% Share</span></div>
           <div class="stat-num" id="s-girl-earn">₹0</div>
           <div class="stat-label">Host Earnings (₹)</div>
@@ -452,10 +455,10 @@ td b{color:var(--text);font-weight:600;}
             </div>
             <div class="quick-actions">
               <button class="qa-btn" onclick="goUsers('all')"><span class="qa-icon">👥</span>Users</button>
+              <button class="qa-btn" onclick="go('hosts')"><span class="qa-icon">👧</span>Host Earnings</button>
               <button class="qa-btn" onclick="go('economics')"><span class="qa-icon">💰</span>Economics</button>
               <button class="qa-btn" onclick="go('withdrawals')"><span class="qa-icon">💸</span>Payouts</button>
               <button class="qa-btn" onclick="go('reports')"><span class="qa-icon">🚨</span>Reports</button>
-              <button class="qa-btn" onclick="go('reviews')"><span class="qa-icon">💬</span>Reviews</button>
               <button class="qa-btn" onclick="go('calls')"><span class="qa-icon">📞</span>Calls</button>
             </div>
           </div>
@@ -757,6 +760,81 @@ td b{color:var(--text);font-weight:600;}
       </div>
     </div>
 
+    <!-- HOST EARNINGS (DEDICATED FULL VIEW) -->
+    <div class="page" id="p-hosts">
+      <div class="ph">
+        <div>
+          <div class="ph-title">👧 Host-Wise Earnings & Accounts</div>
+          <div class="ph-sub">Individual earnings, call stats, and unpaid balance for each host / girl</div>
+        </div>
+        <div class="ph-actions">
+          <button class="btn btn-purple" onclick="reconcileEarnings()" style="font-weight:700;">⚡ Reconcile Past Calls</button>
+          <button class="refresh-btn" onclick="loadHostEarnings()">↻ &nbsp;Refresh Hosts</button>
+        </div>
+      </div>
+
+      <!-- Host Stats Metric Cards -->
+      <div class="stats">
+        <div class="stat-card c-purple">
+          <div class="stat-top"><div class="stat-icon-wrap">👧</div><span class="stat-trend" style="background:#F5F3FF;color:#7C3AED">Total</span></div>
+          <div class="stat-num" id="he-total-hosts">0</div>
+          <div class="stat-label">Registered Hosts</div>
+        </div>
+        <div class="stat-card c-green">
+          <div class="stat-top"><div class="stat-icon-wrap">🟢</div><span class="stat-trend" style="background:#f0fdf4;color:#16a34a">Live</span></div>
+          <div class="stat-num" id="he-online-hosts">0</div>
+          <div class="stat-label">Online Hosts Now</div>
+        </div>
+        <div class="stat-card c-pink">
+          <div class="stat-top"><div class="stat-icon-wrap">💰</div><span class="stat-trend" style="background:#FFF0F4;color:var(--pink)">70% Share</span></div>
+          <div class="stat-num" id="he-gross-earned">₹0</div>
+          <div class="stat-label">Total Host Gross Earned (₹)</div>
+        </div>
+        <div class="stat-card c-green" onclick="go('withdrawals')">
+          <div class="stat-top"><div class="stat-icon-wrap">💸</div><span class="stat-trend" style="background:#f0fdf4;color:#16a34a">Settled</span></div>
+          <div class="stat-num" id="he-paid-out">₹0</div>
+          <div class="stat-label">Total Paid Out (₹)</div>
+        </div>
+        <div class="stat-card c-orange">
+          <div class="stat-top"><div class="stat-icon-wrap">🏦</div><span class="stat-trend" style="background:#fffbeb;color:#d97706">Unsettled</span></div>
+          <div class="stat-num" id="he-unpaid-balance">₹0</div>
+          <div class="stat-label">Unpaid Host Balance (₹)</div>
+        </div>
+      </div>
+
+      <!-- Host Search and Filter Tabs -->
+      <div class="filter-tabs">
+        <button class="ft-btn active" id="hf-all" onclick="setHostTab('all')">👧 All Hosts <span class="ft-pill" id="hc-all">0</span></button>
+        <button class="ft-btn" id="hf-online" onclick="setHostTab('online')">🟢 Online Now <span class="ft-pill" id="hc-online">0</span></button>
+        <button class="ft-btn" id="hf-unpaid" onclick="setHostTab('unpaid')">⏳ With Unpaid Balance <span class="ft-pill" id="hc-unpaid">0</span></button>
+        <button class="ft-btn" id="hf-verified" onclick="setHostTab('verified')">✅ Verified <span class="ft-pill" id="hc-verified">0</span></button>
+      </div>
+
+      <div class="search-wrap">
+        <span class="search-icon-abs">🔍</span>
+        <input class="search-inp" id="host-page-search" placeholder="Search host by name, phone, or city..." oninput="renderHostPageTable()" />
+      </div>
+
+      <div class="table-card">
+        <table>
+          <thead><tr>
+            <th>Host Profile</th>
+            <th>Phone</th>
+            <th>Status</th>
+            <th>Calls & Time</th>
+            <th>Coins Earned</th>
+            <th>Gross Earned (70%)</th>
+            <th>Paid Out (₹)</th>
+            <th>Unpaid Balance (₹)</th>
+            <th>Actions</th>
+          </tr></thead>
+          <tbody id="hosts-page-body">
+            <tr><td colspan="9"><div class="empty-state"><div class="e-icon">⏳</div><p>Loading host earnings...</p></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
     <!-- VERIFICATION -->
     <div class="page" id="p-verify">
       <div class="ph">
@@ -949,6 +1027,9 @@ function startAutoRefresh() {
     } else if (currentTab === 'users') {
       const q = document.getElementById('usearch')?.value;
       if (!q) loadUsers(true);
+    } else if (currentTab === 'hosts') {
+      const q = document.getElementById('host-page-search')?.value;
+      if (!q) loadHostEarnings(true);
     } else if (currentTab === 'economics') {
       loadFinancials(true);
     } else if (currentTab === 'verify') {
@@ -974,6 +1055,7 @@ function go(name) {
   ({
     dash: loadDash,
     users: loadUsers,
+    hosts: loadHostEarnings,
     economics: loadFinancials,
     verify: loadPending,
     withdrawals: loadWithdrawals,
@@ -1412,13 +1494,147 @@ function renderHostTable() {
   }).join('');
 }
 
-function filterLedgerForHost(hostId) {
-  const sel = document.getElementById('ledger-host-select');
-  if (sel) {
-    sel.value = hostId;
-    renderLedger();
-    sel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+let currentHostTab = 'all';
+function setHostTab(t) {
+  currentHostTab = t;
+  document.querySelectorAll('[id^="hf-"]').forEach(b => b.classList.remove('active'));
+  document.getElementById('hf-' + t)?.classList.add('active');
+  renderHostPageTable();
+}
+
+async function loadHostEarnings(isAuto = false) {
+  try {
+    const list = await api('/admin/hosts');
+    allHostsList = list || [];
+    updateLedgerHostDropdown();
+    updateHostStatsSummary();
+    renderHostPageTable();
+    renderHostTable();
+  } catch (e) {
+    if (!isAuto) showToast('Failed to load host earnings: ' + e.message, false);
   }
+}
+
+function updateHostStatsSummary() {
+  const totalHosts = allHostsList.length;
+  const onlineHosts = allHostsList.filter(h => h.is_online).length;
+  const grossEarned = allHostsList.reduce((s, h) => s + Number(h.total_earned_inr || 0), 0);
+  const paidOut = allHostsList.reduce((s, h) => s + Number(h.total_paid_out || 0), 0);
+  const unpaid = allHostsList.reduce((s, h) => s + Number(h.unpaid_balance || 0), 0);
+
+  animateNum('he-total-hosts', totalHosts);
+  animateNum('he-online-hosts', onlineHosts);
+  animateCurrency('he-gross-earned', grossEarned);
+  animateCurrency('he-paid-out', paidOut);
+  animateCurrency('he-unpaid-balance', unpaid);
+
+  document.getElementById('hc-all') && (document.getElementById('hc-all').textContent = totalHosts);
+  document.getElementById('hc-online') && (document.getElementById('hc-online').textContent = onlineHosts);
+  document.getElementById('hc-unpaid') && (document.getElementById('hc-unpaid').textContent = allHostsList.filter(h => Number(h.unpaid_balance || 0) > 0).length);
+  document.getElementById('hc-verified') && (document.getElementById('hc-verified').textContent = allHostsList.filter(h => h.is_verified).length);
+}
+
+function renderHostPageTable() {
+  const tb = document.getElementById('hosts-page-body');
+  if (!tb) return;
+  const q = (document.getElementById('host-page-search')?.value || '').toLowerCase().trim();
+
+  let list = allHostsList;
+  if (currentHostTab === 'online') {
+    list = list.filter(h => h.is_online);
+  } else if (currentHostTab === 'unpaid') {
+    list = list.filter(h => Number(h.unpaid_balance || 0) > 0);
+  } else if (currentHostTab === 'verified') {
+    list = list.filter(h => h.is_verified);
+  }
+
+  if (q) {
+    list = list.filter(h =>
+      (h.name || '').toLowerCase().includes(q) ||
+      (h.phone || '').includes(q) ||
+      (h.city || '').toLowerCase().includes(q)
+    );
+  }
+
+  if (!list.length) {
+    tb.innerHTML = '<tr><td colspan="9"><div class="empty-state"><div class="e-icon">👧</div><p>No host earnings found matching filter/search</p></div></td></tr>';
+    return;
+  }
+
+  tb.innerHTML = list.map(h => {
+    const isOnline = !!h.is_online;
+    const isVerified = !!h.is_verified;
+    const grossEarned = Number(h.total_earned_inr || 0);
+    const paidOut = Number(h.total_paid_out || 0);
+    const unpaidBal = Number(h.unpaid_balance || 0);
+    const coinsEarned = Number(h.total_earned_coins || 0);
+    const totalCalls = Number(h.total_calls || 0);
+    const totalMins = Math.round(Number(h.total_call_secs || 0) / 60);
+
+    const avatarHtml = h.avatar_url
+      ? `<img src="${h.avatar_url}" style="width:38px;height:38px;border-radius:50%;object-fit:cover;border:2px solid #FFE0EB;" />`
+      : `<div style="width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--pink),var(--crimson));color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center;font-size:14px;">${(h.name||'?')[0].toUpperCase()}</div>`;
+
+    return `<tr>
+      <td>
+        <div style="display:flex;align-items:center;gap:12px;">
+          ${avatarHtml}
+          <div>
+            <div style="font-weight:700;font-size:13.5px;display:flex;align-items:center;gap:6px;">
+              ${h.name || 'Host'}
+              ${isVerified ? '<span style="color:#16a34a;font-size:13px;" title="Verified Profile">✓</span>' : ''}
+            </div>
+            <div style="font-size:11.5px;color:#888;">
+              ${h.city ? '📍 '+h.city : 'No location'}
+            </div>
+          </div>
+        </div>
+      </td>
+      <td style="font-size:12.5px;color:#334155;font-weight:600;">${h.phone || '–'}</td>
+      <td>
+        <span class="badge ${isOnline ? 'b-green' : 'b-gray'}">
+          <span class="online-dot ${isOnline ? 'dot-online' : 'dot-offline'}"></span>
+          ${isOnline ? 'Live Online' : 'Offline'}
+        </span>
+      </td>
+      <td>
+        <div style="font-weight:700;font-size:13px;">${totalCalls} calls</div>
+        <div style="font-size:11px;color:#888;">⏱️ ${totalMins} mins talked</div>
+      </td>
+      <td>
+        <b style="color:#FF3870;font-size:13px;">🪙 ${coinsEarned.toFixed(1)}</b>
+      </td>
+      <td>
+        <b style="color:#7C3AED;font-size:14px;">₹${grossEarned.toFixed(2)}</b>
+      </td>
+      <td>
+        <span style="color:#16a34a;font-weight:700;font-size:13px;">₹${paidOut.toFixed(2)}</span>
+      </td>
+      <td>
+        <span style="background:${unpaidBal > 0 ? '#FFF0F4' : '#F8FAFC'};color:${unpaidBal > 0 ? '#FF3870' : '#64748B'};padding:4px 8px;border-radius:6px;font-weight:800;font-size:13px;border:1px solid ${unpaidBal > 0 ? '#FFE4E6' : '#E2E8F0'};display:inline-block;">
+          ₹${unpaidBal.toFixed(2)}
+        </span>
+      </td>
+      <td>
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-sm" onclick="filterLedgerForHost('${h.id}')" style="font-size:11px;padding:4px 8px;background:#F1F5F9;color:#334155;" title="View all calls & earnings for this host in ledger">🔍 Ledger</button>
+          <button class="btn btn-sm btn-green" onclick="go('withdrawals')" style="font-size:11px;padding:4px 8px;" title="Review Payout Requests">💸 Payouts</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function filterLedgerForHost(hostId) {
+  go('economics');
+  setTimeout(() => {
+    const sel = document.getElementById('ledger-host-select');
+    if (sel) {
+      sel.value = hostId;
+      renderLedger();
+      sel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, 100);
 }
 
 async function reconcileEarnings() {

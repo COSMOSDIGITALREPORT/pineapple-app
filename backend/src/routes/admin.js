@@ -87,6 +87,57 @@ router.get('/stats', adminAuth, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// GET /admin/hosts — Dedicated Host-Wise Earnings & Accounts
+router.get('/hosts', adminAuth, async (req, res) => {
+  try {
+    const [rows] = await pool.query(`
+      SELECT 
+        u.id, 
+        u.name, 
+        u.phone, 
+        u.avatar_url, 
+        u.city,
+        u.is_online,
+        u.is_verified,
+        u.is_blocked,
+        u.rating,
+        u.minutes AS wallet_coins,
+        u.created_at,
+        COALESCE(e.total_earned_inr, 0) AS total_earned_inr,
+        COALESCE(e.total_earned_coins, 0) AS total_earned_coins,
+        COALESCE(c.total_calls, 0) AS total_calls,
+        COALESCE(c.total_call_secs, 0) AS total_call_secs,
+        COALESCE(c.call_earned_inr, 0) AS call_earned_inr,
+        COALESCE(w_app.paid_out, 0) AS total_paid_out,
+        COALESCE(w_pen.pending_payout, 0) AS pending_payout,
+        (GREATEST(COALESCE(e.total_earned_inr, 0), COALESCE(c.call_earned_inr, 0)) - COALESCE(w_app.paid_out, 0)) AS unpaid_balance
+      FROM users u
+      LEFT JOIN (
+        SELECT girl_id, 
+               SUM(amount_inr) AS total_earned_inr,
+               SUM(COALESCE(mins_received, coins_received, 0)) AS total_earned_coins
+        FROM earnings GROUP BY girl_id
+      ) e ON u.id = e.girl_id
+      LEFT JOIN (
+        SELECT receiver_id, 
+               COUNT(*) AS total_calls, 
+               SUM(duration_seconds) AS total_call_secs, 
+               SUM(girl_earnings_inr) AS call_earned_inr
+        FROM calls WHERE status='ended' GROUP BY receiver_id
+      ) c ON u.id = c.receiver_id
+      LEFT JOIN (
+        SELECT girl_id, SUM(amount) AS paid_out FROM withdrawals WHERE status='approved' GROUP BY girl_id
+      ) w_app ON u.id = w_app.girl_id
+      LEFT JOIN (
+        SELECT girl_id, SUM(amount) AS pending_payout FROM withdrawals WHERE status='pending' GROUP BY girl_id
+      ) w_pen ON u.id = w_pen.girl_id
+      WHERE u.gender IN ('girl', 'female')
+      ORDER BY unpaid_balance DESC, total_earned_inr DESC, u.created_at DESC
+    `);
+    res.json(rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // GET /admin/users
 router.get('/users', adminAuth, async (req, res) => {
   try {
