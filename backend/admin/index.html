@@ -797,17 +797,27 @@ td b{color:var(--text);font-weight:600;}
       <div class="ph">
         <div>
           <div class="ph-title">Call Reviews & Ratings</div>
-          <div class="ph-sub">Feedback submitted by users after audio and video calls</div>
+          <div class="ph-sub">Feedback, star ratings, and tags submitted by users after audio and video calls</div>
         </div>
         <button class="refresh-btn" onclick="loadReviews()">↻ &nbsp;Refresh</button>
       </div>
+
+      <!-- Reviews Filter Tabs -->
+      <div class="filter-tabs">
+        <button class="ft-btn active" id="rvf-all" onclick="setReviewFilter('all')">⭐ All Ratings & Reviews <span class="ft-pill" id="rvc-all">0</span></button>
+        <button class="ft-btn" id="rvf-5" onclick="setReviewFilter('5')">⭐⭐⭐⭐⭐ (5 Stars) <span class="ft-pill" id="rvc-5">0</span></button>
+        <button class="ft-btn" id="rvf-4" onclick="setReviewFilter('4')">⭐⭐⭐⭐ (4 Stars) <span class="ft-pill" id="rvc-4">0</span></button>
+        <button class="ft-btn" id="rvf-low" onclick="setReviewFilter('low')">⚠️ 1–3 Stars <span class="ft-pill" id="rvc-low">0</span></button>
+        <button class="ft-btn" id="rvf-text" onclick="setReviewFilter('text')">💬 With Text Comments <span class="ft-pill" id="rvc-text">0</span></button>
+      </div>
+
       <div class="table-card">
         <table>
           <thead><tr>
-            <th>Review</th><th>Stars</th><th>Tags</th><th>By</th><th>About</th><th>Date</th>
+            <th>Review & Feedback</th><th>Stars</th><th>Compliments / Tags</th><th>Given By</th><th>Received By</th><th>Date</th><th>Action</th>
           </tr></thead>
           <tbody id="rv-body">
-            <tr><td colspan="6"><div class="empty-state"><div class="e-icon">⏳</div><p>Loading...</p></div></td></tr>
+            <tr><td colspan="7"><div class="empty-state"><div class="e-icon">⏳</div><p>Loading...</p></div></td></tr>
           </tbody>
         </table>
       </div>
@@ -1475,23 +1485,95 @@ async function deleteReport(id) {
 }
 
 /* ── REVIEWS ── */
+let allReviewsList = [];
+let reviewFilterTab = 'all';
+
 async function loadReviews(isAuto=false) {
   try {
-    const rows = await api('/admin/reviews');
-    const tb = document.getElementById('rv-body');
-    if (!rows.length) { tb.innerHTML = '<tr><td colspan="6"><div class="empty-state"><div class="e-icon">💬</div><p>No reviews yet</p></div></td></tr>'; return; }
-    tb.innerHTML = rows.map(r => {
-      const tags = r.tags ? JSON.parse(r.tags).map(t => `<span class="badge b-blue">${t}</span>`).join(' ') : '–';
-      return `<tr>
-        <td style="max-width:260px;word-break:break-word"><b>"${r.review_text}"</b></td>
-        <td><span class="badge b-yellow">${'⭐'.repeat(r.stars)}</span></td>
-        <td>${tags}</td>
-        <td><span class="badge ${r.rater_gender==='female'||r.rater_gender==='girl'?'b-purple':'b-blue'}">${r.rater_name||'–'}</span></td>
-        <td><b>${r.rated_name||'–'}</b></td>
-        <td style="color:#bbb;font-size:12px">${new Date(r.created_at).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})}</td>
-      </tr>`;
-    }).join('');
+    allReviewsList = await api('/admin/reviews');
+    updateReviewPills();
+    renderReviews();
   } catch(e) { if (!isAuto) showToast(e.message, false); }
+}
+
+function updateReviewPills() {
+  const r5 = allReviewsList.filter(r => r.stars === 5);
+  const r4 = allReviewsList.filter(r => r.stars === 4);
+  const rLow = allReviewsList.filter(r => r.stars <= 3);
+  const rText = allReviewsList.filter(r => r.review_text && r.review_text.trim() !== '');
+
+  document.getElementById('rvc-all').textContent = allReviewsList.length;
+  document.getElementById('rvc-5').textContent = r5.length;
+  document.getElementById('rvc-4').textContent = r4.length;
+  document.getElementById('rvc-low').textContent = rLow.length;
+  document.getElementById('rvc-text').textContent = rText.length;
+}
+
+function setReviewFilter(tab) {
+  reviewFilterTab = tab;
+  document.querySelectorAll('.filter-tabs .ft-btn').forEach(b => {
+    if (b.id.startsWith('rvf-')) b.classList.remove('active');
+  });
+  document.getElementById('rvf-' + tab)?.classList.add('active');
+  renderReviews();
+}
+
+function renderReviews() {
+  const tb = document.getElementById('rv-body');
+  let list = allReviewsList;
+
+  if (reviewFilterTab === '5') {
+    list = list.filter(r => r.stars === 5);
+  } else if (reviewFilterTab === '4') {
+    list = list.filter(r => r.stars === 4);
+  } else if (reviewFilterTab === 'low') {
+    list = list.filter(r => r.stars <= 3);
+  } else if (reviewFilterTab === 'text') {
+    list = list.filter(r => r.review_text && r.review_text.trim() !== '');
+  }
+
+  if (!list.length) {
+    tb.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="e-icon">💬</div><p>No reviews found matching filter</p></div></td></tr>';
+    return;
+  }
+
+  tb.innerHTML = list.map(r => {
+    let tagElements = '<span style="color:#aaa">–</span>';
+    if (r.tags) {
+      try {
+        const parsed = typeof r.tags === 'string' ? JSON.parse(r.tags) : r.tags;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          tagElements = parsed.map(t => `<span class="badge b-blue" style="margin:2px">${t}</span>`).join(' ');
+        }
+      } catch {}
+    }
+
+    const reviewContent = (r.review_text && r.review_text.trim() !== '')
+      ? `<b>"${r.review_text}"</b>`
+      : `<span style="color:#aaa;font-style:italic;font-size:12px">(Star rating & tags given)</span>`;
+
+    const isRaterGirl = ['girl','female','f'].includes((r.rater_gender||'').toLowerCase());
+    const isRatedGirl = ['girl','female','f'].includes((r.rated_gender||'').toLowerCase());
+
+    return `<tr>
+      <td style="max-width:280px;word-break:break-word">${reviewContent}</td>
+      <td><span class="badge b-yellow" style="font-size:12px">${'⭐'.repeat(r.stars || 5)} (${r.stars}/5)</span></td>
+      <td>${tagElements}</td>
+      <td><span class="badge ${isRaterGirl?'b-purple':'b-blue'}">${isRaterGirl?'👧':'👦'} ${r.rater_name||'User'}</span></td>
+      <td><span class="badge ${isRatedGirl?'b-purple':'b-blue'}">${isRatedGirl?'👧':'👦'} ${r.rated_name||'User'}</span></td>
+      <td style="color:#bbb;font-size:12px">${new Date(r.created_at).toLocaleDateString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</td>
+      <td><button class="btn btn-red" onclick="deleteReview('${r.id}')" title="Delete review record">🗑️</button></td>
+    </tr>`;
+  }).join('');
+}
+
+async function deleteReview(id) {
+  if (!confirm('Delete this review record?')) return;
+  try {
+    await api('/admin/reviews/'+id, { method:'DELETE' });
+    showToast('Review deleted');
+    loadReviews();
+  } catch(e) { showToast(e.message, false); }
 }
 
 /* ── CALLS ── */

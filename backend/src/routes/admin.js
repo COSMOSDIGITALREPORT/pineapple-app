@@ -389,19 +389,31 @@ router.get('/calls', adminAuth, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// GET /admin/reviews — girl reviews about boys
+// GET /admin/reviews — all reviews & ratings (star ratings, tags, text feedback)
 router.get('/reviews', adminAuth, async (req, res) => {
   try {
     const [rows] = await pool.query(
       `SELECT r.id, r.stars, r.review_text, r.tags, r.created_at,
-              rater.name AS rater_name, rater.gender AS rater_gender,
-              rated.name AS rated_name, rated.gender AS rated_gender
+              COALESCE(rater.name, 'User') AS rater_name,
+              COALESCE(rater.gender, 'boy') AS rater_gender,
+              COALESCE(rater.phone, '') AS rater_phone,
+              COALESCE(rated.name, 'User') AS rated_name,
+              COALESCE(rated.gender, 'girl') AS rated_gender,
+              COALESCE(rated.phone, '') AS rated_phone
        FROM user_ratings r
-       JOIN users rater ON r.rater_id=rater.id
-       JOIN users rated ON r.rated_id=rated.id
-       WHERE r.review_text IS NOT NULL AND r.review_text!=''
-       ORDER BY r.created_at DESC LIMIT 100`);
+       LEFT JOIN users rater ON r.rater_id=rater.id
+       LEFT JOIN users rated ON r.rated_id=rated.id
+       ORDER BY r.created_at DESC LIMIT 200`
+    );
     res.json(rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// DELETE /admin/reviews/:id — delete review
+router.delete('/reviews/:id', adminAuth, async (req, res) => {
+  try {
+    await pool.query('DELETE FROM user_ratings WHERE id=?', [req.params.id]);
+    res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
