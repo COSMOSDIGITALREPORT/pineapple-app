@@ -106,17 +106,26 @@ export const getCallHistory = async () => {
   const rows = await get('/calls/history');
   const userId = await AsyncStorage.getItem('user_id');
 
-  return rows.map((c) => {
+  return (rows || []).map((c) => {
     const isCaller = c.caller_id === userId;
+    const otherName = c.other_user_name || (isCaller ? c.receiver_name : c.caller_name) || 'User';
+    const otherAvatar = c.other_user_avatar || (isCaller ? c.receiver_avatar : c.caller_avatar);
+    const secs = Number(c.duration_seconds) || 0;
+    const callType = c.call_type || c.type || 'audio';
     return {
+      ...c,
       id:         c.id,
-      type:       c.type,
+      call_type:  callType,
+      type:       callType,
       status:     c.status === 'ended' ? 'completed' : c.status,
-      duration:   formatDuration(c.duration_seconds),
+      duration_seconds: secs,
+      duration:   formatDuration(secs),
       created_at: c.created_at,
+      other_user_name: otherName,
+      other_user_avatar: otherAvatar,
       other_user: {
-        name:       isCaller ? c.receiver_name : c.caller_name,
-        avatar_url: isCaller ? c.receiver_avatar : c.caller_avatar,
+        name:       otherName,
+        avatar_url: otherAvatar,
         is_online:  false,
       },
     };

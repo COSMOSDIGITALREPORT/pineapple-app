@@ -46,15 +46,30 @@ export default function GirlsEarningsScreen({ onDrawer, onRedeem }) {
     getSocket()?.emit(val ? 'user:online' : 'user:offline');
   };
 
+  const getCallSecs = (c) => {
+    if (c?.duration_seconds != null && !isNaN(Number(c.duration_seconds)) && Number(c.duration_seconds) > 0) {
+      return Number(c.duration_seconds);
+    }
+    if (typeof c?.duration === 'string' && c.duration.includes(':')) {
+      const parts = c.duration.split(':').map(Number);
+      return (parts[0] || 0) * 60 + (parts[1] || 0);
+    }
+    return 0;
+  };
+
   const todayCoins = (earnings.earnings || [])
     .filter(e => new Date(e.created_at).toDateString() === new Date().toDateString())
     .reduce((s, e) => s + (parseFloat(e.mins_received) || parseFloat(e.coins_received) || 0), 0);
-  const totalCoins    = parseFloat(earnings.summary?.total_coins || earnings.summary?.total_mins || 0);
-  const totalInr      = parseFloat(earnings.summary?.total_inr  || 0);
-  const totalCalls    = earnings.summary?.total_calls != null ? earnings.summary.total_calls : calls.length;
-  const totalCallMins = earnings.summary?.total_talk_mins != null
-    ? earnings.summary.total_talk_mins
-    : Math.round(calls.reduce((s, c) => s + (Number(c.duration_seconds) || 0), 0) / 60);
+  const totalCoins = parseFloat(earnings.summary?.total_coins || earnings.summary?.total_mins || 0);
+  const totalInr   = parseFloat(earnings.summary?.total_inr  || 0);
+  const totalCalls = earnings.summary?.total_calls != null && Number(earnings.summary.total_calls) > 0
+    ? Number(earnings.summary.total_calls)
+    : calls.length;
+
+  const totalCalculatedSecs = calls.reduce((s, c) => s + getCallSecs(c), 0);
+  const totalCallMins = (earnings.summary?.total_talk_mins != null && Number(earnings.summary.total_talk_mins) > 0)
+    ? Number(earnings.summary.total_talk_mins)
+    : (totalCalculatedSecs > 0 ? Math.round(totalCalculatedSecs / 60) || 1 : 0);
 
   const STATS = [
     { label: 'Today',   value: todayCoins > 0 ? todayCoins.toFixed(1) : '0', sub: 'coins' },
@@ -146,12 +161,20 @@ export default function GirlsEarningsScreen({ onDrawer, onRedeem }) {
             <Text style={styles.emptySub}>Stay online to receive calls</Text>
           </View>
         ) : calls.slice(0, 10).map((call, i) => {
-          const secs = Number(call.duration_seconds) || 0;
-          const dur  = `${String(Math.floor(secs / 60)).padStart(2,'0')}:${String(secs % 60).padStart(2,'0')}`;
-          const isVideo = call.call_type === 'video';
-          const callerName = call.other_user_name || call.caller_name || call.other_user?.name || 'Caller';
-          const earnedCoins = call.girl_coins ? parseFloat(call.girl_coins).toFixed(1) : (Math.max(1, Math.ceil(secs / 60)) * (isVideo ? 2 : 1) * 0.70).toFixed(1);
-          const earnedInr = call.girl_earnings_inr ? parseFloat(call.girl_earnings_inr).toFixed(2) : (parseFloat(earnedCoins) * 0.50).toFixed(2);
+          const secs = getCallSecs(call);
+          const dur  = (typeof call.duration === 'string' && call.duration.includes(':') && call.duration !== '00:00')
+            ? call.duration
+            : `${String(Math.floor(secs / 60)).padStart(2,'0')}:${String(secs % 60).padStart(2,'0')}`;
+          const isVideo = (call.call_type || call.type) === 'video';
+          const callerName = call.other_user_name || call.other_user?.name || call.caller_name || 'Caller';
+          const hasEarnings = call.girl_coins != null && !isNaN(parseFloat(call.girl_coins)) && parseFloat(call.girl_coins) > 0;
+          const earnedCoins = hasEarnings
+            ? parseFloat(call.girl_coins).toFixed(1)
+            : (secs > 0 ? (Math.max(1, Math.ceil(secs / 60)) * (isVideo ? 2 : 1) * 0.70).toFixed(1) : '0.0');
+          const earnedInr = (call.girl_earnings_inr != null && !isNaN(parseFloat(call.girl_earnings_inr)) && parseFloat(call.girl_earnings_inr) > 0)
+            ? parseFloat(call.girl_earnings_inr).toFixed(2)
+            : (parseFloat(earnedCoins) * 0.50).toFixed(2);
+          const isPositive = secs > 0 || parseFloat(earnedCoins) > 0;
           return (
             <View key={call.id || i} style={styles.row}>
               <View style={styles.rowIcon}>
@@ -159,13 +182,13 @@ export default function GirlsEarningsScreen({ onDrawer, onRedeem }) {
               </View>
               <View style={styles.rowInfo}>
                 <Text style={styles.rowName} numberOfLines={1}>{callerName}</Text>
-                <Text style={styles.rowMeta}>{dur} · {call.call_type || 'audio'}</Text>
+                <Text style={styles.rowMeta}>{dur} · {isVideo ? 'video' : 'audio'}</Text>
               </View>
               <View style={{ alignItems: 'flex-end' }}>
-                <Text style={[styles.rowEarned, { color: secs > 0 || parseFloat(earnedCoins) > 0 ? '#22C55E' : '#94A3B8' }]}>
-                  {secs > 0 || parseFloat(earnedCoins) > 0 ? `+${earnedCoins} coins` : '—'}
+                <Text style={[styles.rowEarned, { color: isPositive ? '#22C55E' : '#94A3B8' }]}>
+                  {isPositive ? `+${earnedCoins} coins` : '—'}
                 </Text>
-                {(secs > 0 || parseFloat(earnedInr) > 0) && (
+                {isPositive && parseFloat(earnedInr) > 0 && (
                   <Text style={{ fontSize: 11, color: '#64748B', fontWeight: '600', marginTop: 1 }}>
                     ₹{earnedInr}
                   </Text>
