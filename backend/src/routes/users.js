@@ -5,8 +5,8 @@ const pool   = require('../config/db');
 
 // Fields safe to expose to other users (no phone, no fcm_token)
 const PUBLIC_FIELDS = 'id,name,dob,city,language,bio,avatar_url,is_online,is_premium,plan_id,rating,rating_count,content_prefs';
-// Fields for own profile (still no phone in response — stored server-side only)
-const ME_FIELDS     = `${PUBLIC_FIELDS},minutes,is_verified,spin_available,gender,created_at,free_trial_used,intro_9_used`;
+// Fields for own profile (includes phone for self account view)
+const ME_FIELDS     = `${PUBLIC_FIELDS},phone,minutes,is_verified,spin_available,gender,created_at,free_trial_used,intro_9_used`;
 
 function calcAge(dob) {
   if (!dob) return null;

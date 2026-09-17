@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -14,55 +14,79 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSelector } from 'react-redux';
 import Icon from '../components/Icon';
 import { Colors, Gradients } from '../theme/colors';
+import { getEarnings } from '../services/api';
 
 const SCREEN_W = Dimensions.get('window').width;
 const DRAWER_W = Math.min(SCREEN_W * 0.85, 340);
 const LOGO = require('../image/pineapple_logo.png');
 
 const NAV_ITEMS = [
-{ label: 'Transactions',   icon: 'list' },
-{ label: 'Settings',       icon: 'settings' },
-{ label: 'Privacy Policy', icon: 'lock' },
-{ label: 'Terms of Service', icon: 'file-text' },
+  { label: 'Transactions',   icon: 'list' },
+  { label: 'Settings',       icon: 'settings' },
+  { label: 'Privacy Policy', icon: 'lock' },
+  { label: 'Terms of Service', icon: 'file-text' },
 ];
 
-
-export default function DrawerMenu({ visible, onClose, onLuckySpin, onPremium, onLanguage, onSupport, onWallet, onSettings, onSafety, onLeaderboard, onLogout }) {
+export default function DrawerMenu({
+  visible,
+  onClose,
+  onTransactions,
+  onSettings,
+  onPrivacyPolicy,
+  onTermsOfService,
+  onSupport,
+  onLanguage,
+  onWallet,
+  onLeaderboard,
+  onLogout,
+}) {
   const insets = useSafeAreaInsets();
   const user = useSelector((s) => s.user);
+  const [earnedCoins, setEarnedCoins] = useState(0);
   const slideAnim = useRef(new Animated.Value(-DRAWER_W)).current;
   const backdropAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (visible) {
+      getEarnings().then((data) => {
+        if (data?.summary) {
+          const coins = parseFloat(data.summary.total_coins || data.summary.total_mins || 0);
+          setEarnedCoins(coins);
+        }
+      }).catch(() => {});
+
       Animated.parallel([
-      Animated.spring(slideAnim, {
-        toValue: 0,
-        useNativeDriver: true,
-        tension: 70,
-        friction: 12
-      }),
-      Animated.timing(backdropAnim, {
-        toValue: 1,
-        duration: 250,
-        useNativeDriver: true
-      })]
-      ).start();
+        Animated.spring(slideAnim, {
+          toValue: 0,
+          useNativeDriver: true,
+          tension: 70,
+          friction: 12,
+        }),
+        Animated.timing(backdropAnim, {
+          toValue: 1,
+          duration: 250,
+          useNativeDriver: true,
+        }),
+      ]).start();
     } else {
       Animated.parallel([
-      Animated.timing(slideAnim, {
-        toValue: -DRAWER_W,
-        duration: 220,
-        useNativeDriver: true
-      }),
-      Animated.timing(backdropAnim, {
-        toValue: 0,
-        duration: 220,
-        useNativeDriver: true
-      })]
-      ).start();
+        Animated.timing(slideAnim, {
+          toValue: -DRAWER_W,
+          duration: 220,
+          useNativeDriver: true,
+        }),
+        Animated.timing(backdropAnim, {
+          toValue: 0,
+          duration: 220,
+          useNativeDriver: true,
+        }),
+      ]).start();
     }
   }, [visible]);
+
+  const displayCoins = earnedCoins > 0
+    ? (Number.isInteger(earnedCoins) ? earnedCoins.toString() : earnedCoins.toFixed(1))
+    : '0';
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents={visible ? 'auto' : 'none'}>
@@ -75,10 +99,10 @@ export default function DrawerMenu({ visible, onClose, onLuckySpin, onPremium, o
       {/* Drawer panel */}
       <Animated.View
         style={[
-        styles.drawer,
-        { width: DRAWER_W, paddingTop: insets.top + 16 },
-        { transform: [{ translateX: slideAnim }] }]
-        }>
+          styles.drawer,
+          { width: DRAWER_W, paddingTop: insets.top + 16 },
+          { transform: [{ translateX: slideAnim }] },
+        ]}>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }}>
           {/* Header close button */}
           <View style={styles.drawerHeader}>
@@ -105,13 +129,19 @@ export default function DrawerMenu({ visible, onClose, onLuckySpin, onPremium, o
             </View>
             <View style={styles.profileInfo}>
               <Text style={styles.brandText}>{user.name || 'Pineapple'}</Text>
-              <Text style={styles.memberText}>{user.isPremium ? 'Premium Member' : 'Free Member'}</Text>
+              <Text style={styles.memberText}>Verified Host</Text>
             </View>
           </View>
 
           {/* Earnings card */}
           <TouchableOpacity
-            onPress={() => {onClose();setTimeout(() => onWallet?.(), 250);}}
+            onPress={() => {
+              onClose();
+              setTimeout(() => {
+                if (onTransactions) onTransactions();
+                else if (onWallet) onWallet();
+              }, 250);
+            }}
             activeOpacity={0.9}
             style={styles.walletWrap}>
             <LinearGradient
@@ -125,13 +155,19 @@ export default function DrawerMenu({ visible, onClose, onLuckySpin, onPremium, o
                 </View>
                 <TouchableOpacity
                   style={styles.walletTopUpBtn}
-                  onPress={() => {onClose(); setTimeout(() => onWallet?.(), 250);}}>
+                  onPress={() => {
+                    onClose();
+                    setTimeout(() => {
+                      if (onTransactions) onTransactions();
+                      else if (onWallet) onWallet();
+                    }, 250);
+                  }}>
                   <Text style={styles.walletTopUpText}>Redeem</Text>
                 </TouchableOpacity>
               </View>
               <View style={styles.walletAmountRow}>
                 <Text style={styles.walletCoinEmoji}>🪙</Text>
-                <Text style={styles.walletAmount}>{(user.coins || 0).toLocaleString('en-IN')}</Text>
+                <Text style={styles.walletAmount}>{displayCoins}</Text>
               </View>
               <Text style={styles.walletSubText}>coins earned · tap to redeem</Text>
             </LinearGradient>
@@ -158,47 +194,27 @@ export default function DrawerMenu({ visible, onClose, onLuckySpin, onPremium, o
             </TouchableOpacity>
           )}
 
-          {/* Lucky Spin entry */}
-          {!!onLuckySpin && (
-            <TouchableOpacity
-              style={styles.spinItem}
-              onPress={() => {
-                onClose();
-                setTimeout(onLuckySpin, 250);
-              }}
-              activeOpacity={0.85}>
-              <LinearGradient
-                colors={['#3A0068', '#C0003A']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.spinItemGrad}>
-                <View style={styles.spinItemLeft}>
-                  <View style={styles.zapIconWrap}>
-                    <Text style={{ fontSize: 16 }}>🎡</Text>
-                  </View>
-                  <Text style={styles.spinItemText}>Lucky Spin</Text>
-                </View>
-                <Icon name="chevron-right" size={18} color="#fff" />
-              </LinearGradient>
-            </TouchableOpacity>
-          )}
-
           {/* Nav section 1 */}
           <View style={styles.navSection}>
             {NAV_ITEMS.map((item, i) =>
-            <TouchableOpacity
-              key={i}
-              style={[styles.navItem, item.active && styles.navItemActive]}
-              activeOpacity={0.6}
-              onPress={() => {
-                if (item.label === 'Settings' && onSettings) {
+              <TouchableOpacity
+                key={i}
+                style={[styles.navItem, item.active && styles.navItemActive]}
+                activeOpacity={0.6}
+                onPress={() => {
                   onClose();
-                  setTimeout(onSettings, 250);
-                } else if (item.label === 'Guidelines' && onSafety) {
-                  onClose();
-                  setTimeout(onSafety, 250);
-                }
-              }}>
+                  setTimeout(() => {
+                    if (item.label === 'Transactions' && (onTransactions || onWallet)) {
+                      (onTransactions || onWallet)();
+                    } else if (item.label === 'Settings' && onSettings) {
+                      onSettings();
+                    } else if (item.label === 'Privacy Policy' && onPrivacyPolicy) {
+                      onPrivacyPolicy();
+                    } else if (item.label === 'Terms of Service' && onTermsOfService) {
+                      onTermsOfService();
+                    }
+                  }, 250);
+                }}>
                 <View style={styles.navIconWrap}>
                   <Icon name={item.icon} size={20} color={item.active ? Colors.secondary : '#64748b'} />
                 </View>
@@ -254,35 +270,13 @@ export default function DrawerMenu({ visible, onClose, onLuckySpin, onPremium, o
             </TouchableOpacity>
           </View>
 
-          {/* Premium banner */}
-          {!!onPremium && (
-            <TouchableOpacity
-              style={styles.premiumBanner}
-              activeOpacity={0.8}
-              onPress={() => {onClose(); setTimeout(onPremium, 250);}}>
-              <LinearGradient
-                colors={['#3A0068', '#7B0050', '#C0003A']}
-                start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                style={styles.premiumInner}>
-                <View style={styles.premiumIconWrap}>
-                  <Text style={{ fontSize: 26 }}>👑</Text>
-                </View>
-                <View style={styles.premiumInfo}>
-                  <Text style={styles.premiumTitle}>Pineapple Premium</Text>
-                  <Text style={styles.premiumSub}>Unlock unlimited matches</Text>
-                </View>
-                <Icon name="chevron-right" size={18} color="rgba(255,255,255,0.7)" />
-              </LinearGradient>
-            </TouchableOpacity>
-          )}
-
           <TouchableOpacity style={styles.logoutBtn} onPress={() => { onClose(); setTimeout(() => onLogout?.(), 250); }}>
             <Text style={styles.logoutText}>Sign Out</Text>
           </TouchableOpacity>
         </ScrollView>
       </Animated.View>
-    </View>);
-
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({

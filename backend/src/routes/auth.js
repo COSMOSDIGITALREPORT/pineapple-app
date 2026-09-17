@@ -118,8 +118,6 @@ router.post('/verify-otp', async (req, res) => {
     }
     const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '30d' });
     user.coins = user.minutes ?? 0;
-    // Never send phone in response
-    delete user.phone;
     res.json({ token, user, isNewUser: !user.name });
   } catch (err) { console.error('verify-otp:', err.message); res.status(500).json({ error: 'Verification failed' }); }
 });
@@ -150,7 +148,6 @@ router.post('/firebase-login', async (req, res) => {
     }
     const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '30d' });
     user.coins = user.minutes ?? 0;
-    delete user.phone;
     res.json({ token, user, isNewUser: !user.name });
   } catch (err) {
     console.error('firebase-login:', err.message);

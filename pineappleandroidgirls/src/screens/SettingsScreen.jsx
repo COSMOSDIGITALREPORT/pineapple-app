@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   View,
@@ -8,88 +8,125 @@ import {
   ScrollView,
   StatusBar,
   Image,
-  Switch } from 'react-native';
+  Switch,
+  Alert,
+} from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSelector, useDispatch } from 'react-redux';
 import PrivacyPolicyScreen from './PrivacyPolicyScreen';
-import { Alert } from 'react-native';
-import { deleteAccount } from '../services/api';
-import { resetUser } from '../store/slices/userSlice';
+import TermsOfServiceScreen from './TermsOfServiceScreen';
+import BlockedUsersScreen from './BlockedUsersScreen';
+import { deleteAccount, setOffline, getMe } from '../services/api';
+import { resetUser, setProfile } from '../store/slices/userSlice';
+import { getSocket } from '../services/socket';
 import Icon from '../components/Icon';
 import { Colors, Gradients } from '../theme/colors';
 
 const SECTIONS = [
-{
-  title: 'Account',
-  items: [
-  { label: 'Phone Number', type: 'info', key: 'phone' },
-  { label: 'Linked Accounts', sub: 'Google, Apple', type: 'info', key: 'linked' }]
-
-},
-{
-  title: 'Notifications',
-  items: [
-  { label: 'Push Notifications', type: 'toggle', key: 'push' },
-  { label: 'Call Alerts', type: 'toggle', key: 'callAlerts' },
-  { label: 'New Messages', type: 'toggle', key: 'messages' },
-  { label: 'Promotions & Offers', type: 'toggle', key: 'promos' }]
-
-},
-{
-  title: 'Privacy',
-  items: [
-  { label: 'Who can see my profile', sub: 'Everyone', type: 'nav', key: 'profileVisibility' },
-  { label: 'Block List', type: 'nav', key: 'blockList' },
-  { label: 'Hide Online Status', type: 'toggle', key: 'hideOnline' }]
-
-},
-{
-  title: 'App Preferences',
-  items: [
-  { label: 'Language', sub: 'English', type: 'nav', key: 'language' },
-  { label: 'Dark Mode', type: 'toggle', key: 'darkMode' },
-  { label: 'Auto-play Videos', type: 'toggle', key: 'autoplay' }]
-
-},
-{
-  title: 'Support & Legal',
-  items: [
-  { label: 'Help & Support', type: 'nav', key: 'support' },
-  { label: 'Privacy Policy', type: 'nav', key: 'privacy' },
-  { label: 'Terms of Service', type: 'nav', key: 'terms' },
-  { label: 'Community Guidelines', type: 'nav', key: 'guidelines' },
-  { label: 'App Version', sub: '2.4.0 (982)', type: 'nav', key: 'version' }]
-
-},
-{
-  title: 'Danger Zone',
-  items: [
-  { label: 'Delete Account', type: 'danger', key: 'delete' }]
-
-}];
+  {
+    title: 'Account',
+    items: [
+      { label: 'Phone Number', type: 'info', key: 'phone' },
+      { label: 'Linked Accounts', sub: 'Google, Apple', type: 'info', key: 'linked' },
+    ],
+  },
+  {
+    title: 'Notifications',
+    items: [
+      { label: 'Push Notifications', type: 'toggle', key: 'push' },
+      { label: 'Call Alerts', type: 'toggle', key: 'callAlerts' },
+      { label: 'New Messages', type: 'toggle', key: 'messages' },
+    ],
+  },
+  {
+    title: 'Privacy',
+    items: [
+      { label: 'Block List', type: 'nav', key: 'blockList' },
+      { label: 'Hide Online Status', type: 'toggle', key: 'hideOnline' },
+    ],
+  },
+  {
+    title: 'App Preferences',
+    items: [
+      { label: 'Language', sub: 'English', type: 'nav', key: 'language' },
+    ],
+  },
+  {
+    title: 'Support & Legal',
+    items: [
+      { label: 'Help & Support', type: 'nav', key: 'support' },
+      { label: 'Privacy Policy', type: 'nav', key: 'privacy' },
+      { label: 'Terms of Service', type: 'nav', key: 'terms' },
+      { label: 'Community Guidelines', type: 'nav', key: 'guidelines' },
+      { label: 'App Version', sub: '1.0.0', type: 'nav', key: 'version' },
+    ],
+  },
+  {
+    title: 'Danger Zone',
+    items: [
+      { label: 'Delete Account', type: 'danger', key: 'delete' },
+    ],
+  },
+];
 
 function ChevronIcon() {
   return (
-    <Icon name="chevron-right" size={16} color="#CBD5E1" />);
-
+    <Icon name="chevron-right" size={16} color="#CBD5E1" />
+  );
 }
 
-export default function SettingsScreen({ onBack, onLogout }) {
+export default function SettingsScreen({ onBack, onLogout, onBlockedUsers }) {
   const insets = useSafeAreaInsets();
   const user = useSelector((s) => s.user);
   const dispatch = useDispatch();
   const [showPrivacy, setShowPrivacy] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
+  const [showBlocked, setShowBlocked] = useState(false);
+  const [phoneNum, setPhoneNum] = useState(user.phone || '');
   const [toggles, setToggles] = useState({
-    push: true, callAlerts: true, messages: true,
-    promos: false, hideOnline: false, darkMode: false, autoplay: true,
+    push: true,
+    callAlerts: true,
+    messages: true,
+    hideOnline: false,
   });
 
-  const flip = (key) => setToggles((prev) => ({ ...prev, [key]: !prev[key] }));
+  useEffect(() => {
+    AsyncStorage.getItem('user_phone').then((p) => {
+      if (p) setPhoneNum(p);
+    });
+    getMe().then((data) => {
+      if (data?.phone) {
+        setPhoneNum(data.phone);
+        dispatch(setProfile(data));
+      }
+    }).catch(() => {});
+  }, []);
+
+  const flip = (key) => {
+    setToggles((prev) => {
+      const nextVal = !prev[key];
+      if (key === 'hideOnline') {
+        if (nextVal) {
+          setOffline().catch(() => {});
+          getSocket()?.emit('user:offline');
+        } else {
+          getSocket()?.emit('user:online');
+          getMe().catch(() => {});
+        }
+      }
+      return { ...prev, [key]: nextVal };
+    });
+  };
 
   const handleNavPress = (key) => {
+    if (key === 'blockList') {
+      if (onBlockedUsers) onBlockedUsers();
+      else setShowBlocked(true);
+      return;
+    }
     if (key === 'privacy')    { setShowPrivacy(true); return; }
-    if (key === 'terms')      { Alert.alert('Terms of Service', 'Visit pineappleapp.in/terms for full Terms of Service.'); return; }
+    if (key === 'terms')      { setShowTerms(true); return; }
     if (key === 'guidelines') { Alert.alert('Community Guidelines', 'Be respectful. No abuse, spam or fake profiles.'); return; }
     if (key === 'support')    { Alert.alert('Help & Support', 'Email us at support@pineappleapp.in'); return; }
     if (key === 'version')    { Alert.alert('App Version', 'Version 1.0.0'); return; }
@@ -134,6 +171,10 @@ export default function SettingsScreen({ onBack, onLogout }) {
   };
 
   if (showPrivacy) return <PrivacyPolicyScreen onBack={() => setShowPrivacy(false)} />;
+  if (showTerms)   return <TermsOfServiceScreen onBack={() => setShowTerms(false)} />;
+  if (showBlocked) return <BlockedUsersScreen onBack={() => setShowBlocked(false)} />;
+
+  const displayPhone = user.phone || phoneNum;
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
@@ -164,7 +205,7 @@ export default function SettingsScreen({ onBack, onLogout }) {
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.bannerName}>{user.name || 'Pineapple User'}</Text>
-            <Text style={styles.bannerSub}>{user.phone ? `+91 ${user.phone}` : 'Edit your profile →'}</Text>
+            <Text style={styles.bannerSub}>{displayPhone ? `+91 ${displayPhone}` : 'Edit your profile →'}</Text>
           </View>
         </LinearGradient>
 
@@ -189,7 +230,7 @@ export default function SettingsScreen({ onBack, onLogout }) {
                       </Text>
                       <Text style={styles.rowSub}>
                         {item.key === 'phone'
-                          ? (user.phone ? `+91 ${user.phone}` : 'Not set')
+                          ? (displayPhone ? `+91 ${displayPhone}` : 'Not set')
                           : item.sub || ''}
                       </Text>
                     </View>

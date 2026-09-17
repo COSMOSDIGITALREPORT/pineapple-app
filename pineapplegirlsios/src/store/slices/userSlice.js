@@ -41,6 +41,7 @@ const userSlice = createSlice({
     },
     setProfile: (state, action) => {
       state.name = action.payload.name ?? state.name;
+      state.phone = action.payload.phone ?? state.phone;
       state.gender = action.payload.gender ?? state.gender;
       state.dob = action.payload.dob ?? state.dob;
       state.city = action.payload.city ?? state.city;

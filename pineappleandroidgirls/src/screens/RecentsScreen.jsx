@@ -8,13 +8,25 @@ import {
   ScrollView,
   RefreshControl,
   ActivityIndicator,
+  Modal,
+  TextInput,
+  Alert,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Line } from 'react-native-svg';
 import Icon from '../components/Icon';
 import { Colors } from '../theme/colors';
-import { getCallHistory } from '../services/api';
+import { getCallHistory, blockUser, reportUser } from '../services/api';
+
+const REPORT_REASONS = [
+  'Inappropriate Behavior / Abusive Language',
+  'Harassment or Threats',
+  'Fake Profile / Impersonation / Scam',
+  'Underage Caller',
+  'Nudity or Offensive Content',
+  'Other Policy Violation',
+];
 
 function timeAgo(ts) {
   if (!ts) return '';
@@ -49,6 +61,12 @@ export default function RecentsScreen({ onRandom, onBack, onDrawer, onCall }) {
   const [calls, setCalls] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedCaller, setSelectedCaller] = useState(null);
+  const [showActionModal, setShowActionModal] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [selectedReason, setSelectedReason] = useState(REPORT_REASONS[0]);
+  const [customReason, setCustomReason] = useState('');
+  const [submittingAction, setSubmittingAction] = useState(false);
 
   const fetchHistory = async () => {
     try {
@@ -65,6 +83,65 @@ export default function RecentsScreen({ onRandom, onBack, onDrawer, onCall }) {
     setRefreshing(true);
     await fetchHistory();
     setRefreshing(false);
+  };
+
+  const handleCallerPress = (caller) => {
+    if (!caller || !caller.id) return;
+    setSelectedCaller(caller);
+    setShowActionModal(true);
+  };
+
+  const handleConfirmBlock = () => {
+    if (!selectedCaller) return;
+    Alert.alert(
+      'Block User',
+      `Are you sure you want to block ${selectedCaller.name || 'this caller'}? They will no longer be able to see your profile or call you.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Block User',
+          style: 'destructive',
+          onPress: async () => {
+            setSubmittingAction(true);
+            try {
+              await blockUser(selectedCaller.id);
+              setShowActionModal(false);
+              Alert.alert('User Blocked', `${selectedCaller.name || 'User'} has been blocked successfully.`);
+              await fetchHistory();
+            } catch (err) {
+              Alert.alert('Error', 'Failed to block user. Please try again.');
+            } finally {
+              setSubmittingAction(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleOpenReport = () => {
+    setShowActionModal(false);
+    setSelectedReason(REPORT_REASONS[0]);
+    setCustomReason('');
+    setShowReportModal(true);
+  };
+
+  const handleSubmitReport = async () => {
+    if (!selectedCaller) return;
+    const finalReason = customReason.trim() ? `${selectedReason}: ${customReason.trim()}` : selectedReason;
+    setSubmittingAction(true);
+    try {
+      await reportUser(selectedCaller.id, finalReason);
+      setShowReportModal(false);
+      Alert.alert(
+        'Report Submitted',
+        'Thank you for reporting. Our moderation team and Admin Panel have received this case for review.'
+      );
+    } catch (err) {
+      Alert.alert('Error', 'Failed to submit report. Please try again.');
+    } finally {
+      setSubmittingAction(false);
+    }
   };
 
   const missedCount = calls.filter(c => c.status === 'missed').length;
@@ -127,14 +204,18 @@ export default function RecentsScreen({ onRandom, onBack, onDrawer, onCall }) {
           </View>
         ) : (
           <>
-            <Text style={styles.sectionLabel}>CALL HISTORY</Text>
+            <Text style={styles.sectionLabel}>CALL HISTORY (TAP USER TO REPORT / BLOCK)</Text>
             {calls.map((call) => {
               const missed = call.status === 'missed';
               const isVideo = call.type === 'video';
-              const user = call.other_user || {};
+              const user = call.other_user || { id: call.caller_id, name: call.caller_name || call.other_user_name, avatar_url: call.other_user_avatar };
 
               return (
-                <View key={call.id} style={styles.card}>
+                <TouchableOpacity
+                  key={call.id}
+                  style={styles.card}
+                  activeOpacity={0.7}
+                  onPress={() => handleCallerPress(user)}>
                   {/* Avatar */}
                   <View style={styles.avatarWrap}>
                     {user.avatar_url ? (
@@ -162,31 +243,142 @@ export default function RecentsScreen({ onRandom, onBack, onDrawer, onCall }) {
                     <Text style={styles.cardTime}>{timeAgo(call.created_at)}</Text>
                   </View>
 
-                  {/* Call back button */}
-                  <TouchableOpacity
-                    style={[styles.callBackBtn, missed && styles.callBackBtnMissed]}
-                    activeOpacity={0.8}
-                    onPress={() => onCall && onCall(user)}>
-                    {missed ? (
-                      <>
-                        <LinearGradient
-                          colors={['#FF3870', '#C0004A']}
-                          start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                          style={StyleSheet.absoluteFill}
-                        />
-                        <Icon name="phone" size={18} color="#fff" />
-                      </>
-                    ) : (
-                      <Icon name="phone" size={18} color={Colors.secondary} />
-                    )}
-                  </TouchableOpacity>
-                </View>
+                  {/* Call / Action button */}
+                  <View style={styles.actionPillWrap}>
+                    <Text style={styles.actionPillText}>⋮ Manage</Text>
+                  </View>
+                </TouchableOpacity>
               );
             })}
           </>
         )}
 
       </ScrollView>
+
+      {/* USER ACTION BOTTOM SHEET / MODAL */}
+      <Modal visible={showActionModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.actionSheetCard}>
+            <View style={styles.sheetHeader}>
+              <View style={styles.sheetAvatarWrap}>
+                {selectedCaller?.avatar_url ? (
+                  <Image source={{ uri: selectedCaller.avatar_url }} style={styles.sheetAvatar} />
+                ) : (
+                  <View style={[styles.sheetAvatar, styles.avatarFallback]}>
+                    <Icon name="user" size={26} color={Colors.primary} />
+                  </View>
+                )}
+              </View>
+              <Text style={styles.sheetCallerName}>{selectedCaller?.name || 'Caller'}</Text>
+              <Text style={styles.sheetCallerSub}>Select an action for this user</Text>
+            </View>
+
+            <View style={styles.sheetActions}>
+              <TouchableOpacity
+                style={styles.sheetActionBtn}
+                activeOpacity={0.7}
+                onPress={handleOpenReport}>
+                <View style={[styles.sheetActionIconWrap, { backgroundColor: '#FEF2F2' }]}>
+                  <Text style={{ fontSize: 18 }}>🚨</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.sheetActionLabel, { color: '#DC2626' }]}>Report User</Text>
+                  <Text style={styles.sheetActionSub}>Report harassment, abuse, or policy violation to Admin</Text>
+                </View>
+                <Icon name="chevron-right" size={18} color="#94a3b8" />
+              </TouchableOpacity>
+
+              <View style={styles.sheetDivider} />
+
+              <TouchableOpacity
+                style={styles.sheetActionBtn}
+                activeOpacity={0.7}
+                disabled={submittingAction}
+                onPress={handleConfirmBlock}>
+                <View style={[styles.sheetActionIconWrap, { backgroundColor: '#FFF1F2' }]}>
+                  <Text style={{ fontSize: 18 }}>🚫</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.sheetActionLabel, { color: '#E11D48' }]}>Block User</Text>
+                  <Text style={styles.sheetActionSub}>Block from viewing profile or placing calls</Text>
+                </View>
+                <Icon name="chevron-right" size={18} color="#94a3b8" />
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity
+              style={styles.sheetCancelBtn}
+              activeOpacity={0.8}
+              onPress={() => setShowActionModal(false)}>
+              <Text style={styles.sheetCancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* REPORT SUBMISSION MODAL */}
+      <Modal visible={showReportModal} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.reportModalCard}>
+            <View style={styles.reportHeader}>
+              <Text style={styles.reportTitle}>🚨 Report User</Text>
+              <TouchableOpacity onPress={() => setShowReportModal(false)} style={styles.reportCloseBtn}>
+                <Icon name="x" size={20} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.reportSub}>
+              Reporting <Text style={{ fontWeight: '700', color: Colors.dark }}>{selectedCaller?.name || 'User'}</Text>. Please select a reason:
+            </Text>
+
+            <ScrollView style={{ maxHeight: 240, marginVertical: 10 }}>
+              {REPORT_REASONS.map((r, i) => {
+                const isSelected = selectedReason === r;
+                return (
+                  <TouchableOpacity
+                    key={i}
+                    style={[styles.reasonRow, isSelected && styles.reasonRowActive]}
+                    activeOpacity={0.7}
+                    onPress={() => setSelectedReason(r)}>
+                    <View style={[styles.radioCircle, isSelected && styles.radioCircleActive]}>
+                      {isSelected && <View style={styles.radioDot} />}
+                    </View>
+                    <Text style={[styles.reasonText, isSelected && styles.reasonTextActive]}>{r}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+
+            <TextInput
+              style={styles.reasonInput}
+              placeholder="Additional details (optional)..."
+              placeholderTextColor="#94A3B8"
+              value={customReason}
+              onChangeText={setCustomReason}
+              multiline
+              numberOfLines={2}
+            />
+
+            <View style={styles.reportActionsRow}>
+              <TouchableOpacity
+                style={styles.reportCancelBtn}
+                onPress={() => setShowReportModal(false)}>
+                <Text style={styles.reportCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.reportSubmitBtn}
+                disabled={submittingAction}
+                onPress={handleSubmitReport}>
+                {submittingAction ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Text style={styles.reportSubmitText}>Submit Report</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
     </View>
   );
 }
@@ -420,10 +612,215 @@ const styles = StyleSheet.create({
     borderRadius: 9999,
     alignSelf: 'flex-start',
   },
-  discoverBtnText: {
-    fontSize: 14,
+  actionPillWrap: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: '#FFF0F4',
+    borderWidth: 1,
+    borderColor: '#FFE0EB',
+  },
+  actionPillText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FF3870',
+  },
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    justifyContent: 'flex-end',
+  },
+  actionSheetCard: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    padding: 24,
+    paddingBottom: 36,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+  sheetHeader: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  sheetAvatarWrap: {
+    marginBottom: 10,
+  },
+  sheetAvatar: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    borderWidth: 2,
+    borderColor: '#FFE0EB',
+  },
+  sheetCallerName: {
+    fontSize: 19,
     fontWeight: '800',
-    color: Colors.secondary,
-    includeFontPadding: false,
+    color: '#1E293B',
+  },
+  sheetCallerSub: {
+    fontSize: 13,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  sheetActions: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    overflow: 'hidden',
+    marginBottom: 16,
+  },
+  sheetActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    gap: 14,
+  },
+  sheetActionIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sheetActionLabel: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  sheetActionSub: {
+    fontSize: 11.5,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  sheetDivider: {
+    height: 1,
+    backgroundColor: '#E2E8F0',
+  },
+  sheetCancelBtn: {
+    backgroundColor: '#F1F5F9',
+    paddingVertical: 14,
+    borderRadius: 16,
+    alignItems: 'center',
+  },
+  sheetCancelText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#475569',
+  },
+
+  reportModalCard: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    padding: 24,
+    paddingBottom: 36,
+  },
+  reportHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  reportTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#1E293B',
+  },
+  reportCloseBtn: {
+    padding: 6,
+  },
+  reportSub: {
+    fontSize: 13,
+    color: '#64748B',
+    marginBottom: 8,
+  },
+  reasonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 11,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    marginBottom: 6,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 12,
+  },
+  reasonRowActive: {
+    backgroundColor: '#FFF0F4',
+    borderColor: '#FF3870',
+  },
+  radioCircle: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#CBD5E1',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  radioCircleActive: {
+    borderColor: '#FF3870',
+  },
+  radioDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#FF3870',
+  },
+  reasonText: {
+    fontSize: 13.5,
+    color: '#334155',
+    fontWeight: '600',
+    flex: 1,
+  },
+  reasonTextActive: {
+    color: '#BE123C',
+    fontWeight: '700',
+  },
+  reasonInput: {
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 14,
+    padding: 12,
+    fontSize: 13,
+    color: '#1E293B',
+    backgroundColor: '#F8FAFC',
+    marginBottom: 16,
+    textAlignVertical: 'top',
+  },
+  reportActionsRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  reportCancelBtn: {
+    flex: 1,
+    paddingVertical: 13,
+    borderRadius: 14,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+  },
+  reportCancelText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  reportSubmitBtn: {
+    flex: 2,
+    paddingVertical: 13,
+    borderRadius: 14,
+    backgroundColor: '#FF3870',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  reportSubmitText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#fff',
   },
 });

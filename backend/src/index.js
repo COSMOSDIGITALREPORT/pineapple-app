@@ -80,6 +80,15 @@ async function runMigrations() {
       INDEX idx_status (status),
       INDEX idx_reported (reported_id)
     )`,
+    `CREATE TABLE IF NOT EXISTS blocks (
+      id           CHAR(36)     PRIMARY KEY,
+      blocker_id   CHAR(36)     NOT NULL,
+      blocked_id   CHAR(36)     NOT NULL,
+      created_at   DATETIME     DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uniq_block (blocker_id, blocked_id),
+      INDEX idx_blocker (blocker_id),
+      INDEX idx_blocked (blocked_id)
+    )`,
     `CREATE TABLE IF NOT EXISTS user_ratings (
       id           CHAR(36)     PRIMARY KEY DEFAULT (UUID()),
       rater_id     CHAR(36),

@@ -181,10 +181,11 @@ export const createPaymentOrder = (packageId) => post('/payment/create-order', {
 export const verifyPayment = (razorpay_order_id, razorpay_payment_id, razorpay_signature, packageId) =>
   post('/payment/verify', { razorpay_order_id, razorpay_payment_id, razorpay_signature, packageId });
 
-// ── Block ─────────────────────────────────────────────────────────────────────
+// ── Block & Report ────────────────────────────────────────────────────────────
 export const blockUser       = (userId)        => post(`/users/${userId}/block`, {});
 export const unblockUser     = (userId)        => request('DELETE', `/users/${userId}/block`);
 export const getBlockedUsers = ()              => get('/users/blocked');
+export const reportUser      = (userId, reason) => post(`/users/${userId}/report`, { reason });
 
 // ── Ratings ──────────────────────────────────────────────────────────────────
 export const rateUser = (userId, stars, callId, review = '', tags = []) => post(`/users/${userId}/rate`, { stars, callId, review, tags });

@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -13,17 +13,28 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
 import Icon from '../components/Icon';
 import { Colors, Gradients } from '../theme/colors';
-import { getMe, logout } from '../services/api';
+import { getMe, getEarnings, logout } from '../services/api';
 import { setProfile, resetUser } from '../store/slices/userSlice';
 
 export default function ProfileScreen({ onEditProfile, onWallet, onSettings, onBlockedUsers, onDrawer, onLogout }) {
   const insets = useSafeAreaInsets();
   const dispatch = useDispatch();
   const user = useSelector((s) => s.user);
+  const [earnedCoins, setEarnedCoins] = useState(0);
+  const [earnedInr, setEarnedInr]     = useState(0);
 
   useEffect(() => {
     getMe().then((data) => {
       dispatch(setProfile(data));
+    }).catch(() => {});
+
+    getEarnings().then((data) => {
+      if (data?.summary) {
+        const coins = parseFloat(data.summary.total_coins || data.summary.total_mins || 0);
+        const inr   = parseFloat(data.summary.total_inr || 0);
+        setEarnedCoins(coins);
+        setEarnedInr(inr);
+      }
     }).catch(() => {});
   }, []);
 
@@ -35,6 +46,10 @@ export default function ProfileScreen({ onEditProfile, onWallet, onSettings, onB
 
   const displayName = user.name ? `${user.name}${user.dob ? ', ' + getAge(user.dob) : ''}` : 'Your Profile';
   const avatarUri = user.avatarUrl;
+
+  const displayCoins = earnedCoins > 0
+    ? (Number.isInteger(earnedCoins) ? earnedCoins.toString() : earnedCoins.toFixed(1))
+    : '0';
 
   return (
     <View style={styles.root}>
@@ -98,17 +113,17 @@ export default function ProfileScreen({ onEditProfile, onWallet, onSettings, onB
 
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>{user.coins}</Text>
+              <Text style={styles.statValue}>{displayCoins}</Text>
               <Text style={styles.statLabel}>Coins</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>{user.isPremium ? 'Yes' : 'No'}</Text>
-              <Text style={styles.statLabel}>Premium</Text>
+              <Text style={styles.statValue}>₹{earnedInr.toFixed(0)}</Text>
+              <Text style={styles.statLabel}>Earned</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>{user.language || '—'}</Text>
+              <Text style={styles.statValue}>{user.language || 'English'}</Text>
               <Text style={styles.statLabel}>Language</Text>
             </View>
           </View>
@@ -138,7 +153,8 @@ export default function ProfileScreen({ onEditProfile, onWallet, onSettings, onB
           <Text style={styles.logoutText}>Logout</Text>
         </TouchableOpacity>
       </ScrollView>
-    </View>);
+    </View>
+  );
 }
 
 function getAge(dob) {
