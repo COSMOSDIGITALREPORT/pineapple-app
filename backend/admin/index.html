@@ -344,6 +344,285 @@ td b{color:var(--text);font-weight:600;}
 @keyframes scaleUp { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
 .host-row-clickable { cursor: pointer; transition: background 0.15s ease; }
 .host-row-clickable:hover { background: #FAF5FF !important; }
+
+/* ── SUPPORT / CHATBOT REPLY STYLES ── */
+.support-container {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 20px;
+  height: calc(100vh - 160px);
+  min-height: 600px;
+}
+.support-threads-card {
+  background: #fff;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+}
+.support-threads-header {
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+  background: #FFF9FB;
+}
+.support-search {
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1.5px solid var(--border);
+  font-size: 13px;
+  outline: none;
+  font-family: 'Inter', sans-serif;
+  background: #fff;
+  margin-top: 10px;
+}
+.support-search:focus {
+  border-color: var(--pink);
+}
+.support-threads-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.thread-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: 1.5px solid transparent;
+  background: #fff;
+}
+.thread-item:hover {
+  background: #FFF0F4;
+  border-color: #FFE0EA;
+}
+.thread-item.active {
+  background: #FFF0F4;
+  border-color: var(--pink);
+  box-shadow: 0 2px 8px rgba(255,56,112,0.12);
+}
+.thread-avatar-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+.thread-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #FFE4EC;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  color: var(--crimson);
+  font-size: 16px;
+}
+.thread-info {
+  flex: 1;
+  min-width: 0;
+}
+.thread-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 2px;
+}
+.thread-name {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.thread-time {
+  font-size: 10.5px;
+  color: var(--light);
+}
+.thread-phone {
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.thread-msg {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+}
+.thread-status-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+.support-chat-card {
+  background: #fff;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+}
+.support-chat-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  background: #FFF9FB;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.chat-user-profile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.chat-messages-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background: #FAFAFB;
+}
+.chat-bubble-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  max-width: 80%;
+}
+.chat-bubble-row.user {
+  align-self: flex-end;
+  flex-direction: row-reverse;
+}
+.chat-bubble-row.bot, .chat-bubble-row.admin {
+  align-self: flex-start;
+}
+.chat-bubble {
+  padding: 12px 16px;
+  border-radius: 18px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  position: relative;
+  word-break: break-word;
+}
+.chat-bubble.user {
+  background: linear-gradient(135deg, var(--pink), var(--crimson));
+  color: #fff;
+  border-bottom-right-radius: 4px;
+  box-shadow: 0 2px 8px rgba(255,56,112,0.25);
+}
+.chat-bubble.bot {
+  background: #fff;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-bottom-left-radius: 4px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+}
+.chat-bubble.admin {
+  background: linear-gradient(135deg, #3A0068, #7B0050);
+  color: #fff;
+  border-bottom-left-radius: 4px;
+  box-shadow: 0 4px 12px rgba(58,0,104,0.25);
+}
+.chat-sender-tag {
+  font-size: 10.5px;
+  font-weight: 700;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  opacity: 0.9;
+}
+.chat-time-tag {
+  font-size: 10px;
+  margin-top: 4px;
+  opacity: 0.75;
+  text-align: right;
+}
+.quick-replies-bar {
+  padding: 10px 16px;
+  background: #FFF5F8;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+.qr-chip {
+  background: #fff;
+  border: 1px solid var(--border);
+  color: var(--crimson);
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.qr-chip:hover {
+  background: #FFF0F4;
+  border-color: var(--pink);
+}
+.support-reply-bar {
+  padding: 16px 20px;
+  border-top: 1px solid var(--border);
+  background: #fff;
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+}
+.support-reply-input {
+  flex: 1;
+  padding: 12px 16px;
+  border-radius: 14px;
+  border: 1.5px solid var(--border);
+  font-size: 13.5px;
+  font-family: 'Inter', sans-serif;
+  color: var(--text);
+  resize: none;
+  min-height: 48px;
+  max-height: 120px;
+  outline: none;
+  transition: all 0.2s;
+}
+.support-reply-input:focus {
+  border-color: var(--pink);
+  box-shadow: 0 0 0 3px rgba(255,56,112,0.1);
+}
+.support-send-btn {
+  padding: 13px 22px;
+  background: linear-gradient(135deg, var(--pink), var(--crimson));
+  color: #fff;
+  border: none;
+  border-radius: 14px;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 4px 14px rgba(255,56,112,0.3);
+  transition: all 0.15s;
+}
+.support-send-btn:hover {
+  opacity: 0.92;
+  transform: translateY(-1px);
+}
 </style>
 </head>
 <body>
@@ -405,6 +684,10 @@ td b{color:var(--text);font-weight:600;}
         <span class="ic">🚨</span> Reports
         <span class="nav-badge" id="nb-r" style="display:none">0</span>
       </button>
+      <button class="nav-btn" id="n-support" onclick="go('support')">
+        <span class="ic">🤖</span> Chatbot Reply
+        <span class="nav-badge" id="nb-s" style="display:none">0</span>
+      </button>
       <button class="nav-btn" id="n-reviews" onclick="go('reviews')">
         <span class="ic">💬</span> Reviews
       </button>
@@ -462,6 +745,11 @@ td b{color:var(--text);font-weight:600;}
           <div class="stat-top"><div class="stat-icon-wrap">👧</div></div>
           <div class="stat-num" id="s-girls">–</div>
           <div class="stat-label">Girls Registered</div>
+        </div>
+        <div class="stat-card c-pink" onclick="go('support')" title="Click to view and reply to user chatbot questions">
+          <div class="stat-top"><div class="stat-icon-wrap">🤖</div><span class="stat-trend" style="background:#FFF0F4;color:var(--pink)" id="s-s-badge"></span></div>
+          <div class="stat-num" id="s-support">–</div>
+          <div class="stat-label">Chatbot Inquiries</div>
         </div>
         <div class="stat-card c-pink" onclick="go('calls')" title="Click to view call history">
           <div class="stat-top"><div class="stat-icon-wrap">📞</div></div>
@@ -1030,6 +1318,110 @@ td b{color:var(--text);font-weight:600;}
       </div>
     </div>
 
+    <!-- CHATBOT REPLY / SUPPORT DESK -->
+    <div class="page" id="p-support">
+      <div class="ph">
+        <div>
+          <div class="ph-title">🤖 Chatbot Reply & User Inquiries</div>
+          <div class="ph-sub">View incoming questions from Boys & Girls apps, manage FAQ bots, and send real-time Admin replies</div>
+        </div>
+        <div class="ph-actions">
+          <button class="refresh-btn" onclick="loadSupport()">↻ &nbsp;Refresh</button>
+        </div>
+      </div>
+
+      <!-- Filter Tabs -->
+      <div class="filter-tabs">
+        <button class="ft-btn active" id="sf-all" onclick="setSupportTab('all')">💬 All Chats <span class="ft-pill" id="sc-all">0</span></button>
+        <button class="ft-btn" id="sf-pending" onclick="setSupportTab('pending')">⏳ Pending Reply <span class="ft-pill" id="sc-pending" style="background:#dc2626;color:#fff;">0</span></button>
+        <button class="ft-btn" id="sf-boy" onclick="setSupportTab('boy')">👦 Boys Questions <span class="ft-pill" id="sc-boy">0</span></button>
+        <button class="ft-btn" id="sf-girl" onclick="setSupportTab('girl')">👧 Girls Questions <span class="ft-pill" id="sc-girl">0</span></button>
+        <button class="ft-btn" id="sf-replied" onclick="setSupportTab('replied')">✓ Replied <span class="ft-pill" id="sc-replied">0</span></button>
+      </div>
+
+      <div class="support-container">
+        <!-- LEFT: Conversations List -->
+        <div class="support-threads-card">
+          <div class="support-threads-header">
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+              <span style="font-size:14px;font-weight:800;color:var(--text);">User Inquiries</span>
+              <span class="badge b-pink" id="support-active-count">0 threads</span>
+            </div>
+            <input class="support-search" id="support-search" placeholder="Search user or message..." oninput="filterSupportThreads()" />
+          </div>
+          <div class="support-threads-list" id="support-threads-body">
+            <div style="text-align:center;padding:40px 20px;color:#999;font-size:13px;">
+              <div style="font-size:32px;margin-bottom:8px;">⏳</div>
+              Loading inquiries...
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT: Active Chat & Reply Desk -->
+        <div class="support-chat-card" id="support-chat-panel">
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px;color:#999;text-align:center;" id="support-empty-state">
+            <div style="font-size:48px;margin-bottom:12px;">💬</div>
+            <h3 style="font-size:18px;font-weight:800;color:var(--text);margin-bottom:6px;">Select an inquiry thread</h3>
+            <p style="font-size:13px;max-width:320px;line-height:1.5;">Choose a user from the left list to view their question history and send an instant Admin reply.</p>
+          </div>
+
+          <div id="support-active-chat" style="display:none;flex-direction:column;flex:1;height:100%;">
+            <!-- Header with user profile -->
+            <div class="support-chat-header">
+              <div class="chat-user-profile">
+                <div class="thread-avatar-wrap">
+                  <div class="thread-avatar" id="chat-u-avatar">👤</div>
+                </div>
+                <div>
+                  <div style="display:flex;align-items:center;gap:8px;">
+                    <span style="font-size:15px;font-weight:800;color:var(--text);" id="chat-u-name">User Name</span>
+                    <span class="badge" id="chat-u-gender-badge">👦 Boy</span>
+                    <span class="badge" id="chat-u-status-badge">⏳ Pending Reply</span>
+                  </div>
+                  <div style="font-size:11.5px;color:var(--muted);margin-top:2px;">
+                    <span id="chat-u-phone">+91 0000000000</span> · <span id="chat-u-coins">🪙 0 coins</span> · <span id="chat-u-joined">Joined: –</span>
+                  </div>
+                </div>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <button class="btn btn-red" style="padding:6px 12px;font-size:12px;" onclick="deleteActiveSupportThread()" title="Clear this user's support history">🗑️ Clear Chat</button>
+              </div>
+            </div>
+
+            <!-- Messages area -->
+            <div class="chat-messages-area" id="chat-messages-container">
+              <!-- Dynamically populated -->
+            </div>
+
+            <!-- Quick Template Chips -->
+            <div class="quick-replies-bar">
+              <span style="font-size:11px;font-weight:700;color:var(--muted);align-self:center;margin-right:4px;">Quick Templates:</span>
+              <button type="button" class="qr-chip" onclick="insertTemplateText('How can we assist you further?')">❓ More Help</button>
+              <button type="button" class="qr-chip" onclick="insertTemplateText('We have checked and resolved your issue. Please check your app now.')">✓ Issue Resolved</button>
+              <button type="button" class="qr-chip" onclick="insertTemplateText('Your payment has been verified and coins added to your wallet.')">💰 Coins Credited</button>
+              <button type="button" class="qr-chip" onclick="insertTemplateText('Your withdrawal request has been approved and credited to your UPI ID.')">💸 Payout Approved</button>
+              <button type="button" class="qr-chip" onclick="insertTemplateText('Please restart your app or check your internet connection.')">🔄 Restart App</button>
+            </div>
+
+            <!-- Reply bar -->
+            <div class="support-reply-bar">
+              <textarea
+                class="support-reply-input"
+                id="support-reply-input"
+                rows="2"
+                placeholder="Type your reply to user... (Press Enter to send)"
+                onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault();sendAdminReply();}"
+              ></textarea>
+              <button class="support-send-btn" onclick="sendAdminReply()">
+                <span>Send Reply</span>
+                <span>🚀</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -1111,6 +1503,9 @@ function startAutoRefresh() {
       loadReviews(true);
     } else if (currentTab === 'calls') {
       loadCalls(true);
+    } else if (currentTab === 'support') {
+      const q = document.getElementById('support-search')?.value;
+      if (!q) loadSupport(true);
     }
   }, 4000);
 }
@@ -1130,7 +1525,8 @@ function go(name) {
     withdrawals: loadWithdrawals,
     reports: loadReports,
     reviews: loadReviews,
-    calls: loadCalls
+    calls: loadCalls,
+    support: loadSupport
   })[name]?.();
 }
 
@@ -1150,6 +1546,7 @@ async function loadDash(isAuto=false) {
     animateCurrency('s-girl-earn', s.girlEarnings ?? 0);
     animateNum('s-boys',        s.boys ?? 0);
     animateNum('s-girls',       s.girls ?? 0);
+    animateNum('s-support',     s.pendingSupportQueries ?? 0);
     animateNum('s-calls',       s.totalCalls ?? 0);
     animateNum('s-coins',       s.totalCoins ?? 0);
     animateNum('s-withdrawals', s.pendingWithdrawals ?? 0);
@@ -1159,6 +1556,17 @@ async function loadDash(isAuto=false) {
     const wb = document.getElementById('s-w-badge');
     const rb = document.getElementById('s-r-badge');
     const vb = document.getElementById('s-v-badge');
+    const sb = document.getElementById('s-s-badge');
+
+    if ((s.pendingSupportQueries||0) > 0) {
+      if (sb) { sb.textContent = '⏳ '+s.pendingSupportQueries+' pending'; sb.style.display = ''; }
+      const nbs = document.getElementById('nb-s');
+      if (nbs) { nbs.style.display = ''; nbs.textContent = s.pendingSupportQueries; }
+    } else {
+      if (sb) sb.style.display = 'none';
+      const nbs = document.getElementById('nb-s');
+      if (nbs) nbs.style.display = 'none';
+    }
 
     if ((s.pendingWithdrawals||0) > 0) {
       wb.textContent = '⚡ '+s.pendingWithdrawals+' pending (₹'+(s.pendingWithdrawalAmount||0)+')';
@@ -2345,6 +2753,258 @@ async function loadCalls(isAuto=false) {
       </tr>`;
     }).join('');
   } catch(e) { if (!isAuto) showToast(e.message, false); }
+}
+
+/* ── CHATBOT SUPPORT & INQUIRIES ── */
+let allSupportThreads = [];
+let supportFilterTab = 'all';
+let selectedSupportUserId = null;
+
+async function loadSupport(isAuto=false) {
+  try {
+    allSupportThreads = await api('/admin/support/conversations');
+    updateSupportPills();
+    renderSupportThreads();
+    if (selectedSupportUserId) {
+      const currentThread = allSupportThreads.find(t => t.user_id === selectedSupportUserId);
+      if (currentThread) {
+        loadActiveChatMessages(selectedSupportUserId, true);
+      }
+    }
+  } catch(e) { if (!isAuto) showToast(e.message, false); }
+}
+
+function updateSupportPills() {
+  const pending = allSupportThreads.filter(t => (t.pending_count || 0) > 0);
+  const boys = allSupportThreads.filter(t => ['boy','male','m'].includes((t.gender||'').toLowerCase()));
+  const girls = allSupportThreads.filter(t => ['girl','female','f'].includes((t.gender||'').toLowerCase()));
+  const replied = allSupportThreads.filter(t => (t.pending_count || 0) === 0);
+
+  document.getElementById('sc-all').textContent = allSupportThreads.length;
+  document.getElementById('sc-pending').textContent = pending.length;
+  document.getElementById('sc-boy').textContent = boys.length;
+  document.getElementById('sc-girl').textContent = girls.length;
+  document.getElementById('sc-replied').textContent = replied.length;
+
+  const nb = document.getElementById('nb-s');
+  if (nb) {
+    if (pending.length > 0) {
+      nb.style.display = '';
+      nb.textContent = pending.length;
+    } else {
+      nb.style.display = 'none';
+    }
+  }
+}
+
+function setSupportTab(tab) {
+  supportFilterTab = tab;
+  document.querySelectorAll('.filter-tabs .ft-btn').forEach(b => {
+    if (b.id.startsWith('sf-')) b.classList.remove('active');
+  });
+  document.getElementById('sf-' + tab)?.classList.add('active');
+  renderSupportThreads();
+}
+
+function filterSupportThreads() {
+  renderSupportThreads();
+}
+
+function renderSupportThreads() {
+  const tb = document.getElementById('support-threads-body');
+  const search = (document.getElementById('support-search')?.value || '').toLowerCase().trim();
+  let list = allSupportThreads;
+
+  if (supportFilterTab === 'pending') {
+    list = list.filter(t => (t.pending_count || 0) > 0);
+  } else if (supportFilterTab === 'boy') {
+    list = list.filter(t => ['boy','male','m'].includes((t.gender||'').toLowerCase()));
+  } else if (supportFilterTab === 'girl') {
+    list = list.filter(t => ['girl','female','f'].includes((t.gender||'').toLowerCase()));
+  } else if (supportFilterTab === 'replied') {
+    list = list.filter(t => (t.pending_count || 0) === 0);
+  }
+
+  if (search) {
+    list = list.filter(t =>
+      (t.name || '').toLowerCase().includes(search) ||
+      (t.phone || '').includes(search) ||
+      (t.last_message || '').toLowerCase().includes(search)
+    );
+  }
+
+  document.getElementById('support-active-count').textContent = `${list.length} thread${list.length === 1 ? '' : 's'}`;
+
+  if (!list.length) {
+    tb.innerHTML = '<div style="text-align:center;padding:32px 16px;color:#999;font-size:13px;"><div style="font-size:28px;margin-bottom:6px;">💬</div>No support inquiries matching filter</div>';
+    return;
+  }
+
+  tb.innerHTML = list.map(t => {
+    const isGirl = ['girl','female','f'].includes((t.gender||'').toLowerCase());
+    const isPending = (t.pending_count || 0) > 0;
+    const isSelected = t.user_id === selectedSupportUserId;
+
+    let timeStr = '–';
+    if (t.last_message_at) {
+      const d = new Date(t.last_message_at);
+      timeStr = d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    const senderPrefix = t.last_sender === 'user' ? '👤 ' : t.last_sender === 'bot' ? '🤖 ' : '👑 Admin: ';
+
+    return `
+      <div class="thread-item ${isSelected ? 'active' : ''}" onclick="selectSupportUser('${t.user_id}')">
+        <div class="thread-avatar-wrap">
+          ${t.avatar_url
+            ? `<img src="${t.avatar_url}" class="thread-avatar" onerror="this.outerHTML='<div class=\\'thread-avatar\\'>${(t.name||'?')[0].toUpperCase()}</div>'" />`
+            : `<div class="thread-avatar">${(t.name||'?')[0].toUpperCase()}</div>`}
+          ${t.is_online ? '<div style="position:absolute;bottom:0;right:0;width:12px;height:12px;border-radius:6px;background:#22c55e;border:2px solid #fff;"></div>' : ''}
+        </div>
+        <div class="thread-info">
+          <div class="thread-top">
+            <span class="thread-name">${t.name || 'Anonymous User'}</span>
+            <span class="thread-time">${timeStr}</span>
+          </div>
+          <div class="thread-phone">${isGirl ? '👧 Girl' : '👦 Boy'} · +91 ${t.phone || '–'}</div>
+          <div class="thread-msg">${senderPrefix}${t.last_message || '(No message)'}</div>
+          <div class="thread-status-row">
+            ${isPending
+              ? '<span class="badge b-red" style="font-size:10px;padding:2px 8px;">⏳ Pending Reply</span>'
+              : '<span class="badge b-green" style="font-size:10px;padding:2px 8px;">✓ Replied</span>'}
+            ${(t.pending_count || 0) > 1 ? `<span class="badge b-yellow" style="font-size:10px;padding:2px 6px;">+${t.pending_count} new</span>` : ''}
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+async function selectSupportUser(userId) {
+  selectedSupportUserId = userId;
+  renderSupportThreads();
+  document.getElementById('support-empty-state').style.display = 'none';
+  const activeChat = document.getElementById('support-active-chat');
+  activeChat.style.display = 'flex';
+  await loadActiveChatMessages(userId);
+  setTimeout(() => {
+    document.getElementById('support-reply-input')?.focus();
+  }, 100);
+}
+
+async function loadActiveChatMessages(userId, isQuiet=false) {
+  try {
+    const data = await api('/admin/support/conversations/' + userId);
+    const u = data.user || {};
+    const msgs = data.messages || [];
+
+    const isGirl = ['girl','female','f'].includes((u.gender||'').toLowerCase());
+    document.getElementById('chat-u-name').textContent = u.name || 'Anonymous User';
+    document.getElementById('chat-u-phone').textContent = u.phone ? `+91 ${u.phone}` : 'No phone';
+    document.getElementById('chat-u-coins').textContent = `🪙 ${u.coins ?? 0} coins`;
+    document.getElementById('chat-u-joined').textContent = `Joined ${new Date(u.created_at).toLocaleDateString('en-IN', {day:'2-digit',month:'short',year:'numeric'})}`;
+    
+    const gb = document.getElementById('chat-u-gender-badge');
+    gb.className = `badge ${isGirl ? 'b-purple' : 'b-blue'}`;
+    gb.textContent = isGirl ? '👧 Girl / Host' : '👦 Boy';
+
+    const hasPending = msgs.some(m => m.sender_type === 'user' && m.status === 'pending');
+    const sb = document.getElementById('chat-u-status-badge');
+    if (hasPending) {
+      sb.className = 'badge b-red';
+      sb.textContent = '⏳ Pending Reply';
+    } else {
+      sb.className = 'badge b-green';
+      sb.textContent = '✓ Replied';
+    }
+
+    const av = document.getElementById('chat-u-avatar');
+    if (u.avatar_url) {
+      av.outerHTML = `<img id="chat-u-avatar" src="${u.avatar_url}" class="thread-avatar" onerror="this.outerHTML='<div id=\\'chat-u-avatar\\' class=\\'thread-avatar\\'>${(u.name||'?')[0].toUpperCase()}</div>'" />`;
+    } else {
+      av.outerHTML = `<div id="chat-u-avatar" class="thread-avatar">${(u.name||'?')[0].toUpperCase()}</div>`;
+    }
+
+    const container = document.getElementById('chat-messages-container');
+    if (!msgs.length) {
+      container.innerHTML = '<div style="text-align:center;padding:40px;color:#bbb;">No message history yet</div>';
+      return;
+    }
+
+    container.innerHTML = msgs.map(m => {
+      const isUser = m.sender_type === 'user';
+      const isBot = m.sender_type === 'bot';
+      const isAdmin = m.sender_type === 'admin';
+      const time = new Date(m.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+
+      let senderLabel = isUser ? `👤 ${u.name || 'User'}` : isBot ? '🤖 Pineapple Bot (Auto-Reply)' : '👑 Pineapple Support [Admin]';
+
+      return `
+        <div class="chat-bubble-row ${m.sender_type}">
+          <div class="chat-bubble ${m.sender_type}">
+            <div class="chat-sender-tag">${senderLabel}</div>
+            <div>${m.message.replace(/\\n/g, '<br>')}</div>
+            <div class="chat-time-tag">${time}</div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    if (!isQuiet) {
+      container.scrollTop = container.scrollHeight;
+    }
+  } catch(e) {
+    if (!isQuiet) showToast(e.message, false);
+  }
+}
+
+function insertTemplateText(text) {
+  const inp = document.getElementById('support-reply-input');
+  if (inp) {
+    inp.value = text;
+    inp.focus();
+  }
+}
+
+async function sendAdminReply() {
+  const inp = document.getElementById('support-reply-input');
+  const msg = (inp?.value || '').trim();
+  if (!msg) return;
+  if (!selectedSupportUserId) {
+    showToast('Please select a user to reply to', false);
+    return;
+  }
+
+  try {
+    await api('/admin/support/reply', {
+      method: 'POST',
+      body: JSON.stringify({ userId: selectedSupportUserId, message: msg }),
+    });
+
+    inp.value = '';
+    showToast('✓ Reply sent to user');
+    await loadActiveChatMessages(selectedSupportUserId);
+    const container = document.getElementById('chat-messages-container');
+    if (container) container.scrollTop = container.scrollHeight;
+    loadSupport(true);
+    loadDash(true);
+  } catch(e) {
+    showToast(e.message, false);
+  }
+}
+
+async function deleteActiveSupportThread() {
+  if (!selectedSupportUserId) return;
+  if (!confirm('Are you sure you want to clear this entire support chat history?')) return;
+  try {
+    await api('/admin/support/conversations/' + selectedSupportUserId, { method: 'DELETE' });
+    showToast('Support history cleared');
+    selectedSupportUserId = null;
+    document.getElementById('support-active-chat').style.display = 'none';
+    document.getElementById('support-empty-state').style.display = 'flex';
+    loadSupport();
+    loadDash();
+  } catch(e) { showToast(e.message, false); }
 }
 
 if (token) {

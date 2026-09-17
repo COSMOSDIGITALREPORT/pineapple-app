@@ -62,6 +62,11 @@ router.get('/stats', adminAuth, async (req, res) => {
     const [[pending]]  = await pool.query('SELECT COUNT(*) AS total, COALESCE(SUM(amount),0) AS total_amount FROM withdrawals WHERE status="pending"');
     const [[reports]]  = await pool.query('SELECT COUNT(*) AS total FROM reports WHERE status="pending"');
     const [[unverified]] = await pool.query('SELECT COUNT(*) AS total FROM users WHERE gender="girl" AND is_verified=0');
+    let pendingSupport = { total: 0 };
+    try {
+      const [[sp]] = await pool.query('SELECT COUNT(DISTINCT user_id) AS total FROM support_messages WHERE sender_type="user" AND status="pending"');
+      if (sp) pendingSupport = sp;
+    } catch {}
 
     const totalCoinsSpent = Number(calls.total_coins) || 0;
     const totalPlatformCallRev = parseFloat(calls.call_platform_rev) || 0;
@@ -83,6 +88,7 @@ router.get('/stats', adminAuth, async (req, res) => {
       pendingWithdrawals: pending.total,
       pendingReports: reports.total,
       pendingVerifications: unverified.total,
+      pendingSupportQueries: pendingSupport.total || 0,
     });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -629,6 +635,123 @@ router.post('/reconcile-earnings', adminAuth, async (req, res) => {
     );
 
     res.json({ success: true, message: 'Earnings reconciled successfully' });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── CHATBOT & USER SUPPORT ──────────────────────────────────────────────────
+
+// GET /admin/support/conversations — list all user support threads
+router.get('/support/conversations', adminAuth, async (req, res) => {
+  try {
+    const [rows] = await pool.query(`
+      SELECT 
+        u.id AS user_id,
+        u.name,
+        u.phone,
+        u.avatar_url,
+        u.gender,
+        u.minutes AS coins,
+        u.is_online,
+        u.created_at AS joined_at,
+        MAX(sm.created_at) AS last_message_at,
+        (
+          SELECT message FROM support_messages 
+          WHERE user_id = u.id 
+          ORDER BY created_at DESC LIMIT 1
+        ) AS last_message,
+        (
+          SELECT sender_type FROM support_messages 
+          WHERE user_id = u.id 
+          ORDER BY created_at DESC LIMIT 1
+        ) AS last_sender,
+        (
+          SELECT status FROM support_messages 
+          WHERE user_id = u.id 
+          ORDER BY created_at DESC LIMIT 1
+        ) AS last_status,
+        SUM(CASE WHEN sm.sender_type = 'user' AND sm.status = 'pending' THEN 1 ELSE 0 END) AS pending_count,
+        COUNT(sm.id) AS total_messages
+      FROM users u
+      JOIN support_messages sm ON u.id = sm.user_id
+      GROUP BY u.id
+      ORDER BY pending_count DESC, last_message_at DESC
+    `);
+    res.json(rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// GET /admin/support/conversations/:userId — get messages for user
+router.get('/support/conversations/:userId', adminAuth, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const [userRows] = await pool.query(
+      `SELECT id, name, phone, avatar_url, gender, minutes AS coins, is_online, is_verified, is_blocked, created_at
+       FROM users WHERE id = ?`,
+      [userId]
+    );
+    if (!userRows.length) return res.status(404).json({ error: 'User not found' });
+
+    const [messages] = await pool.query(
+      `SELECT id, user_id, sender_type, message, status, is_quick_faq, created_at
+       FROM support_messages
+       WHERE user_id = ?
+       ORDER BY created_at ASC`,
+      [userId]
+    );
+
+    res.json({
+      user: userRows[0],
+      messages,
+    });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// POST /admin/support/reply — admin reply to a user
+router.post('/support/reply', adminAuth, async (req, res) => {
+  try {
+    const { userId, message } = req.body;
+    const trimmed = (message || '').trim();
+    if (!userId || !trimmed) {
+      return res.status(400).json({ error: 'User ID and message are required' });
+    }
+
+    const replyId = uuidv4();
+    await pool.query(
+      `INSERT INTO support_messages (id, user_id, sender_type, message, status, is_quick_faq, created_at)
+       VALUES (?, ?, 'admin', ?, 'replied', 0, NOW())`,
+      [replyId, userId, trimmed]
+    );
+
+    // Mark pending user messages as replied
+    await pool.query(
+      `UPDATE support_messages SET status = 'replied' WHERE user_id = ? AND status = 'pending'`,
+      [userId]
+    );
+
+    const [rows] = await pool.query('SELECT * FROM support_messages WHERE id = ?', [replyId]);
+    const replyData = rows[0];
+
+    // Realtime emit to user socket
+    const io = req.app.get('io');
+    if (io) {
+      const destSocketId = io.onlineUsers?.get(userId);
+      if (destSocketId) {
+        io.to(destSocketId).emit('support:reply', replyData);
+      }
+      io.emit(`support:reply:${userId}`, replyData);
+      io.emit('support:message', replyData);
+    }
+
+    res.json({ success: true, message: replyData });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// DELETE /admin/support/conversations/:userId — delete conversation
+router.delete('/support/conversations/:userId', adminAuth, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    await pool.query('DELETE FROM support_messages WHERE user_id = ?', [userId]);
+    res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

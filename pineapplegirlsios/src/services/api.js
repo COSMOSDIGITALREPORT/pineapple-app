@@ -188,3 +188,6 @@ export const reportUser      = (userId, reason) => post(`/users/${userId}/report
 // ── Ratings ──────────────────────────────────────────────────────────────────
 export const rateUser = (userId, stars, callId, review = '', tags = []) => post(`/users/${userId}/rate`, { stars, callId, review, tags });
 export const getUserReviews = (userId) => get(`/users/${userId}/reviews`);
+
+export const getSupportMessages = () => get('/support/messages');
+export const sendSupportMessage = (message, is_quick_faq = false) => post('/support/messages', { message, is_quick_faq });

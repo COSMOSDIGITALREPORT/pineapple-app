@@ -25,6 +25,7 @@ app.use('/spin',          require('./routes/spin'));
 app.use('/payment',       require('./routes/payment'));
 app.use('/earnings',      require('./routes/earnings'));
 app.use('/upload',        require('./routes/upload'));
+app.use('/support',       require('./routes/support'));
 app.use('/admin',         require('./routes/admin'));
 app.use('/admin',         express.static(__dirname + '/../admin'));
 app.use('/uploads',       express.static(path.join(__dirname, '../uploads')));
@@ -110,6 +111,18 @@ async function runMigrations() {
       created_at   DATETIME     DEFAULT CURRENT_TIMESTAMP,
       INDEX idx_user (user_id),
       INDEX idx_type (type)
+    )`,
+    `CREATE TABLE IF NOT EXISTS support_messages (
+      id           CHAR(36)     PRIMARY KEY,
+      user_id      CHAR(36)     NOT NULL,
+      sender_type  VARCHAR(20)  NOT NULL,
+      message      TEXT         NOT NULL,
+      status       VARCHAR(20)  DEFAULT 'pending',
+      is_quick_faq TINYINT(1)   DEFAULT 0,
+      created_at   DATETIME     DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_user (user_id),
+      INDEX idx_status (status),
+      INDEX idx_created (created_at)
     )`,
     `INSERT INTO coin_packages (id, coins, price_inr, label, is_popular) VALUES
       ('pack_9', 15, 9, '15 Coins (Trial)', 0),
