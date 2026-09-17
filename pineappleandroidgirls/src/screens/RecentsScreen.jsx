@@ -85,14 +85,25 @@ export default function RecentsScreen({ onRandom, onBack, onDrawer, onCall }) {
     setRefreshing(false);
   };
 
-  const handleCallerPress = (caller) => {
-    if (!caller || !caller.id) return;
-    setSelectedCaller(caller);
+  const handleCallerPress = (item) => {
+    if (!item) return;
+    const cid = item?.id || item?.other_user_id || item?.other_user?.id || item?.caller_id || item?.receiver_id;
+    const cname = item?.name || item?.other_user_name || item?.other_user?.name || item?.caller_name || 'Caller';
+    const cavatar = item?.avatar_url || item?.other_user_avatar || item?.other_user?.avatar_url || item?.caller_avatar || null;
+
+    setSelectedCaller({
+      id: cid,
+      name: cname,
+      avatar_url: cavatar,
+    });
     setShowActionModal(true);
   };
 
   const handleConfirmBlock = () => {
-    if (!selectedCaller) return;
+    if (!selectedCaller?.id) {
+      Alert.alert('Error', 'Caller ID not found.');
+      return;
+    }
     Alert.alert(
       'Block User',
       `Are you sure you want to block ${selectedCaller.name || 'this caller'}? They will no longer be able to see your profile or call you.`,
@@ -127,7 +138,10 @@ export default function RecentsScreen({ onRandom, onBack, onDrawer, onCall }) {
   };
 
   const handleSubmitReport = async () => {
-    if (!selectedCaller) return;
+    if (!selectedCaller?.id) {
+      Alert.alert('Error', 'Caller ID not found.');
+      return;
+    }
     const finalReason = customReason.trim() ? `${selectedReason}: ${customReason.trim()}` : selectedReason;
     setSubmittingAction(true);
     try {
@@ -204,33 +218,37 @@ export default function RecentsScreen({ onRandom, onBack, onDrawer, onCall }) {
           </View>
         ) : (
           <>
-            <Text style={styles.sectionLabel}>CALL HISTORY (TAP USER TO REPORT / BLOCK)</Text>
+            <Text style={styles.sectionLabel}>CALL HISTORY (TAP TO REPORT / BLOCK)</Text>
             {calls.map((call) => {
               const missed = call.status === 'missed';
               const isVideo = call.type === 'video';
-              const user = call.other_user || { id: call.caller_id, name: call.caller_name || call.other_user_name, avatar_url: call.other_user_avatar };
+              const otherUser = call.other_user || {
+                id: call.other_user_id || call.caller_id,
+                name: call.other_user_name || call.caller_name || 'User',
+                avatar_url: call.other_user_avatar || call.caller_avatar,
+              };
 
               return (
                 <TouchableOpacity
                   key={call.id}
                   style={styles.card}
                   activeOpacity={0.7}
-                  onPress={() => handleCallerPress(user)}>
+                  onPress={() => handleCallerPress(call)}>
                   {/* Avatar */}
                   <View style={styles.avatarWrap}>
-                    {user.avatar_url ? (
-                      <Image source={{ uri: user.avatar_url }} style={styles.avatar} />
+                    {otherUser.avatar_url ? (
+                      <Image source={{ uri: otherUser.avatar_url }} style={styles.avatar} />
                     ) : (
                       <View style={[styles.avatar, styles.avatarFallback]}>
                         <Icon name="user" size={22} color={Colors.primary} />
                       </View>
                     )}
-                    <View style={[styles.onlineDot, { backgroundColor: user.is_online ? '#22C55E' : '#cbd5e1' }]} />
+                    <View style={[styles.onlineDot, { backgroundColor: otherUser.is_online ? '#22C55E' : '#cbd5e1' }]} />
                   </View>
 
                   {/* Info */}
                   <View style={styles.cardInfo}>
-                    <Text style={styles.cardName} numberOfLines={1} ellipsizeMode="tail">{user.name || 'Unknown'}</Text>
+                    <Text style={styles.cardName} numberOfLines={1} ellipsizeMode="tail">{otherUser.name || 'Unknown'}</Text>
                     <View style={styles.cardMeta}>
                       <PhoneArrowIcon missed={missed} />
                       <Text style={[styles.cardStatus, missed && styles.cardStatusMissed]} numberOfLines={1}>
@@ -243,10 +261,13 @@ export default function RecentsScreen({ onRandom, onBack, onDrawer, onCall }) {
                     <Text style={styles.cardTime}>{timeAgo(call.created_at)}</Text>
                   </View>
 
-                  {/* Call / Action button */}
-                  <View style={styles.actionPillWrap}>
+                  {/* Manage action pill */}
+                  <TouchableOpacity
+                    style={styles.actionPillWrap}
+                    activeOpacity={0.8}
+                    onPress={() => handleCallerPress(call)}>
                     <Text style={styles.actionPillText}>⋮ Manage</Text>
-                  </View>
+                  </TouchableOpacity>
                 </TouchableOpacity>
               );
             })}

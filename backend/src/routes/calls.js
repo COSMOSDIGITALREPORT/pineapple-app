@@ -123,6 +123,7 @@ router.get('/history', auth, async (req, res) => {
       `SELECT c.*, 
               u1.name AS caller_name, u1.avatar_url AS caller_avatar,
               u2.name AS receiver_name, u2.avatar_url AS receiver_avatar,
+              CASE WHEN c.caller_id = ? THEN u2.id ELSE u1.id END AS other_user_id,
               CASE WHEN c.caller_id = ? THEN u2.name ELSE u1.name END AS other_user_name,
               CASE WHEN c.caller_id = ? THEN u2.avatar_url ELSE u1.avatar_url END AS other_user_avatar
        FROM calls c
@@ -130,7 +131,7 @@ router.get('/history', auth, async (req, res) => {
        JOIN users u2 ON c.receiver_id=u2.id
        WHERE (c.caller_id=? OR c.receiver_id=?) AND c.status='ended'
        ORDER BY c.created_at DESC LIMIT 30`,
-      [req.user.userId, req.user.userId, req.user.userId, req.user.userId]);
+      [req.user.userId, req.user.userId, req.user.userId, req.user.userId, req.user.userId]);
     res.json(rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });

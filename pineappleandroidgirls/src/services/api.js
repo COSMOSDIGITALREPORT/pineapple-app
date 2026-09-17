@@ -104,6 +104,7 @@ export const getCallHistory = async () => {
 
   return (rows || []).map((c) => {
     const isCaller = c.caller_id === userId;
+    const otherId = c.other_user_id || (isCaller ? c.receiver_id : c.caller_id);
     const otherName = c.other_user_name || (isCaller ? c.receiver_name : c.caller_name) || 'User';
     const otherAvatar = c.other_user_avatar || (isCaller ? c.receiver_avatar : c.caller_avatar);
     const secs = Number(c.duration_seconds) || 0;
@@ -117,9 +118,11 @@ export const getCallHistory = async () => {
       duration_seconds: secs,
       duration:   formatDuration(secs),
       created_at: c.created_at,
+      other_user_id: otherId,
       other_user_name: otherName,
       other_user_avatar: otherAvatar,
       other_user: {
+        id:         otherId,
         name:       otherName,
         avatar_url: otherAvatar,
         is_online:  false,
