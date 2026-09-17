@@ -6,15 +6,25 @@ const pool   = require('../config/db');
 router.get('/', auth, async (req, res) => {
   try {
     const [user]  = await pool.query('SELECT minutes FROM users WHERE id=?', [req.user.userId]);
-    const [txns]  = await pool.query('SELECT * FROM wallet_transactions WHERE user_id=? ORDER BY created_at DESC LIMIT 20', [req.user.userId]);
+    const [txns]  = await pool.query('SELECT * FROM wallet_transactions WHERE user_id=? ORDER BY created_at DESC LIMIT 50', [req.user.userId]);
     let gifts = [];
     try {
       const [g] = await pool.query(
-        'SELECT g.*, u.name AS sender_name, u.avatar_url AS sender_avatar FROM gifts g JOIN users u ON g.sender_id=u.id WHERE g.receiver_id=? ORDER BY g.created_at DESC LIMIT 10',
+        'SELECT g.*, u.name AS sender_name, u.avatar_url AS sender_avatar FROM gifts g JOIN users u ON g.sender_id=u.id WHERE g.receiver_id=? ORDER BY g.created_at DESC LIMIT 20',
         [req.user.userId]);
       gifts = g;
     } catch (_) {}
     res.json({ minutes: user[0]?.minutes || 0, transactions: txns, gifts });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+router.get('/transactions', auth, async (req, res) => {
+  try {
+    const [txns] = await pool.query(
+      'SELECT id, user_id, type, amount, description, created_at FROM wallet_transactions WHERE user_id=? ORDER BY created_at DESC LIMIT 100',
+      [req.user.userId]
+    );
+    res.json(txns);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

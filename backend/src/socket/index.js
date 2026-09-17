@@ -17,6 +17,7 @@ module.exports = (io) => {
       online.set(userId, socket.id);
       socket.userId = userId;
       pool.query('UPDATE users SET is_online=1 WHERE id=?', [userId]).catch(() => {});
+      io.emit('user:status_changed', { userId, is_online: 1 });
       console.log(`[SOCKET] ✅ Connected: ${userId} (online: ${online.size})`);
     }
 
@@ -53,6 +54,7 @@ module.exports = (io) => {
       if (socket.userId) {
         online.set(socket.userId, socket.id);
         pool.query('UPDATE users SET is_online=1 WHERE id=?', [socket.userId]).catch(() => {});
+        io.emit('user:status_changed', { userId: socket.userId, is_online: 1 });
         console.log(`[SOCKET] 🟢 user:online: ${socket.userId}`);
       }
     });
@@ -61,6 +63,7 @@ module.exports = (io) => {
       if (socket.userId) {
         online.delete(socket.userId);
         pool.query('UPDATE users SET is_online=0, last_seen=NOW() WHERE id=?', [socket.userId]).catch(() => {});
+        io.emit('user:status_changed', { userId: socket.userId, is_online: 0 });
         console.log(`[SOCKET] ⚫ user:offline: ${socket.userId}`);
       }
     });
@@ -69,6 +72,7 @@ module.exports = (io) => {
       if (socket.userId) {
         online.delete(socket.userId);
         pool.query('UPDATE users SET is_online=0, last_seen=NOW() WHERE id=?', [socket.userId]).catch(() => {});
+        io.emit('user:status_changed', { userId: socket.userId, is_online: 0 });
       }
     });
   });

@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSelector, useDispatch } from 'react-redux';
 import { reportUser, blockUser, getUserReviews, getLiveUsers, getTopGirls, getMe } from '../services/api';
 import { setProfile } from '../store/slices/userSlice';
+import { getSocket } from '../services/socket';
 import Icon from '../components/Icon';
 
 const { width } = Dimensions.get('window');
@@ -131,8 +132,10 @@ function FloatingBubble({ user, topRatio, initialX, duration, stageH, onPress, s
           </View>
         )}
 
-        {/* Green online dot */}
-        <View style={bStyles.dot} />
+        {/* Green online dot — only when girl is actually online */}
+        {!!(user?.is_online === 1 || user?.is_online === true) && (
+          <View style={bStyles.dot} />
+        )}
 
         {/* Avatar circle */}
         <View style={[bStyles.circle, { width: size, height: size, borderRadius: size / 2 }]}>
@@ -259,7 +262,23 @@ export default function ConnectScreen({ onVideoCall, onAudioCall, onDrawer, onBu
   useEffect(() => {
     fetchUsers();
     const interval = setInterval(fetchUsers, 10000);
-    return () => clearInterval(interval);
+
+    const socket = getSocket();
+    const handleStatusChanged = ({ userId, is_online }) => {
+      setUsers((prev) =>
+        prev.map((u) => (u.id === userId ? { ...u, is_online: !!is_online } : u))
+      );
+      setTopGirls((prev) =>
+        prev.map((g) => (g.id === userId ? { ...g, is_online: !!is_online } : g))
+      );
+    };
+
+    socket?.on('user:status_changed', handleStatusChanged);
+
+    return () => {
+      clearInterval(interval);
+      socket?.off('user:status_changed', handleStatusChanged);
+    };
   }, []);
 
   useEffect(() => {

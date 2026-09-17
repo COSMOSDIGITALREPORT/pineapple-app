@@ -41,6 +41,13 @@ router.post('/', auth, async (req, res) => {
     await pool.query('UPDATE users SET spin_available=0 WHERE id=?', [req.user.userId]);
     await pool.query('INSERT INTO spin_history (id,user_id,reward_type,reward_value) VALUES (?,?,?,?)',
       [uuidv4(), req.user.userId, prize.type, prize.value]);
+
+    if (prize.value > 0) {
+      await pool.query(
+        'INSERT INTO wallet_transactions (id,user_id,type,amount,description) VALUES (?,?,?,?,?)',
+        [uuidv4(), req.user.userId, 'spin_gift', prize.value, `Won ${prize.emoji} ${prize.label} (Worth ₹${prize.value}) on Spin`]
+      );
+    }
     const [user] = await pool.query('SELECT minutes FROM users WHERE id=?', [req.user.userId]);
     res.json({
       prizeIndex: prize.index,

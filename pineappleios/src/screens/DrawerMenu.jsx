@@ -27,7 +27,7 @@ const NAV_ITEMS = [
 { label: 'Guidelines',     icon: 'shield' }];
 
 
-export default function DrawerMenu({ visible, onClose, onLuckySpin, onPremium, onLanguage, onSupport, onWallet, onSettings, onSafety, onLeaderboard, onLogout }) {
+export default function DrawerMenu({ visible, onClose, onLuckySpin, onPremium, onLanguage, onSupport, onWallet, onSettings, onSafety, onLeaderboard, onTransactions, onPrivacyPolicy, onTermsOfService, onLogout }) {
   const insets = useSafeAreaInsets();
   const user = useSelector((s) => s.user);
   const slideAnim = useRef(new Animated.Value(-DRAWER_W)).current;
@@ -189,13 +189,14 @@ export default function DrawerMenu({ visible, onClose, onLuckySpin, onPremium, o
               style={[styles.navItem, item.active && styles.navItemActive]}
               activeOpacity={0.6}
               onPress={() => {
-                if (item.label === 'Settings' && onSettings) {
-                  onClose();
-                  setTimeout(onSettings, 250);
-                } else if (item.label === 'Guidelines' && onSafety) {
-                  onClose();
-                  setTimeout(onSafety, 250);
-                }
+                onClose();
+                setTimeout(() => {
+                  if (item.label === 'Transactions')          onTransactions?.();
+                  else if (item.label === 'Settings')         onSettings?.();
+                  else if (item.label === 'Privacy Policy')   onPrivacyPolicy?.();
+                  else if (item.label === 'Terms of Service') onTermsOfService?.();
+                  else if (item.label === 'Guidelines')       onSafety?.();
+                }, 250);
               }}>
                 <View style={styles.navIconWrap}>
                   <Icon name={item.icon} size={20} color={item.active ? Colors.secondary : '#64748b'} />

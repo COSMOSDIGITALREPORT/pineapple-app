@@ -101,6 +101,16 @@ async function runMigrations() {
       INDEX idx_rated (rated_id),
       INDEX idx_rater (rater_id)
     )`,
+    `CREATE TABLE IF NOT EXISTS wallet_transactions (
+      id           CHAR(36)     PRIMARY KEY,
+      user_id      CHAR(36)     NOT NULL,
+      type         VARCHAR(30)  NOT NULL,
+      amount       INT          NOT NULL,
+      description  VARCHAR(255),
+      created_at   DATETIME     DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_user (user_id),
+      INDEX idx_type (type)
+    )`,
     `INSERT INTO coin_packages (id, coins, price_inr, label, is_popular) VALUES
       ('pack_9', 15, 9, '15 Coins (Trial)', 0),
       ('pack_100', 120, 100, '120 Coins (Basic)', 0),

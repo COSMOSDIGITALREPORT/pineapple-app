@@ -31,7 +31,6 @@ export default function EditProfileScreen({ onBack, onPremium }) {
   const [language, setLanguage]         = useState(user.language || '');
   const [city, setCity]                 = useState(user.city || '');
   const [avatarUri, setAvatarUri]       = useState(user.avatarUrl || null);
-  const [privacyMode, setPrivacyMode]   = useState(false);
   const [loading, setLoading]           = useState(false);
   const [saved, setSaved]               = useState(false);
   const [error, setError]               = useState('');
@@ -198,39 +197,6 @@ export default function EditProfileScreen({ onBack, onPremium }) {
         </View>
 
         {error.length > 0 && <Text style={styles.errorText}>{error}</Text>}
-
-        {/* Extra cards */}
-        <View style={styles.bentoSection}>
-          <View style={styles.bentoCard}>
-            <View style={styles.bentoLeft}>
-              <View style={[styles.bentoIcon, { backgroundColor: Colors.secondary + '15' }]}>
-                <Icon name="lock" size={20} color={Colors.secondary} />
-              </View>
-              <View>
-                <Text style={styles.bentoTitle}>Privacy Mode</Text>
-                <Text style={styles.bentoSub}>Only friends can see profile</Text>
-              </View>
-            </View>
-            <TouchableOpacity
-              onPress={() => setPrivacyMode(!privacyMode)}
-              style={[styles.toggle, privacyMode && styles.toggleActive]}>
-              <View style={[styles.toggleKnob, privacyMode && styles.toggleKnobActive]} />
-            </TouchableOpacity>
-          </View>
-
-          <TouchableOpacity style={styles.bentoCard} onPress={onPremium}>
-            <View style={styles.bentoLeft}>
-              <View style={[styles.bentoIcon, { backgroundColor: Colors.primary + '15' }]}>
-                <Icon name="crown" size={20} color={Colors.primary} />
-              </View>
-              <View>
-                <Text style={styles.bentoTitle}>Premium Member</Text>
-                <Text style={styles.bentoSub}>{user.isPremium ? 'Active' : 'Upgrade to Premium'}</Text>
-              </View>
-            </View>
-            <Icon name="chevron-right" size={20} color="#CBD5E1" />
-          </TouchableOpacity>
-        </View>
 
         {/* Save button — View + absoluteFill to fix LinearGradient container bug */}
         <TouchableOpacity

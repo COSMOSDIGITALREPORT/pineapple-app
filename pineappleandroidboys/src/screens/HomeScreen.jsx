@@ -6,6 +6,7 @@ import {
   Text,
   StatusBar,
   Alert,
+  BackHandler,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSelector } from 'react-redux';
@@ -37,6 +38,9 @@ import IncomingCallScreen from './IncomingCallScreen';
 import GirlsEarningsScreen from './GirlsEarningsScreen';
 import GirlsRedeemScreen from './GirlsRedeemScreen';
 import BlockedUsersScreen from './BlockedUsersScreen';
+import TransactionsScreen from './TransactionsScreen';
+import PrivacyPolicyScreen from './PrivacyPolicyScreen';
+import TermsOfServiceScreen from './TermsOfServiceScreen';
 
 function TabItem({ active, icon, label, onPress }) {
   return (
@@ -101,6 +105,41 @@ export default function HomeScreen({ onLogout }) {
     return () => disconnectSocket();
   }, []);
 
+  // Back button handler:
+  // 1. Close drawer if open
+  // 2. Reject incoming call if active
+  // 3. Return from sub-screen to current tab
+  // 4. Return to 'matches' tab if on another tab
+  // 5. Exit app only if on root matches tab
+  useEffect(() => {
+    const onBackPress = () => {
+      if (showDrawer) {
+        setShowDrawer(false);
+        return true;
+      }
+      if (incomingCall) {
+        handleRejectCall();
+        return true;
+      }
+      if (currentSubScreen) {
+        if (currentSubScreen === 'callReview') {
+          setCurrentSubScreen('callDuration');
+          return true;
+        }
+        goHome();
+        return true;
+      }
+      if (activeTab !== 'matches') {
+        setActiveTab('matches');
+        return true;
+      }
+      return false;
+    };
+
+    const backSubscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => backSubscription.remove();
+  }, [showDrawer, incomingCall, currentSubScreen, activeTab]);
+
   const goHome = () => { setAcceptedCallData(null); setCurrentSubScreen(null); };
   const openDrawer = () => setShowDrawer(true);
   const handleHangup = (dur) => {
@@ -162,22 +201,25 @@ export default function HomeScreen({ onLogout }) {
     );
   }
 
-  if (currentSubScreen === 'luckySpin')    return <LuckySpinScreen onBack={goHome} onPremium={() => setCurrentSubScreen('premium')} />;
-  if (currentSubScreen === 'videoCall')    return <VideoCallScreen callerUser={selectedUser} onBack={() => { setLastCallType('video'); handleHangup(callDuration); }} onHangup={(d) => { setLastCallType('video'); handleHangup(d); }} incomingCallData={acceptedCallData} />;
-  if (currentSubScreen === 'audioCall')    return <AudioCallScreen callerUser={selectedUser} onBack={() => { setLastCallType('audio'); handleHangup(callDuration); }} onHangup={(d) => { setLastCallType('audio'); handleHangup(d); }} incomingCallData={acceptedCallData} />;
-  if (currentSubScreen === 'callDuration') return <CallDurationScreen duration={callDuration} callerUser={selectedUser} callType={lastCallType} onRate={() => setCurrentSubScreen('callReview')} onSkip={goHome} />;
-  if (currentSubScreen === 'callReview')   return <CallReviewScreen callerName={selectedUser?.name || 'User'} callerAvatar={selectedUser?.avatar_url} callerUserId={selectedUser?.id} callId={acceptedCallData?.callId} onSubmit={goHome} onBack={() => setCurrentSubScreen('callDuration')} />;
-  if (currentSubScreen === 'liveRoom')     return <LiveRoomScreen onBack={goHome} />;
-  if (currentSubScreen === 'redeem')       return <GirlsRedeemScreen onBack={goHome} />;
-  if (currentSubScreen === 'wallet')       return <WalletScreen onBack={goHome} />;
-  if (currentSubScreen === 'settings')     return <SettingsScreen onBack={goHome} onLogout={onLogout} />;
-  if (currentSubScreen === 'premium')      return <PremiumPlansScreen onBack={goHome} />;
-  if (currentSubScreen === 'editProfile')  return <EditProfileScreen onBack={goHome} />;
-  if (currentSubScreen === 'safety')       return <SafetyScreen onBack={goHome} onAccept={goHome} />;
-  if (currentSubScreen === 'language')     return <LanguageScreen onBack={goHome} />;
-  if (currentSubScreen === 'support')      return <SupportScreen onBack={goHome} />;
-  if (currentSubScreen === 'leaderboard')  return <LeaderboardScreen onBack={goHome} onCallUser={(u) => { setSelectedUser(u); setCurrentSubScreen('audioCall'); }} />;
-  if (currentSubScreen === 'blockedUsers') return <BlockedUsersScreen onBack={goHome} />;
+  if (currentSubScreen === 'luckySpin')       return <LuckySpinScreen onBack={goHome} onPremium={() => setCurrentSubScreen('premium')} />;
+  if (currentSubScreen === 'videoCall')       return <VideoCallScreen callerUser={selectedUser} onBack={() => { setLastCallType('video'); handleHangup(callDuration); }} onHangup={(d) => { setLastCallType('video'); handleHangup(d); }} incomingCallData={acceptedCallData} />;
+  if (currentSubScreen === 'audioCall')       return <AudioCallScreen callerUser={selectedUser} onBack={() => { setLastCallType('audio'); handleHangup(callDuration); }} onHangup={(d) => { setLastCallType('audio'); handleHangup(d); }} incomingCallData={acceptedCallData} />;
+  if (currentSubScreen === 'callDuration')    return <CallDurationScreen duration={callDuration} callerUser={selectedUser} callType={lastCallType} onRate={() => setCurrentSubScreen('callReview')} onSkip={goHome} />;
+  if (currentSubScreen === 'callReview')      return <CallReviewScreen callerName={selectedUser?.name || 'User'} callerAvatar={selectedUser?.avatar_url} callerUserId={selectedUser?.id} callId={acceptedCallData?.callId} onSubmit={goHome} onBack={() => setCurrentSubScreen('callDuration')} />;
+  if (currentSubScreen === 'liveRoom')        return <LiveRoomScreen onBack={goHome} />;
+  if (currentSubScreen === 'redeem')          return <GirlsRedeemScreen onBack={goHome} />;
+  if (currentSubScreen === 'wallet')          return <WalletScreen onBack={goHome} />;
+  if (currentSubScreen === 'transactions')    return <TransactionsScreen onBack={goHome} onBuyCoins={() => setCurrentSubScreen('premium')} />;
+  if (currentSubScreen === 'privacyPolicy')   return <PrivacyPolicyScreen onBack={goHome} />;
+  if (currentSubScreen === 'termsOfService')  return <TermsOfServiceScreen onBack={goHome} />;
+  if (currentSubScreen === 'settings')        return <SettingsScreen onBack={goHome} onLogout={onLogout} onBlockedUsers={() => setCurrentSubScreen('blockedUsers')} onPrivacyPolicy={() => setCurrentSubScreen('privacyPolicy')} onTermsOfService={() => setCurrentSubScreen('termsOfService')} />;
+  if (currentSubScreen === 'premium')         return <PremiumPlansScreen onBack={goHome} />;
+  if (currentSubScreen === 'editProfile')     return <EditProfileScreen onBack={goHome} />;
+  if (currentSubScreen === 'safety')          return <SafetyScreen onBack={goHome} onAccept={goHome} />;
+  if (currentSubScreen === 'language')        return <LanguageScreen onBack={goHome} />;
+  if (currentSubScreen === 'support')         return <SupportScreen onBack={goHome} />;
+  if (currentSubScreen === 'leaderboard')     return <LeaderboardScreen onBack={goHome} onCallUser={(u) => { setSelectedUser(u); setCurrentSubScreen('audioCall'); }} />;
+  if (currentSubScreen === 'blockedUsers')    return <BlockedUsersScreen onBack={goHome} />;
 
   return (
     <View style={styles.root}>
@@ -245,6 +287,9 @@ export default function HomeScreen({ onLogout }) {
         onClose={() => setShowDrawer(false)}
         onLuckySpin={isGirl ? null : () => setCurrentSubScreen('luckySpin')}
         onWallet={isGirl ? () => setCurrentSubScreen('redeem') : () => setCurrentSubScreen('wallet')}
+        onTransactions={() => setCurrentSubScreen('transactions')}
+        onPrivacyPolicy={() => setCurrentSubScreen('privacyPolicy')}
+        onTermsOfService={() => setCurrentSubScreen('termsOfService')}
         onSettings={() => setCurrentSubScreen('settings')}
         onPremium={isGirl ? null : () => setCurrentSubScreen('premium')}
         onLanguage={() => setCurrentSubScreen('language')}

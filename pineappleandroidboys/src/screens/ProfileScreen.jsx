@@ -89,7 +89,8 @@ export default function ProfileScreen({ onEditProfile, onPremiumPlans, onWallet,
           </View>
 
           <Text style={styles.userName}>{displayName}</Text>
-          {user.city ? <Text style={styles.userRole}>{user.city}</Text> : null}
+          {user.phone ? <Text style={styles.userPhone}>+91 {user.phone}</Text> : null}
+          {user.city ? <Text style={styles.userRole}>📍 {user.city}</Text> : null}
           {user.bio ? (
             <View style={styles.bioCard}>
               <Text style={styles.bioText}>"{user.bio}"</Text>
@@ -98,18 +99,18 @@ export default function ProfileScreen({ onEditProfile, onPremiumPlans, onWallet,
 
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>{user.coins}</Text>
+              <Text style={styles.statValue}>{user.coins ?? 0}</Text>
               <Text style={styles.statLabel}>Coins</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>{user.isPremium ? 'Yes' : 'No'}</Text>
-              <Text style={styles.statLabel}>Premium</Text>
+              <Text style={styles.statValue}>{user.language || 'English'}</Text>
+              <Text style={styles.statLabel}>Language</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>{user.language || '—'}</Text>
-              <Text style={styles.statLabel}>Language</Text>
+              <Text style={styles.statValue}>{user.city || 'India'}</Text>
+              <Text style={styles.statLabel}>Location</Text>
             </View>
           </View>
         </View>
@@ -122,14 +123,8 @@ export default function ProfileScreen({ onEditProfile, onPremiumPlans, onWallet,
             onPress={onEditProfile}
           />
           <MenuItem
-            icon="crown"
-            label="Premium Plans"
-            onPress={onPremiumPlans}
-            color={Colors.primary}
-          />
-          <MenuItem
             icon="wallet"
-            label="Wallet & Earnings"
+            label="Wallet"
             onPress={onWallet}
           />
           <MenuItem
@@ -254,6 +249,13 @@ const styles = StyleSheet.create({
     color: Colors.dark,
     letterSpacing: -0.3,
     marginTop: 4,
+  },
+  userPhone: {
+    fontSize: 13,
+    color: Colors.secondary,
+    fontWeight: '700',
+    marginTop: 2,
+    letterSpacing: 0.3,
   },
   userRole: {
     fontSize: 13,

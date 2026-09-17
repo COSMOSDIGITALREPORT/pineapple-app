@@ -12,7 +12,8 @@ import {
 import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSelector, useDispatch } from 'react-redux';
-import PrivacyPolicyScreen from './PrivacyPolicyScreen';
+import TermsOfServiceScreen from './TermsOfServiceScreen';
+import BlockedUsersScreen from './BlockedUsersScreen';
 import { Alert } from 'react-native';
 import { deleteAccount } from '../services/api';
 import { resetUser } from '../store/slices/userSlice';
@@ -20,77 +21,91 @@ import Icon from '../components/Icon';
 import { Colors, Gradients } from '../theme/colors';
 
 const SECTIONS = [
-{
-  title: 'Account',
-  items: [
-  { label: 'Phone Number', type: 'info', key: 'phone' },
-  { label: 'Linked Accounts', sub: 'Google, Apple', type: 'info', key: 'linked' }]
-
-},
-{
-  title: 'Notifications',
-  items: [
-  { label: 'Push Notifications', type: 'toggle', key: 'push' },
-  { label: 'Call Alerts', type: 'toggle', key: 'callAlerts' },
-  { label: 'New Messages', type: 'toggle', key: 'messages' },
-  { label: 'Promotions & Offers', type: 'toggle', key: 'promos' }]
-
-},
-{
-  title: 'Privacy',
-  items: [
-  { label: 'Who can see my profile', sub: 'Everyone', type: 'nav', key: 'profileVisibility' },
-  { label: 'Block List', type: 'nav', key: 'blockList' },
-  { label: 'Hide Online Status', type: 'toggle', key: 'hideOnline' }]
-
-},
-{
-  title: 'App Preferences',
-  items: [
-  { label: 'Language', sub: 'English', type: 'nav', key: 'language' },
-  { label: 'Dark Mode', type: 'toggle', key: 'darkMode' },
-  { label: 'Auto-play Videos', type: 'toggle', key: 'autoplay' }]
-
-},
-{
-  title: 'Support & Legal',
-  items: [
-  { label: 'Help & Support', type: 'nav', key: 'support' },
-  { label: 'Privacy Policy', type: 'nav', key: 'privacy' },
-  { label: 'Terms of Service', type: 'nav', key: 'terms' },
-  { label: 'Community Guidelines', type: 'nav', key: 'guidelines' },
-  { label: 'App Version', sub: '2.4.0 (982)', type: 'nav', key: 'version' }]
-
-},
-{
-  title: 'Danger Zone',
-  items: [
-  { label: 'Delete Account', type: 'danger', key: 'delete' }]
-
-}];
+  {
+    title: 'Account',
+    items: [
+      { label: 'Phone Number', type: 'info', key: 'phone' },
+      { label: 'Linked Accounts', sub: 'Phone, Google', type: 'info', key: 'linked' },
+    ],
+  },
+  {
+    title: 'Notifications',
+    items: [
+      { label: 'Push Notifications', type: 'toggle', key: 'push' },
+      { label: 'Call Alerts', type: 'toggle', key: 'callAlerts' },
+      { label: 'New Messages', type: 'toggle', key: 'messages' },
+      { label: 'Promotions & Offers', type: 'toggle', key: 'promos' },
+    ],
+  },
+  {
+    title: 'Privacy',
+    items: [
+      { label: 'Block List', type: 'nav', key: 'blockList' },
+    ],
+  },
+  {
+    title: 'App Preferences',
+    items: [
+      { label: 'Language', sub: 'English', type: 'nav', key: 'language' },
+    ],
+  },
+  {
+    title: 'Support & Legal',
+    items: [
+      { label: 'Help & Support', type: 'nav', key: 'support' },
+      { label: 'Privacy Policy', type: 'nav', key: 'privacy' },
+      { label: 'Terms of Service', type: 'nav', key: 'terms' },
+      { label: 'Community Guidelines', type: 'nav', key: 'guidelines' },
+      { label: 'App Version', sub: '1.0.0', type: 'nav', key: 'version' },
+    ],
+  },
+  {
+    title: 'Danger Zone',
+    items: [
+      { label: 'Delete Account', type: 'danger', key: 'delete' },
+    ],
+  },
+];
 
 function ChevronIcon() {
   return (
-    <Icon name="chevron-right" size={16} color="#CBD5E1" />);
-
+    <Icon name="chevron-right" size={16} color="#CBD5E1" />
+  );
 }
 
-export default function SettingsScreen({ onBack, onLogout }) {
+export default function SettingsScreen({ onBack, onLogout, onBlockedUsers, onPrivacyPolicy, onTermsOfService }) {
   const insets = useSafeAreaInsets();
   const user = useSelector((s) => s.user);
   const dispatch = useDispatch();
   const [showPrivacy, setShowPrivacy] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
+  const [showBlocked, setShowBlocked] = useState(false);
   const [toggles, setToggles] = useState({
-    push: true, callAlerts: true, messages: true,
-    promos: false, hideOnline: false, darkMode: false, autoplay: true,
+    push: true,
+    callAlerts: true,
+    messages: true,
+    promos: false,
   });
 
   const flip = (key) => setToggles((prev) => ({ ...prev, [key]: !prev[key] }));
 
   const handleNavPress = (key) => {
-    if (key === 'privacy')    { setShowPrivacy(true); return; }
-    if (key === 'terms')      { Alert.alert('Terms of Service', 'Visit pineappleapp.in/terms for full Terms of Service.'); return; }
-    if (key === 'guidelines') { Alert.alert('Community Guidelines', 'Be respectful. No abuse, spam or fake profiles.'); return; }
+    if (key === 'blockList') {
+      if (onBlockedUsers) onBlockedUsers();
+      else setShowBlocked(true);
+      return;
+    }
+    if (key === 'privacy') {
+      if (onPrivacyPolicy) onPrivacyPolicy();
+      else setShowPrivacy(true);
+      return;
+    }
+    if (key === 'terms') {
+      if (onTermsOfService) onTermsOfService();
+      else setShowTerms(true);
+      return;
+    }
+    if (key === 'guidelines') { Alert.alert('Community Guidelines', 'Be respectful. No abuse, harassment, spam or fake profiles.'); return; }
     if (key === 'support')    { Alert.alert('Help & Support', 'Email us at support@pineappleapp.in'); return; }
     if (key === 'version')    { Alert.alert('App Version', 'Version 1.0.0'); return; }
     if (key === 'language')   { onBack?.(); return; }
@@ -133,7 +148,9 @@ export default function SettingsScreen({ onBack, onLogout }) {
     );
   };
 
+  if (showBlocked) return <BlockedUsersScreen onBack={() => setShowBlocked(false)} />;
   if (showPrivacy) return <PrivacyPolicyScreen onBack={() => setShowPrivacy(false)} />;
+  if (showTerms)   return <TermsOfServiceScreen onBack={() => setShowTerms(false)} />;
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
