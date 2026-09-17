@@ -448,8 +448,8 @@ td b{color:var(--text);font-weight:600;}
           <div class="stat-num" id="s-plat-rev">₹0</div>
           <div class="stat-label">Platform Revenue (₹)</div>
         </div>
-        <div class="stat-card c-purple" onclick="go('hosts')" title="Click to view individual host earnings & breakdown">
-          <div class="stat-top"><div class="stat-icon-wrap">👧</div><span class="stat-trend" style="background:#F5F3FF;color:#7C3AED">70% Share</span></div>
+        <div class="stat-card c-purple" onclick="openAllHostsEarningsModal()" style="cursor:pointer;" title="Click to view individual host earnings & breakdown">
+          <div class="stat-top"><div class="stat-icon-wrap">👧</div><span class="stat-trend" style="background:#F5F3FF;color:#7C3AED">70% Share ➔</span></div>
           <div class="stat-num" id="s-girl-earn">₹0</div>
           <div class="stat-label">Host Earnings (₹)</div>
         </div>
@@ -640,7 +640,7 @@ td b{color:var(--text);font-weight:600;}
           <div class="stat-num" id="ec-coins-burned">0</div>
           <div class="stat-label">Coins Consumed (Calls+Gifts)</div>
         </div>
-        <div class="stat-card c-purple" onclick="scrollToHostBreakdown()" style="cursor:pointer;" title="Click to view individual host-wise earnings breakdown">
+        <div class="stat-card c-purple" onclick="openAllHostsEarningsModal()" style="cursor:pointer;" title="Click to view individual host-wise earnings breakdown">
           <div class="stat-top"><div class="stat-icon-wrap">👧</div><span class="stat-trend" style="background:#F5F3FF;color:#7C3AED;font-weight:700;">70% Split ➔</span></div>
           <div class="stat-num" id="ec-girl-gross">₹0</div>
           <div class="stat-label" style="display:flex;align-items:center;justify-content:space-between;">
@@ -663,7 +663,7 @@ td b{color:var(--text);font-weight:600;}
           <div class="stat-num" id="ec-pending-payout">₹0</div>
           <div class="stat-label">Pending Payout Queue (₹)</div>
         </div>
-        <div class="stat-card c-purple" onclick="scrollToHostBreakdown()" style="cursor:pointer;" title="Click to view host unpaid balances">
+        <div class="stat-card c-purple" onclick="openAllHostsEarningsModal()" style="cursor:pointer;" title="Click to view host unpaid balances">
           <div class="stat-top"><div class="stat-icon-wrap">🏦</div><span class="stat-trend" style="background:#F5F3FF;color:#7C3AED;font-weight:700;">Unpaid ➔</span></div>
           <div class="stat-num" id="ec-host-balance">₹0</div>
           <div class="stat-label" style="display:flex;align-items:center;justify-content:space-between;">
@@ -1482,6 +1482,176 @@ function updateLedgerHostDropdown() {
 
 function filterHostTable() {
   renderHostTable();
+}
+
+async function openAllHostsEarningsModal() {
+  if (!allHostsList || allHostsList.length === 0) {
+    try {
+      allHostsList = await api('/admin/hosts');
+    } catch(e) {
+      console.error('Error fetching hosts:', e);
+    }
+  }
+  renderAllHostsEarningsModal();
+}
+
+function renderAllHostsEarningsModal() {
+  const totalHosts = allHostsList.length;
+  const grossEarned = allHostsList.reduce((s, h) => s + Number(h.total_earned_inr || 0), 0);
+  const coinsEarned = allHostsList.reduce((s, h) => s + Number(h.total_earned_coins || 0), 0);
+  const unpaid = allHostsList.reduce((s, h) => s + Number(h.unpaid_balance || 0), 0);
+  const paidOut = allHostsList.reduce((s, h) => s + Number(h.total_paid_out || 0), 0);
+
+  const modalHtml = `
+    <div class="modal-overlay" id="all-hosts-modal" onclick="if(event.target===this) closeAllHostsModal()">
+      <div class="modal-card" style="max-width:880px;width:95%;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 25px 70px rgba(0,0,0,0.3);">
+        <div class="modal-header" style="padding:18px 24px;background:linear-gradient(135deg, #FAF5FF, #FFF0F4);">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="width:44px;height:44px;border-radius:14px;background:linear-gradient(135deg,#7C3AED,#9333EA);color:#fff;display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:0 4px 12px rgba(124,58,237,0.35);">👧</div>
+            <div>
+              <div style="font-size:18px;font-weight:800;color:#1E293B;">Individual Hosts Earnings & Incomes (70% Split)</div>
+              <div style="font-size:12px;color:#64748B;">Seperate revenue, coin earnings, and unpaid balances for each host girl</div>
+            </div>
+          </div>
+          <button class="modal-close-btn" onclick="closeAllHostsModal()" title="Close Modal">✕</button>
+        </div>
+
+        <div class="modal-body" style="padding:20px 24px;overflow-y:auto;flex:1;">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:10px;margin-bottom:18px;">
+            <div style="background:#F5F3FF;padding:12px;border-radius:14px;text-align:center;border:1px solid #DDD6FE;">
+              <div style="font-size:10.5px;font-weight:700;color:#7C3AED;text-transform:uppercase;">Total Hosts</div>
+              <div style="font-size:20px;font-weight:900;color:#7C3AED;margin-top:2px;">${totalHosts}</div>
+            </div>
+            <div style="background:#FAF5FF;padding:12px;border-radius:14px;text-align:center;border:1px solid #E9D5FF;">
+              <div style="font-size:10.5px;font-weight:700;color:#7C3AED;text-transform:uppercase;">Gross Earned (70%)</div>
+              <div style="font-size:20px;font-weight:900;color:#7C3AED;margin-top:2px;">₹${grossEarned.toFixed(2)}</div>
+            </div>
+            <div style="background:#FFFBEB;padding:12px;border-radius:14px;text-align:center;border:1px solid #FDE68A;">
+              <div style="font-size:10.5px;font-weight:700;color:#D97706;text-transform:uppercase;">Coins Earned</div>
+              <div style="font-size:20px;font-weight:900;color:#D97706;margin-top:2px;">🪙 ${coinsEarned.toFixed(1)}</div>
+            </div>
+            <div style="background:#F0FDF4;padding:12px;border-radius:14px;text-align:center;border:1px solid #BBF7D0;">
+              <div style="font-size:10.5px;font-weight:700;color:#16A34A;text-transform:uppercase;">Paid Out</div>
+              <div style="font-size:20px;font-weight:900;color:#16A34A;margin-top:2px;">₹${paidOut.toFixed(2)}</div>
+            </div>
+            <div style="background:#FFF0F4;padding:12px;border-radius:14px;text-align:center;border:1px solid #FECDD3;">
+              <div style="font-size:10.5px;font-weight:700;color:#FF3870;text-transform:uppercase;">Unpaid Balance</div>
+              <div style="font-size:20px;font-weight:900;color:#FF3870;margin-top:2px;">₹${unpaid.toFixed(2)}</div>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;">
+            <div style="position:relative;flex:1;">
+              <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:14px;">🔍</span>
+              <input type="text" id="modal-host-search" placeholder="Search host by name, phone or city..." oninput="filterModalHostsList()" style="width:100%;padding:10px 14px 10px 38px;border:1.5px solid #CBD5E1;border-radius:12px;font-size:13.5px;outline:none;" />
+            </div>
+            <button class="btn btn-purple" onclick="closeAllHostsModal(); go('hosts');" style="padding:10px 16px;white-space:nowrap;font-weight:700;">👧 Dedicated Hosts Tab ➔</button>
+          </div>
+
+          <div style="border:1px solid #E2E8F0;border-radius:16px;overflow:hidden;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,0.02);">
+            <table style="width:100%;border-collapse:collapse;">
+              <thead>
+                <tr style="background:#F8FAFC;">
+                  <th style="padding:11px 14px;font-size:11px;font-weight:700;color:#64748B;text-align:left;">Host Profile</th>
+                  <th style="padding:11px 14px;font-size:11px;font-weight:700;color:#64748B;text-align:left;">Status</th>
+                  <th style="padding:11px 14px;font-size:11px;font-weight:700;color:#64748B;text-align:left;">Calls & Time</th>
+                  <th style="padding:11px 14px;font-size:11px;font-weight:700;color:#64748B;text-align:left;">Coins Earned</th>
+                  <th style="padding:11px 14px;font-size:11px;font-weight:700;color:#64748B;text-align:left;">Gross ₹ (70%)</th>
+                  <th style="padding:11px 14px;font-size:11px;font-weight:700;color:#64748B;text-align:left;">Unpaid ₹</th>
+                  <th style="padding:11px 14px;font-size:11px;font-weight:700;color:#64748B;text-align:center;">Action</th>
+                </tr>
+              </thead>
+              <tbody id="modal-hosts-body">
+                ${renderModalHostsRows(allHostsList)}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  let existing = document.getElementById('all-hosts-modal');
+  if (existing) existing.remove();
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+function renderModalHostsRows(list) {
+  if (!list || !list.length) {
+    return '<tr><td colspan="7" style="text-align:center;padding:30px;color:#888;">No hosts found matching query</td></tr>';
+  }
+  return list.map(h => {
+    const isOnline = !!h.is_online;
+    const isVerified = !!h.is_verified;
+    const grossEarned = Number(h.total_earned_inr || 0);
+    const unpaidBal = Number(h.unpaid_balance || 0);
+    const coinsEarned = Number(h.total_earned_coins || 0);
+    const totalCalls = Number(h.total_calls || 0);
+    const totalMins = Math.round(Number(h.total_call_secs || 0) / 60);
+
+    const avatarHtml = h.avatar_url
+      ? `<img src="${h.avatar_url}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid #FFE0EB;" />`
+      : `<div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--pink),var(--crimson));color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center;font-size:13px;">${(h.name||'?')[0].toUpperCase()}</div>`;
+
+    return `
+      <tr style="border-bottom:1px solid #F1F5F9;transition:background 0.15s;" onmouseover="this.style.background='#FAF5FF'" onmouseout="this.style.background=''">
+        <td style="padding:10px 14px;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            ${avatarHtml}
+            <div>
+              <div style="font-weight:700;font-size:13px;color:#1E293B;display:flex;align-items:center;gap:5px;">
+                ${h.name || 'Host'}
+                ${isVerified ? '<span style="color:#16A34A;font-size:12px;" title="Verified Profile">✓</span>' : ''}
+              </div>
+              <div style="font-size:11px;color:#64748B;">📞 ${h.phone || '–'} ${h.city ? '· 📍 '+h.city : ''}</div>
+            </div>
+          </div>
+        </td>
+        <td style="padding:10px 14px;">
+          ${isOnline 
+            ? '<span class="badge b-green" style="font-size:10.5px;">🟢 Online</span>' 
+            : '<span class="badge b-gray" style="font-size:10.5px;">⚫ Offline</span>'}
+        </td>
+        <td style="padding:10px 14px;font-size:12px;color:#475569;">
+          <b>${totalCalls}</b> calls<br><span style="font-size:11px;color:#888">${totalMins}m (${Number(h.total_call_secs||0)}s)</span>
+        </td>
+        <td style="padding:10px 14px;">
+          <span style="font-weight:700;color:#D97706;font-size:13px;">🪙 ${coinsEarned.toFixed(1)}</span>
+        </td>
+        <td style="padding:10px 14px;">
+          <span style="font-weight:800;color:#7C3AED;font-size:14px;">₹${grossEarned.toFixed(2)}</span>
+        </td>
+        <td style="padding:10px 14px;">
+          <span style="font-weight:800;color:${unpaidBal > 0 ? '#FF3870' : '#16A34A'};font-size:14px;">₹${unpaidBal.toFixed(2)}</span>
+        </td>
+        <td style="padding:10px 14px;text-align:center;">
+          <div style="display:flex;gap:6px;justify-content:center;">
+            <button class="btn btn-purple" style="font-size:11px;padding:5px 9px;" onclick="closeAllHostsModal(); showHostDetailModal('${h.id}')" title="View details">🔍 Details</button>
+            <button class="btn btn-green" style="font-size:11px;padding:5px 9px;" onclick="closeAllHostsModal(); go('withdrawals')" title="Process Payout">💸 Pay</button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function filterModalHostsList() {
+  const q = (document.getElementById('modal-host-search')?.value || '').toLowerCase().trim();
+  let list = allHostsList;
+  if (q) {
+    list = list.filter(h =>
+      (h.name || '').toLowerCase().includes(q) ||
+      (h.phone || '').includes(q) ||
+      (h.city || '').toLowerCase().includes(q)
+    );
+  }
+  const tb = document.getElementById('modal-hosts-body');
+  if (tb) tb.innerHTML = renderModalHostsRows(list);
+}
+
+function closeAllHostsModal() {
+  const el = document.getElementById('all-hosts-modal');
+  if (el) el.remove();
 }
 
 function scrollToHostBreakdown() {
