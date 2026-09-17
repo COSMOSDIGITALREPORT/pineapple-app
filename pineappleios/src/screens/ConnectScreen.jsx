@@ -546,20 +546,56 @@ export default function ConnectScreen({ onVideoCall, onAudioCall, onDrawer, onBu
               </>
             )}
             <View style={pStyles.btnRow}>
-              <TouchableOpacity style={pStyles.btn} activeOpacity={0.85} onPress={() => { const u = callPickerUser; setCallPickerUser(null); onAudioCall(u); }}>
+              <TouchableOpacity
+                style={pStyles.btn}
+                activeOpacity={0.85}
+                onPress={() => {
+                  if ((coins || 0) < 1) {
+                    Alert.alert(
+                      'Insufficient Coins',
+                      'Audio calls cost 1 coin/min. Please recharge your wallet to continue.',
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'Get Coins', onPress: () => { setCallPickerUser(null); setShowCoinsModal(true); } },
+                      ]
+                    );
+                    return;
+                  }
+                  const u = callPickerUser;
+                  setCallPickerUser(null);
+                  onAudioCall(u);
+                }}>
                 <View style={pStyles.btnInner}>
                   <LinearGradient colors={['#FF3870','#C0004A']} start={{x:0,y:0}} end={{x:1,y:1}} style={StyleSheet.absoluteFill} />
                   <Icon name="phone" size={32} color="#fff" />
                   <Text style={pStyles.btnLabel}>Audio Call</Text>
-                  <Text style={pStyles.btnSub}>Voice only</Text>
+                  <Text style={pStyles.btnSub}>1 coin/min</Text>
                 </View>
               </TouchableOpacity>
-              <TouchableOpacity style={pStyles.btn} activeOpacity={0.85} onPress={() => { const u = callPickerUser; setCallPickerUser(null); onVideoCall(u); }}>
+              <TouchableOpacity
+                style={pStyles.btn}
+                activeOpacity={0.85}
+                onPress={() => {
+                  if ((coins || 0) < 2) {
+                    Alert.alert(
+                      'Insufficient Coins',
+                      `Video calls cost 2 coins/min. You have ${coins || 0} coin${coins === 1 ? '' : 's'}.\n\nYou need at least 2 coins to start a video call.`,
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'Get Coins', onPress: () => { setCallPickerUser(null); setShowCoinsModal(true); } },
+                      ]
+                    );
+                    return;
+                  }
+                  const u = callPickerUser;
+                  setCallPickerUser(null);
+                  onVideoCall(u);
+                }}>
                 <View style={pStyles.btnInner}>
                   <LinearGradient colors={['#FF3870','#C0004A']} start={{x:0,y:0}} end={{x:1,y:1}} style={StyleSheet.absoluteFill} />
                   <Icon name="video" size={32} color="#fff" />
                   <Text style={pStyles.btnLabel}>Video Call</Text>
-                  <Text style={pStyles.btnSub}>Face to face</Text>
+                  <Text style={pStyles.btnSub}>2 coins/min</Text>
                 </View>
               </TouchableOpacity>
             </View>

@@ -170,10 +170,53 @@ export default function HomeScreen({ onLogout }) {
     incomingCallRef.current = null;
   };
 
+  const handleStartAudioCall = (u) => {
+    if ((user?.coins || 0) < 1) {
+      Alert.alert(
+        'Insufficient Coins',
+        'Audio calls cost 1 coin/min. Please recharge your wallet to continue.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Get Coins', onPress: () => setCurrentSubScreen('premium') },
+        ]
+      );
+      return;
+    }
+    setSelectedUser(u);
+    setCurrentSubScreen('audioCall');
+  };
+
+  const handleStartVideoCall = (u) => {
+    if ((user?.coins || 0) < 2) {
+      Alert.alert(
+        'Insufficient Coins',
+        `Video calls cost 2 coins/min. You have ${user?.coins || 0} coin${user?.coins === 1 ? '' : 's'}.\n\nYou need at least 2 coins to start a video call.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Get Coins', onPress: () => setCurrentSubScreen('premium') },
+        ]
+      );
+      return;
+    }
+    setSelectedUser(u);
+    setCurrentSubScreen('videoCall');
+  };
+
   const handleRandomCall = async () => {
+    if ((user?.coins || 0) < 1) {
+      Alert.alert(
+        'Insufficient Coins',
+        'Audio calls cost 1 coin/min. Please recharge your wallet to continue.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Get Coins', onPress: () => setCurrentSubScreen('premium') },
+        ]
+      );
+      return;
+    }
     try {
-      const user = await getRandomUser();
-      setSelectedUser(user);
+      const u = await getRandomUser();
+      setSelectedUser(u);
       setLastCallType('audio');
       setCurrentSubScreen('audioCall');
     } catch (e) {
@@ -213,7 +256,7 @@ export default function HomeScreen({ onLogout }) {
   if (currentSubScreen === 'safety')          return <SafetyScreen onBack={goHome} onAccept={goHome} />;
   if (currentSubScreen === 'language')        return <LanguageScreen onBack={goHome} />;
   if (currentSubScreen === 'support')         return <SupportScreen onBack={goHome} />;
-  if (currentSubScreen === 'leaderboard')     return <LeaderboardScreen onBack={goHome} onCallUser={(u) => { setSelectedUser(u); setCurrentSubScreen('audioCall'); }} />;
+  if (currentSubScreen === 'leaderboard')     return <LeaderboardScreen onBack={goHome} onCallUser={handleStartAudioCall} />;
   if (currentSubScreen === 'blockedUsers')    return <BlockedUsersScreen onBack={goHome} />;
 
   return (
@@ -240,8 +283,8 @@ export default function HomeScreen({ onLogout }) {
         {/* ── BOYS UI ── */}
         {!isGirl && activeTab === 'matches' && (
           <ConnectScreen
-            onAudioCall={(u) => { setSelectedUser(u); setCurrentSubScreen('audioCall'); }}
-            onVideoCall={(u) => { setSelectedUser(u); setCurrentSubScreen('videoCall'); }}
+            onAudioCall={handleStartAudioCall}
+            onVideoCall={handleStartVideoCall}
             onJoinRoom={() => setCurrentSubScreen('liveRoom')}
             onDrawer={openDrawer}
             onBuyCoins={() => setCurrentSubScreen('premium')}
@@ -250,9 +293,9 @@ export default function HomeScreen({ onLogout }) {
         )}
         {!isGirl && activeTab === 'calls' && (
           <RecentsScreen
-            onRandom={() => setCurrentSubScreen('audioCall')}
+            onRandom={handleRandomCall}
             onDrawer={openDrawer}
-            onCall={(u) => { setSelectedUser(u); setCurrentSubScreen('audioCall'); }}
+            onCall={handleStartAudioCall}
           />
         )}
 

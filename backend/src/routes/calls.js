@@ -27,7 +27,7 @@ router.post('/initiate', auth, async (req, res) => {
       // Check caller has enough coins for at least 1 minute
       const [caller] = await pool.query('SELECT minutes FROM users WHERE id=?', [req.user.userId]);
       if (!caller.length || caller[0].minutes < rate)
-        return res.status(400).json({ error: 'Not enough coins. Please recharge.' });
+        return res.status(400).json({ error: `Not enough coins. ${type === 'video' ? 'Video call requires at least 2 coins.' : 'Audio call requires at least 1 coin.'} Please recharge.` });
 
       await pool.query(
         'INSERT INTO calls (id,caller_id,receiver_id,call_type,status,agora_channel,started_at,free_trial) VALUES (?,?,?,?,"initiated",?,NOW(),0)',

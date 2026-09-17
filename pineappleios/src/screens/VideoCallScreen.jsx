@@ -45,12 +45,21 @@ export default function VideoCallScreen({ onBack, onHangup, callerUser, incoming
   const [sentGift, setSentGift] = useState(null);
   const [seconds, setSeconds] = useState(0);
   const [callStatus, setCallStatus] = useState('Connecting…');
+  const [coinWarning, setCoinWarning] = useState(false);
   const [remoteUid, setRemoteUid] = useState(null);
   const [remoteVideoOn, setRemoteVideoOn] = useState(false);
   const [engineReady, setEngineReady] = useState(false);
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const engineRef = useRef(null);
   const callRef = useRef(null);
+  const allowedSecsRef = useRef(Math.max(0, Math.floor((myCoins || 0) / 2) * 60));
+
+  useEffect(() => {
+    allowedSecsRef.current = Math.max(0, Math.floor((myCoins || 0) / 2) * 60);
+    if (seconds < allowedSecsRef.current - 15) {
+      setCoinWarning(false);
+    }
+  }, [myCoins]);
 
   const otherUserId = incomingCallData ? incomingCallData.callerId : callerUser?.id;
 
@@ -64,6 +73,16 @@ export default function VideoCallScreen({ onBack, onHangup, callerUser, incoming
       const elapsed = Math.max(1, Math.floor((Date.now() - startTime) / 1000));
       callRef.current._secs = elapsed;
       setSeconds(elapsed);
+
+      const maxSecs = allowedSecsRef.current;
+      if (maxSecs > 0 && elapsed === maxSecs - 15) {
+        setCoinWarning(true);
+      }
+      if (maxSecs <= 0 || elapsed >= maxSecs) {
+        clearInterval(t);
+        cleanupCall();
+        Alert.alert('Call Ended', 'Your coins have finished (2 coins = 1 min video). Please recharge to continue calling.');
+      }
     }, 1000);
     callRef.current._timer = t;
   };
@@ -303,6 +322,14 @@ export default function VideoCallScreen({ onBack, onHangup, callerUser, incoming
         </TouchableOpacity>
       </View>
 
+      {/* 15-second Low-coin Warning Banner */}
+      {coinWarning && (
+        <View style={styles.warningBanner}>
+          <Icon name="clock" size={16} color="#fff" />
+          <Text style={styles.warningBannerText}>15 seconds left! Recharge coins to keep talking</Text>
+        </View>
+      )}
+
       {/* Self PiP */}
       <View style={[styles.pip, { top: insets.top + 70 }]}>
         {camOff || !engineReady ? (
@@ -523,4 +550,27 @@ const styles = StyleSheet.create({
   shopItemPrice: { fontSize: 11, fontWeight: '800', paddingHorizontal: 10, paddingVertical: 3, borderRadius: 8, overflow: 'hidden' },
   shopItemPriceAfford: { color: '#fff', backgroundColor: Colors.secondary },
   shopItemPricePoor: { color: '#94a3b8', backgroundColor: '#F1F5F9' },
+  warningBanner: {
+    position: 'absolute',
+    top: 95,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 59, 48, 0.94)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    gap: 8,
+    zIndex: 100,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  warningBannerText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#fff',
+  },
 });

@@ -47,9 +47,20 @@ export default function AudioCallScreen({ onBack, onHangup, callerUser, incoming
   const [callStatus, setCallStatus] = useState('Connecting…');
   const [showTrialEndModal, setShowTrialEndModal] = useState(false);
   const [trialWarning, setTrialWarning] = useState(false);
+  const [coinWarning, setCoinWarning] = useState(false);
   const [trialPaying, setTrialPaying] = useState(false);
   const engineRef = useRef(null);
   const callRef = useRef(null);
+  const allowedSecsRef = useRef(isFreeTrialCall ? FREE_TRIAL_SECS : Math.max(0, (myCoins || 0) * 60));
+
+  useEffect(() => {
+    if (!isFreeTrialCall) {
+      allowedSecsRef.current = Math.max(0, (myCoins || 0) * 60);
+      if (seconds < allowedSecsRef.current - 15) {
+        setCoinWarning(false);
+      }
+    }
+  }, [myCoins, isFreeTrialCall]);
 
   // other user's id — needed to emit call:ended
   const otherUserId = incomingCallData ? incomingCallData.callerId : callerUser?.id;
@@ -69,6 +80,16 @@ export default function AudioCallScreen({ onBack, onHangup, callerUser, incoming
         if (elapsed >= FREE_TRIAL_SECS) {
           clearInterval(t);
           setShowTrialEndModal(true);
+        }
+      } else {
+        const maxSecs = allowedSecsRef.current;
+        if (maxSecs > 0 && elapsed === maxSecs - 15) {
+          setCoinWarning(true);
+        }
+        if (maxSecs <= 0 || elapsed >= maxSecs) {
+          clearInterval(t);
+          cleanupCall(maxSecs > 0 ? maxSecs : elapsed);
+          Alert.alert('Call Ended', 'Your coins have finished (1 coin = 1 min). Please recharge to continue calling.');
         }
       }
     }, 1000);
@@ -469,6 +490,14 @@ export default function AudioCallScreen({ onBack, onHangup, callerUser, incoming
         <View style={styles.trialWarningBanner}>
           <Icon name="clock" size={16} color="#fff" />
           <Text style={styles.trialWarningText}>30 seconds left! Continue for ₹9</Text>
+        </View>
+      )}
+
+      {/* Coin low: 15-sec warning banner */}
+      {coinWarning && !isFreeTrialCall && (
+        <View style={styles.trialWarningBanner}>
+          <Icon name="clock" size={16} color="#fff" />
+          <Text style={styles.trialWarningText}>15 seconds left! Recharge coins to keep talking</Text>
         </View>
       )}
 
