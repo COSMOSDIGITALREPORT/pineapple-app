@@ -556,7 +556,7 @@ td b{color:var(--text);font-weight:600;}
       <div class="ph">
         <div>
           <div class="ph-title">Users Directory</div>
-          <div class="ph-sub">Manage, filter, add coins, and moderate registered users</div>
+          <div class="ph-sub">Manage, filter, and moderate registered users</div>
         </div>
         <div class="ph-actions">
           <button class="btn btn-pink" onclick="fixMissingGenders()">Fix Missing Genders</button>
@@ -1342,8 +1342,6 @@ function renderUsers(list) {
       <td style="color:#bbb;font-size:12px">${new Date(u.created_at).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})}</td>
       <td>
         <div class="actions">
-          <input class="coin-input" type="number" id="ci-${u.id}" placeholder="coins" min="1" />
-          <button class="btn btn-green" onclick="addCoins('${u.id}')">+ Add</button>
           <button class="btn ${u.is_blocked?'btn-green':'btn-yellow'}" onclick="toggleBlock('${u.id}',${u.is_blocked?0:1})">${u.is_blocked?'Unblock':'Suspend'}</button>
           <button class="btn btn-red" onclick="delUser('${u.id}','${(u.name||'User').replace(/'/g,"\\'")}')">Delete</button>
         </div>
