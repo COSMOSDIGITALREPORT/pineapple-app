@@ -38,14 +38,15 @@ export default function VideoCallScreen({ onBack, onHangup, callerUser, incoming
   const otherUserId = incomingCallData ? incomingCallData.callerId : callerUser?.id;
 
   const startTimer = () => {
-    if (callRef.current?._started) return;
+    if (callRef.current?._started || callRef.current?._timer) return;
+    if (!callRef.current) callRef.current = {};
     callRef.current._started = true;
     setCallStatus('Connected');
+    const startTime = Date.now();
     const t = setInterval(() => {
-      setSeconds((s) => {
-        callRef.current._secs = (callRef.current._secs || 0) + 1;
-        return s + 1;
-      });
+      const elapsed = Math.max(1, Math.floor((Date.now() - startTime) / 1000));
+      callRef.current._secs = elapsed;
+      setSeconds(elapsed);
     }, 1000);
     callRef.current._timer = t;
   };

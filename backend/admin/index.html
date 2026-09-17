@@ -284,6 +284,66 @@ td b{color:var(--text);font-weight:600;}
   display:inline-flex;align-items:center;gap:6px;background:#FFF0F4;
   border:1px solid #FFE0EA;border-radius:12px;padding:6px 12px;font-size:12px;font-weight:700;color:var(--crimson);
 }
+
+/* ── MODAL STYLES ── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(6px);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: fadeIn 0.2s ease;
+}
+.modal-card {
+  background: #fff;
+  border-radius: 24px;
+  width: 100%;
+  max-width: 580px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  animation: scaleUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border);
+  background: #FAF5FF;
+}
+.modal-close-btn {
+  background: #EDE9FE;
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+  color: #7C3AED;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+.modal-close-btn:hover {
+  background: #DDD6FE;
+  transform: scale(1.05);
+}
+.modal-body {
+  padding: 24px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes scaleUp { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+.host-row-clickable { cursor: pointer; transition: background 0.15s ease; }
+.host-row-clickable:hover { background: #FAF5FF !important; }
 </style>
 </head>
 <body>
@@ -580,10 +640,13 @@ td b{color:var(--text);font-weight:600;}
           <div class="stat-num" id="ec-coins-burned">0</div>
           <div class="stat-label">Coins Consumed (Calls+Gifts)</div>
         </div>
-        <div class="stat-card c-purple">
-          <div class="stat-top"><div class="stat-icon-wrap">👧</div><span class="stat-trend" style="background:#F5F3FF;color:#7C3AED">70% Split</span></div>
+        <div class="stat-card c-purple" onclick="scrollToHostBreakdown()" style="cursor:pointer;" title="Click to view individual host-wise earnings breakdown">
+          <div class="stat-top"><div class="stat-icon-wrap">👧</div><span class="stat-trend" style="background:#F5F3FF;color:#7C3AED;font-weight:700;">70% Split ➔</span></div>
           <div class="stat-num" id="ec-girl-gross">₹0</div>
-          <div class="stat-label">Total Host Earnings (₹)</div>
+          <div class="stat-label" style="display:flex;align-items:center;justify-content:space-between;">
+            <span>Total Host Earnings (₹)</span>
+            <span style="font-size:11px;color:#7C3AED;font-weight:700;text-decoration:underline;">View Hosts ➔</span>
+          </div>
         </div>
         <div class="stat-card c-pink">
           <div class="stat-top"><div class="stat-icon-wrap">🏢</div><span class="stat-trend" style="background:#FFF0F4;color:var(--pink)">30% Cut</span></div>
@@ -600,10 +663,13 @@ td b{color:var(--text);font-weight:600;}
           <div class="stat-num" id="ec-pending-payout">₹0</div>
           <div class="stat-label">Pending Payout Queue (₹)</div>
         </div>
-        <div class="stat-card c-purple">
-          <div class="stat-top"><div class="stat-icon-wrap">🏦</div><span class="stat-trend" style="background:#F5F3FF;color:#7C3AED">Unpaid</span></div>
+        <div class="stat-card c-purple" onclick="scrollToHostBreakdown()" style="cursor:pointer;" title="Click to view host unpaid balances">
+          <div class="stat-top"><div class="stat-icon-wrap">🏦</div><span class="stat-trend" style="background:#F5F3FF;color:#7C3AED;font-weight:700;">Unpaid ➔</span></div>
           <div class="stat-num" id="ec-host-balance">₹0</div>
-          <div class="stat-label">Host Unpaid Balance (₹)</div>
+          <div class="stat-label" style="display:flex;align-items:center;justify-content:space-between;">
+            <span>Host Unpaid Balance (₹)</span>
+            <span style="font-size:11px;color:#7C3AED;font-weight:700;text-decoration:underline;">View Hosts ➔</span>
+          </div>
         </div>
         <div class="stat-card c-blue">
           <div class="stat-top"><div class="stat-icon-wrap">👛</div><span class="stat-trend" style="background:#eff6ff;color:#2563eb">In Wallets</span></div>
@@ -697,17 +763,18 @@ td b{color:var(--text);font-weight:600;}
       </div>
 
       <!-- HOST-WISE EARNINGS & PAYOUT BREAKDOWN -->
-      <div class="ph" style="margin-top:24px;margin-bottom:12px;">
+      <div class="ph" id="hosts-breakdown-section" style="margin-top:24px;margin-bottom:12px;">
         <div>
           <div class="ph-title" style="font-size:18px;">👧 Host-Wise Earnings & Payout Breakdown</div>
           <div class="ph-sub">Individual earnings, call stats, and unpaid balance for each host / girl</div>
         </div>
-        <div style="display:flex;gap:8px;">
-          <input type="text" id="host-search" placeholder="Search host by name or phone..." oninput="filterHostTable()" style="padding:6px 12px;border:1px solid #CBD5E1;border-radius:8px;font-size:13px;width:240px;background:#fff;" />
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="text" id="host-search" placeholder="Search host by name or phone..." oninput="filterHostTable()" style="padding:6px 12px;border:1px solid #CBD5E1;border-radius:8px;font-size:13px;width:220px;background:#fff;" />
+          <button class="btn btn-purple" onclick="go('hosts')" style="font-size:12px;padding:6px 12px;font-weight:700;">👧 Open Dedicated Host View ➔</button>
         </div>
       </div>
 
-      <div class="table-card" style="margin-bottom:28px;">
+      <div class="table-card" id="hosts-breakdown-card" style="margin-bottom:28px;">
         <table>
           <thead><tr>
             <th>Host Profile</th>
@@ -1417,6 +1484,102 @@ function filterHostTable() {
   renderHostTable();
 }
 
+function scrollToHostBreakdown() {
+  const el = document.getElementById('hosts-breakdown-section');
+  if (el) {
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const card = document.getElementById('hosts-breakdown-card');
+    if (card) {
+      card.style.transition = 'all 0.3s ease';
+      card.style.boxShadow = '0 0 0 4px rgba(124, 58, 237, 0.35)';
+      setTimeout(() => { card.style.boxShadow = ''; }, 2500);
+    }
+  } else {
+    go('hosts');
+  }
+}
+
+function showHostDetailModal(hostId) {
+  const host = allHostsList.find(h => h.id === hostId);
+  if (!host) return;
+
+  const grossEarned = Number(host.total_earned_inr || 0);
+  const paidOut = Number(host.total_paid_out || 0);
+  const unpaidBal = Number(host.unpaid_balance || 0);
+  const coinsEarned = Number(host.total_earned_coins || 0);
+  const totalCalls = Number(host.total_calls || 0);
+  const totalMins = Math.round(Number(host.total_call_secs || 0) / 60);
+
+  const modalHtml = `
+    <div class="modal-overlay" id="host-modal" onclick="if(event.target===this) closeHostModal()">
+      <div class="modal-card">
+        <div class="modal-header">
+          <div style="display:flex;align-items:center;gap:12px;">
+            ${host.avatar_url
+              ? `<img src="${host.avatar_url}" style="width:48px;height:48px;border-radius:50%;object-fit:cover;border:2px solid #E2E8F0;" />`
+              : `<div style="width:48px;height:48px;border-radius:50%;background:#F3E8FF;color:#7C3AED;font-weight:700;display:flex;align-items:center;justify-content:center;font-size:18px;">${(host.name||'?')[0].toUpperCase()}</div>`}
+            <div>
+              <div style="font-size:18px;font-weight:800;color:#1E293B;display:flex;align-items:center;gap:6px;">
+                ${host.name || 'Host'}
+                ${host.is_verified ? '<span style="color:#16a34a;font-size:14px;" title="Verified Profile">✓ Verified</span>' : ''}
+              </div>
+              <div style="font-size:12px;color:#64748B;">
+                📞 ${host.phone || '–'} · ${host.city ? '📍 '+host.city : 'No City'} · ${host.is_online ? '🟢 Live Online' : '⚫ Offline'}
+              </div>
+            </div>
+          </div>
+          <button class="modal-close-btn" onclick="closeHostModal()">✕</button>
+        </div>
+
+        <div class="modal-body">
+          <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:12px;margin-bottom:16px;">
+            <div style="background:#F5F3FF;padding:14px;border-radius:14px;text-align:center;">
+              <div style="font-size:11px;font-weight:700;color:#7C3AED;text-transform:uppercase;">Gross Earned (70%)</div>
+              <div style="font-size:22px;font-weight:900;color:#7C3AED;margin-top:4px;">₹${grossEarned.toFixed(2)}</div>
+              <div style="font-size:11px;color:#64748B;margin-top:2px;">🪙 ${coinsEarned.toFixed(1)} coins</div>
+            </div>
+            <div style="background:#F0FDF4;padding:14px;border-radius:14px;text-align:center;">
+              <div style="font-size:11px;font-weight:700;color:#16A34A;text-transform:uppercase;">Total Paid Out</div>
+              <div style="font-size:22px;font-weight:900;color:#16A34A;margin-top:4px;">₹${paidOut.toFixed(2)}</div>
+              <div style="font-size:11px;color:#64748B;margin-top:2px;">Approved Withdrawals</div>
+            </div>
+            <div style="background:#FFF0F4;padding:14px;border-radius:14px;text-align:center;">
+              <div style="font-size:11px;font-weight:700;color:#FF3870;text-transform:uppercase;">Unpaid Balance</div>
+              <div style="font-size:22px;font-weight:900;color:#FF3870;margin-top:4px;">₹${unpaidBal.toFixed(2)}</div>
+              <div style="font-size:11px;color:#64748B;margin-top:2px;">Eligible for Payout</div>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:repeat(2, 1fr);gap:12px;margin-bottom:16px;">
+            <div style="background:#F8FAFC;padding:14px;border-radius:14px;border:1px solid #E2E8F0;">
+              <div style="font-size:12px;color:#64748B;font-weight:600;">📞 Total Completed Calls</div>
+              <div style="font-size:19px;font-weight:800;color:#1E293B;margin-top:2px;">${totalCalls} calls</div>
+            </div>
+            <div style="background:#F8FAFC;padding:14px;border-radius:14px;border:1px solid #E2E8F0;">
+              <div style="font-size:12px;color:#64748B;font-weight:600;">⏱️ Total Talk Duration</div>
+              <div style="font-size:19px;font-weight:800;color:#1E293B;margin-top:2px;">${totalMins} mins (${Number(host.total_call_secs||0)}s)</div>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:10px;margin-top:20px;">
+            <button class="btn btn-purple" style="flex:1;padding:10px;font-weight:700;" onclick="closeHostModal(); filterLedgerForHost('${host.id}');">📜 View Ledger for ${host.name}</button>
+            <button class="btn btn-green" style="flex:1;padding:10px;font-weight:700;" onclick="closeHostModal(); go('withdrawals');">💸 Process Payout</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  let existing = document.getElementById('host-modal');
+  if (existing) existing.remove();
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+function closeHostModal() {
+  const el = document.getElementById('host-modal');
+  if (el) el.remove();
+}
+
 function renderHostTable() {
   const tb = document.getElementById('hosts-breakdown-body');
   if (!tb) return;
@@ -1450,7 +1613,7 @@ function renderHostTable() {
       ? `<img src="${h.avatar_url}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid #E2E8F0;" />`
       : `<div style="width:36px;height:36px;border-radius:50%;background:#F3E8FF;color:#7C3AED;font-weight:700;display:flex;align-items:center;justify-content:center;font-size:14px;">${(h.name||'?')[0].toUpperCase()}</div>`;
 
-    return `<tr>
+    return `<tr class="host-row-clickable" onclick="showHostDetailModal('${h.id}')" title="Click to view full earnings & call details for ${h.name}">
       <td>
         <div style="display:flex;align-items:center;gap:10px;">
           ${avatarHtml}
@@ -1485,8 +1648,9 @@ function renderHostTable() {
         </span>
       </td>
       <td>
-        <div style="display:flex;gap:6px;">
-          <button class="btn btn-sm" onclick="filterLedgerForHost('${h.id}')" style="font-size:11px;padding:4px 8px;background:#F1F5F9;color:#334155;" title="View all calls & earnings for this host in ledger">🔍 Filter Ledger</button>
+        <div style="display:flex;gap:6px;" onclick="event.stopPropagation();">
+          <button class="btn btn-sm btn-purple" onclick="showHostDetailModal('${h.id}')" style="font-size:11px;padding:4px 8px;" title="View Complete Host Stats">👁️ Details</button>
+          <button class="btn btn-sm" onclick="filterLedgerForHost('${h.id}')" style="font-size:11px;padding:4px 8px;background:#F1F5F9;color:#334155;" title="View all calls & earnings for this host in ledger">🔍 Ledger</button>
           <button class="btn btn-sm btn-green" onclick="go('withdrawals')" style="font-size:11px;padding:4px 8px;" title="Review Payout Requests">💸 Payouts</button>
         </div>
       </td>
@@ -1575,7 +1739,7 @@ function renderHostPageTable() {
       ? `<img src="${h.avatar_url}" style="width:38px;height:38px;border-radius:50%;object-fit:cover;border:2px solid #FFE0EB;" />`
       : `<div style="width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--pink),var(--crimson));color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center;font-size:14px;">${(h.name||'?')[0].toUpperCase()}</div>`;
 
-    return `<tr>
+    return `<tr class="host-row-clickable" onclick="showHostDetailModal('${h.id}')" title="Click to view full earnings & call details for ${h.name}">
       <td>
         <div style="display:flex;align-items:center;gap:12px;">
           ${avatarHtml}
@@ -1616,7 +1780,8 @@ function renderHostPageTable() {
         </span>
       </td>
       <td>
-        <div style="display:flex;gap:6px;">
+        <div style="display:flex;gap:6px;" onclick="event.stopPropagation();">
+          <button class="btn btn-sm btn-purple" onclick="showHostDetailModal('${h.id}')" style="font-size:11px;padding:4px 8px;" title="View Complete Host Stats">👁️ Details</button>
           <button class="btn btn-sm" onclick="filterLedgerForHost('${h.id}')" style="font-size:11px;padding:4px 8px;background:#F1F5F9;color:#334155;" title="View all calls & earnings for this host in ledger">🔍 Ledger</button>
           <button class="btn btn-sm btn-green" onclick="go('withdrawals')" style="font-size:11px;padding:4px 8px;" title="Review Payout Requests">💸 Payouts</button>
         </div>
