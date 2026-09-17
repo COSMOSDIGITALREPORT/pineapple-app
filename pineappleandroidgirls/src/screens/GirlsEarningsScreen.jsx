@@ -49,10 +49,12 @@ export default function GirlsEarningsScreen({ onDrawer, onRedeem }) {
   const todayCoins = (earnings.earnings || [])
     .filter(e => new Date(e.created_at).toDateString() === new Date().toDateString())
     .reduce((s, e) => s + (parseFloat(e.mins_received) || parseFloat(e.coins_received) || 0), 0);
-  const totalCoins    = parseFloat(earnings.summary?.total_mins || 0);
+  const totalCoins    = parseFloat(earnings.summary?.total_coins || earnings.summary?.total_mins || 0);
   const totalInr      = parseFloat(earnings.summary?.total_inr  || 0);
-  const totalCalls    = calls.length;
-  const totalCallMins = calls.reduce((s, c) => s + Math.floor((c.duration_seconds || 0) / 60), 0);
+  const totalCalls    = earnings.summary?.total_calls != null ? earnings.summary.total_calls : calls.length;
+  const totalCallMins = earnings.summary?.total_talk_mins != null
+    ? earnings.summary.total_talk_mins
+    : Math.round(calls.reduce((s, c) => s + (Number(c.duration_seconds) || 0), 0) / 60);
 
   const STATS = [
     { label: 'Today',   value: todayCoins > 0 ? todayCoins.toFixed(1) : '0', sub: 'coins' },
@@ -144,27 +146,26 @@ export default function GirlsEarningsScreen({ onDrawer, onRedeem }) {
             <Text style={styles.emptySub}>Stay online to receive calls</Text>
           </View>
         ) : calls.slice(0, 10).map((call, i) => {
-          const secs = call.duration_seconds || 0;
+          const secs = Number(call.duration_seconds) || 0;
           const dur  = `${String(Math.floor(secs / 60)).padStart(2,'0')}:${String(secs % 60).padStart(2,'0')}`;
           const isVideo = call.call_type === 'video';
-          const rate = isVideo ? 2 : 1;
-          const billableMins = Math.max(1, Math.ceil(secs / 60));
-          const earnedCoins = (billableMins * rate * 0.70).toFixed(1);
-          const earnedInr = (earnedCoins * 0.50).toFixed(2);
+          const callerName = call.other_user_name || call.caller_name || call.other_user?.name || 'Caller';
+          const earnedCoins = call.girl_coins ? parseFloat(call.girl_coins).toFixed(1) : (Math.max(1, Math.ceil(secs / 60)) * (isVideo ? 2 : 1) * 0.70).toFixed(1);
+          const earnedInr = call.girl_earnings_inr ? parseFloat(call.girl_earnings_inr).toFixed(2) : (parseFloat(earnedCoins) * 0.50).toFixed(2);
           return (
             <View key={call.id || i} style={styles.row}>
               <View style={styles.rowIcon}>
                 <Icon name={isVideo ? 'video' : 'phone'} size={18} color="#FF3870" />
               </View>
               <View style={styles.rowInfo}>
-                <Text style={styles.rowName} numberOfLines={1}>{call.other_user?.name || 'Caller'}</Text>
+                <Text style={styles.rowName} numberOfLines={1}>{callerName}</Text>
                 <Text style={styles.rowMeta}>{dur} · {call.call_type || 'audio'}</Text>
               </View>
               <View style={{ alignItems: 'flex-end' }}>
-                <Text style={[styles.rowEarned, { color: secs > 0 ? '#22C55E' : '#94A3B8' }]}>
-                  {secs > 0 ? `+${earnedCoins} coins` : '—'}
+                <Text style={[styles.rowEarned, { color: secs > 0 || parseFloat(earnedCoins) > 0 ? '#22C55E' : '#94A3B8' }]}>
+                  {secs > 0 || parseFloat(earnedCoins) > 0 ? `+${earnedCoins} coins` : '—'}
                 </Text>
-                {secs > 0 && (
+                {(secs > 0 || parseFloat(earnedInr) > 0) && (
                   <Text style={{ fontSize: 11, color: '#64748B', fontWeight: '600', marginTop: 1 }}>
                     ₹{earnedInr}
                   </Text>

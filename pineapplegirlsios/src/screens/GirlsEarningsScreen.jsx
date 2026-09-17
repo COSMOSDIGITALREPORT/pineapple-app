@@ -49,18 +49,20 @@ export default function GirlsEarningsScreen({ onDrawer, onRedeem }) {
   const todayCoins = (earnings.earnings || [])
     .filter(e => new Date(e.created_at).toDateString() === new Date().toDateString())
     .reduce((s, e) => s + (parseFloat(e.mins_received) || parseFloat(e.coins_received) || 0), 0);
-  const totalCoins    = parseFloat(earnings.summary?.total_mins || 0);
+  const totalCoins    = parseFloat(earnings.summary?.total_coins || earnings.summary?.total_mins || 0);
   const totalInr      = parseFloat(earnings.summary?.total_inr  || 0);
-  const totalCalls    = calls.length;
-  const totalCallMins = calls.reduce((s, c) => s + Math.floor((c.duration_seconds || 0) / 60), 0);
+  const totalCalls    = earnings.summary?.total_calls != null ? earnings.summary.total_calls : calls.length;
+  const totalCallMins = earnings.summary?.total_talk_mins != null
+    ? earnings.summary.total_talk_mins
+    : Math.round(calls.reduce((s, c) => s + (Number(c.duration_seconds) || 0), 0) / 60);
 
   const STATS = [
-    { label: 'Today',   value: todayCoins,                        sub: 'coins' },
-    { label: 'Total',   value: totalCoins,                        sub: 'all time' },
+    { label: 'Today',   value: todayCoins > 0 ? todayCoins.toFixed(1) : '0', sub: 'coins' },
+    { label: 'Total',   value: totalCoins > 0 ? totalCoins.toFixed(1) : '0', sub: 'all time' },
     { label: 'Calls',   value: totalCalls,                        sub: 'received' },
     { label: 'Minutes', value: totalCallMins,                     sub: 'talked' },
-    { label: 'Earned',  value: `₹${Number(totalInr).toFixed(0)}`, sub: 'total' },
-    { label: 'Rating',  value: '⭐',                               sub: 'top rated' },
+    { label: 'Earned',  value: `₹${Number(totalInr).toFixed(2)}`, sub: 'total INR' },
+    { label: 'Rating',  value: '⭐ 5.0',                          sub: 'top rated' },
   ];
 
   return (

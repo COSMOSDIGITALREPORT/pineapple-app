@@ -12,13 +12,29 @@ router.get('/', auth, async (req, res) => {
       'SELECT COALESCE(SUM(COALESCE(mins_received, coins_received, 0)),0) AS total_mins, COALESCE(SUM(amount_inr),0) AS total_inr FROM earnings WHERE girl_id=?',
       [req.user.userId]);
     const [[callSummary]] = await pool.query(
-      'SELECT COALESCE(SUM(girl_coins),0) AS call_coins, COALESCE(SUM(girl_earnings_inr),0) AS call_inr FROM calls WHERE receiver_id=? AND status="ended" AND free_trial=0',
+      `SELECT COUNT(*) AS total_calls,
+              COALESCE(SUM(duration_seconds),0) AS total_secs,
+              COALESCE(SUM(girl_coins),0) AS call_coins,
+              COALESCE(SUM(girl_earnings_inr),0) AS call_inr
+       FROM calls WHERE receiver_id=? AND status="ended" AND free_trial=0`,
       [req.user.userId]);
 
-    const totalMins = Math.max(parseFloat(earnSummary?.total_mins) || 0, parseFloat(callSummary?.call_coins) || 0);
+    const totalCoins = Math.max(parseFloat(earnSummary?.total_mins) || 0, parseFloat(callSummary?.call_coins) || 0);
     const totalInr  = Math.max(parseFloat(earnSummary?.total_inr) || 0, parseFloat(callSummary?.call_inr) || 0);
+    const totalSecs = Number(callSummary?.total_secs) || 0;
+    const totalTalkMins = Math.round(totalSecs / 60) || (totalSecs > 0 ? 1 : 0);
 
-    res.json({ earnings: rows, summary: { total_mins: totalMins, total_inr: totalInr } });
+    res.json({
+      earnings: rows,
+      summary: {
+        total_mins: totalCoins,
+        total_coins: totalCoins,
+        total_inr: totalInr,
+        total_talk_mins: totalTalkMins,
+        total_talk_secs: totalSecs,
+        total_calls: callSummary?.total_calls || 0
+      }
+    });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
