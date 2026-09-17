@@ -65,9 +65,18 @@ export default function GirlsHomeScreen({ onLogout }) {
         setIncomingCall(data);
       });
 
-      socket.on('call:ended', () => {
-        setCurrentSubScreen(null);
+      socket.on('call:ended', (data) => {
+        const dur = data?.formattedDuration || '00:00';
+        setCallDuration(dur);
+        if (data?.callType) setLastCallType(data.callType);
+        setCurrentSubScreen((prev) => {
+          if (prev === 'audioCall' || prev === 'videoCall' || incomingCallRef.current) {
+            return 'callDuration';
+          }
+          return prev;
+        });
         setIncomingCall(null);
+        incomingCallRef.current = null;
       });
 
       socket.on('gift:received', (data) => {
@@ -126,8 +135,8 @@ export default function GirlsHomeScreen({ onLogout }) {
     );
   }
 
-  if (currentSubScreen === 'videoCall')    return <VideoCallScreen callerUser={selectedUser} onBack={goHome} onHangup={handleHangup} incomingCallData={acceptedCallData} />;
-  if (currentSubScreen === 'audioCall')    return <AudioCallScreen callerUser={selectedUser} onBack={goHome} onHangup={handleHangup} incomingCallData={acceptedCallData} />;
+  if (currentSubScreen === 'videoCall')    return <VideoCallScreen callerUser={selectedUser} onBack={() => handleHangup(callDuration)} onHangup={handleHangup} incomingCallData={acceptedCallData} />;
+  if (currentSubScreen === 'audioCall')    return <AudioCallScreen callerUser={selectedUser} onBack={() => handleHangup(callDuration)} onHangup={handleHangup} incomingCallData={acceptedCallData} />;
   if (currentSubScreen === 'callDuration') return <CallDurationScreen duration={callDuration} callerUser={selectedUser} onRate={() => setCurrentSubScreen('callReview')} onSkip={goHome} />;
   if (currentSubScreen === 'callReview')   return <CallReviewScreen callerName={selectedUser?.name || 'User'} callerAvatar={selectedUser?.avatar_url} callerUserId={selectedUser?.id} callId={acceptedCallData?.callId} onSubmit={goHome} onBack={() => setCurrentSubScreen('callDuration')} />;
   if (currentSubScreen === 'redeem')       return <GirlsRedeemScreen onBack={goHome} />;

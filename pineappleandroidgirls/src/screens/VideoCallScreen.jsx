@@ -52,7 +52,7 @@ export default function VideoCallScreen({ onBack, onHangup, callerUser, incoming
     callRef.current._timer = t;
   };
 
-  const cleanupCall = async () => {
+  const cleanupCall = async (dur) => {
     if (cleanupRef.current) return;
     cleanupRef.current = true;
     clearInterval(callRef.current?._timer);
@@ -70,14 +70,14 @@ export default function VideoCallScreen({ onBack, onHangup, callerUser, incoming
         const res = await endCall(callRef.current.id, callRef.current._secs || 0);
         if (res?.formattedDuration) {
           ts = res.formattedDuration;
-          getSocket()?.emit('call:ended', { otherUserId, duration: res.duration, formattedDuration: res.formattedDuration });
+          getSocket()?.emit('call:ended', { otherUserId, duration: res.duration, formattedDuration: res.formattedDuration, callType: 'video' });
         }
       } catch {}
     }
     if (!ts) {
       const s = callRef.current?._secs || 0;
       ts = `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
-      getSocket()?.emit('call:ended', { otherUserId, duration: s, formattedDuration: ts });
+      getSocket()?.emit('call:ended', { otherUserId, duration: s, formattedDuration: ts, callType: 'video' });
     }
     if (typeof onHangup === 'function') onHangup(ts);
     else if (typeof onBack === 'function') onBack(ts);
@@ -268,7 +268,7 @@ export default function VideoCallScreen({ onBack, onHangup, callerUser, incoming
 
       {/* Top bar */}
       <View style={[styles.topBar, { paddingTop: insets.top + 10 }]}>
-        <TouchableOpacity onPress={onBack} style={styles.topBtn}>
+        <TouchableOpacity onPress={handleHangupPress} style={styles.topBtn}>
           <View style={styles.topBtnBg}>
             <Icon name="arrow-left" size={20} color="#fff" />
           </View>

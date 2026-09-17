@@ -83,14 +83,17 @@ export default function HomeScreen({ onLogout }) {
       });
 
       socket.on('call:ended', (data) => {
-        if (data?.formattedDuration) {
-          setCallDuration(data.formattedDuration);
-          if (data?.callType) setLastCallType(data.callType);
-          setCurrentSubScreen('callDuration');
-        } else {
-          setCurrentSubScreen(null);
-        }
+        const dur = data?.formattedDuration || '00:00';
+        setCallDuration(dur);
+        if (data?.callType) setLastCallType(data.callType);
+        setCurrentSubScreen((prev) => {
+          if (prev === 'audioCall' || prev === 'videoCall' || incomingCallRef.current) {
+            return 'callDuration';
+          }
+          return prev;
+        });
         setIncomingCall(null);
+        incomingCallRef.current = null;
       });
     };
 
@@ -143,7 +146,7 @@ export default function HomeScreen({ onLogout }) {
       if (e.message === 'No one is online') {
         Alert.alert('No One Online', 'No girls are available right now. Please try again later.');
       } else {
-        Alert.alert('Error', 'Could not find a match. Check your connection.');
+        Alert.alert('Error', e.message || 'Could not connect. Please check your internet.');
       }
     }
   };
@@ -160,8 +163,8 @@ export default function HomeScreen({ onLogout }) {
   }
 
   if (currentSubScreen === 'luckySpin')    return <LuckySpinScreen onBack={goHome} onPremium={() => setCurrentSubScreen('premium')} />;
-  if (currentSubScreen === 'videoCall')    return <VideoCallScreen callerUser={selectedUser} onBack={goHome} onHangup={(d) => { setLastCallType('video'); handleHangup(d); }} incomingCallData={acceptedCallData} />;
-  if (currentSubScreen === 'audioCall')    return <AudioCallScreen callerUser={selectedUser} onBack={goHome} onHangup={(d) => { setLastCallType('audio'); handleHangup(d); }} incomingCallData={acceptedCallData} />;
+  if (currentSubScreen === 'videoCall')    return <VideoCallScreen callerUser={selectedUser} onBack={() => { setLastCallType('video'); handleHangup(callDuration); }} onHangup={(d) => { setLastCallType('video'); handleHangup(d); }} incomingCallData={acceptedCallData} />;
+  if (currentSubScreen === 'audioCall')    return <AudioCallScreen callerUser={selectedUser} onBack={() => { setLastCallType('audio'); handleHangup(callDuration); }} onHangup={(d) => { setLastCallType('audio'); handleHangup(d); }} incomingCallData={acceptedCallData} />;
   if (currentSubScreen === 'callDuration') return <CallDurationScreen duration={callDuration} callerUser={selectedUser} callType={lastCallType} onRate={() => setCurrentSubScreen('callReview')} onSkip={goHome} />;
   if (currentSubScreen === 'callReview')   return <CallReviewScreen callerName={selectedUser?.name || 'User'} callerAvatar={selectedUser?.avatar_url} callerUserId={selectedUser?.id} callId={acceptedCallData?.callId} onSubmit={goHome} onBack={() => setCurrentSubScreen('callDuration')} />;
   if (currentSubScreen === 'liveRoom')     return <LiveRoomScreen onBack={goHome} />;

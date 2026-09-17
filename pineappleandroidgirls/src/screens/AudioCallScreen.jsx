@@ -64,14 +64,14 @@ export default function AudioCallScreen({ onBack, onHangup, callerUser, incoming
         const res = await endCall(callRef.current.id, callRef.current._secs || 0);
         if (res?.formattedDuration) {
           ts = res.formattedDuration;
-          getSocket()?.emit('call:ended', { otherUserId, duration: res.duration, formattedDuration: res.formattedDuration });
+          getSocket()?.emit('call:ended', { otherUserId, duration: res.duration, formattedDuration: res.formattedDuration, callType: 'audio' });
         }
       } catch {}
     }
     if (!ts) {
       const s = callRef.current?._secs || 0;
       ts = `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
-      getSocket()?.emit('call:ended', { otherUserId, duration: s, formattedDuration: ts });
+      getSocket()?.emit('call:ended', { otherUserId, duration: s, formattedDuration: ts, callType: 'audio' });
     }
     if (typeof onHangup === 'function') onHangup(ts);
     else if (typeof onBack === 'function') onBack(ts);
@@ -232,7 +232,7 @@ export default function AudioCallScreen({ onBack, onHangup, callerUser, incoming
 
       {/* Top bar */}
       <View style={[styles.topBar, { paddingTop: insets.top + 10 }]}>
-        <TouchableOpacity onPress={onBack} style={styles.topBtn}>
+        <TouchableOpacity onPress={handleHangupPress} style={styles.topBtn}>
           <Icon name="arrow-left" size={22} color="rgba(255,255,255,0.7)" />
         </TouchableOpacity>
         <View style={styles.topCenter}>
