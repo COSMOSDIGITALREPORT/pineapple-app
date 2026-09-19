@@ -90,6 +90,7 @@ async function runMigrations() {
       INDEX idx_blocker (blocker_id),
       INDEX idx_blocked (blocked_id)
     )`,
+    `ALTER TABLE blocks ADD COLUMN IF NOT EXISTS created_at DATETIME DEFAULT CURRENT_TIMESTAMP`,
     `CREATE TABLE IF NOT EXISTS user_ratings (
       id           CHAR(36)     PRIMARY KEY DEFAULT (UUID()),
       rater_id     CHAR(36),

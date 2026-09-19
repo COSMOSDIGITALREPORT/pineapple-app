@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   View,
   Text,
@@ -43,14 +44,16 @@ function PhoneArrowIcon({ missed }) {
     <Svg width={16} height={16} viewBox="0 0 24 24">
       <Path
         d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07C9.44 16.29 8.76 15.62 8 14.89m-3.5-3.07A19.79 19.79 0 0 1 1.43 3.2 2 2 0 0 1 3.41 1h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L7.39 8.91"
+        fill="none"
         stroke={color}
-        strokeWidth={2}
+        strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
-        fill="none"
       />
-      {missed && (
-        <Line x1="22" y1="2" x2="2" y2="22" stroke={color} strokeWidth={2} strokeLinecap="round" />
+      {missed ? (
+        <Line x1="1" y1="1" x2="23" y2="23" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      ) : (
+        <Path d="M7 17l9.2-9.2M17 17V8h-9" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
       )}
     </Svg>
   );
@@ -61,6 +64,7 @@ export default function RecentsScreen({ onRandom, onBack, onDrawer, onCall }) {
   const [calls, setCalls] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [myUserId, setMyUserId] = useState(null);
   const [selectedCaller, setSelectedCaller] = useState(null);
   const [showActionModal, setShowActionModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
@@ -77,7 +81,10 @@ export default function RecentsScreen({ onRandom, onBack, onDrawer, onCall }) {
     }
   };
 
-  useEffect(() => { fetchHistory().finally(() => setLoading(false)); }, []);
+  useEffect(() => {
+    AsyncStorage.getItem('user_id').then(setMyUserId);
+    fetchHistory().finally(() => setLoading(false));
+  }, []);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -87,12 +94,17 @@ export default function RecentsScreen({ onRandom, onBack, onDrawer, onCall }) {
 
   const handleCallerPress = (item) => {
     if (!item) return;
-    const cid = item?.other_user_id || item?.other_user?.id || item?.caller_id || item?.receiver_id || item?.id;
-    const cname = item?.other_user_name || item?.caller_name || item?.other_user?.name || item?.name || 'Caller';
-    const cavatar = item?.other_user_avatar || item?.caller_avatar || item?.other_user?.avatar_url || item?.avatar_url || null;
+    const otherId = item?.other_user_id || item?.other_user?.id || (item?.caller_id && item.caller_id !== myUserId ? item.caller_id : item?.receiver_id);
+    const cname = item?.other_user_name || item?.other_user?.name || item?.caller_name || item?.receiver_name || item?.name || 'Caller';
+    const cavatar = item?.other_user_avatar || item?.other_user?.avatar_url || item?.caller_avatar || item?.receiver_avatar || item?.avatar_url || null;
+
+    if (!otherId || otherId === myUserId) {
+      Alert.alert('Error', 'Caller ID not found.');
+      return;
+    }
 
     setSelectedCaller({
-      id: cid,
+      id: otherId,
       name: cname,
       avatar_url: cavatar,
     });

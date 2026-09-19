@@ -148,6 +148,8 @@ router.get('/live', auth, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+const jwt = require('jsonwebtoken');
+
 router.get('/random', auth, async (req, res) => {
   try {
     const [me] = await pool.query('SELECT gender FROM users WHERE id=?', [req.user.userId]);
@@ -156,25 +158,72 @@ router.get('/random', auth, async (req, res) => {
     const targetGender = isBoy ? ['female','girl','f'] : ['male','boy','m'];
     const verifiedFilter = isBoy ? 'AND is_verified=1' : '';
     const placeholders = targetGender.map(() => '?').join(',');
-    const [rows] = await pool.query(
-      `SELECT ${PUBLIC_FIELDS} FROM users
-       WHERE id!=? AND gender IN (${placeholders}) AND is_online=1 AND is_blocked=0 ${verifiedFilter}
-       ORDER BY RAND() LIMIT 1`,
-      [req.user.userId, ...targetGender]);
+
+    const blockFilter = `AND id NOT IN (
+      SELECT blocked_id FROM blocks WHERE blocker_id=?
+      UNION SELECT blocker_id FROM blocks WHERE blocked_id=?
+    )`;
+
+    let rows;
+    try {
+      [rows] = await pool.query(
+        `SELECT ${PUBLIC_FIELDS} FROM users
+         WHERE id!=? AND gender IN (${placeholders}) AND is_online=1 AND is_blocked=0 ${verifiedFilter} ${blockFilter}
+         ORDER BY RAND() LIMIT 1`,
+        [req.user.userId, ...targetGender, req.user.userId, req.user.userId]);
+    } catch (_) {
+      [rows] = await pool.query(
+        `SELECT ${PUBLIC_FIELDS} FROM users
+         WHERE id!=? AND gender IN (${placeholders}) AND is_online=1 AND is_blocked=0 ${verifiedFilter}
+         ORDER BY RAND() LIMIT 1`,
+        [req.user.userId, ...targetGender]);
+    }
+
     if (!rows.length) return res.status(404).json({ error: 'No one is online' });
     res.json({ ...rows[0], rating: parseFloat(rows[0].rating || 0), age: calcAge(rows[0].dob) });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// GET /users/top — top rated girls leaderboard
+// GET /users/top — top rated girls leaderboard (excludes blocked girls two-way)
 router.get('/top', async (req, res) => {
   try {
-    const [rows] = await pool.query(
-      `SELECT u.id, u.name, u.avatar_url, u.city, u.language, u.is_online, u.rating, u.rating_count, u.content_prefs,
-              (SELECT COUNT(*) FROM calls WHERE receiver_id = u.id AND status = 'ended') AS calls_count
-       FROM users u WHERE u.gender='girl' AND u.is_blocked=0 AND u.is_verified=1
-       ORDER BY u.rating DESC, u.rating_count DESC, u.is_online DESC LIMIT 20`
-    );
+    let currentUserId = null;
+    const token = req.headers.authorization?.split(' ')[1];
+    if (token) {
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        currentUserId = decoded.userId;
+      } catch (_) {}
+    }
+
+    let blockFilter = '';
+    const params = [];
+    if (currentUserId) {
+      blockFilter = `AND u.id NOT IN (
+        SELECT blocked_id FROM blocks WHERE blocker_id=?
+        UNION SELECT blocker_id FROM blocks WHERE blocked_id=?
+      )`;
+      params.push(currentUserId, currentUserId);
+    }
+
+    let rows;
+    try {
+      [rows] = await pool.query(
+        `SELECT u.id, u.name, u.avatar_url, u.city, u.language, u.is_online, u.rating, u.rating_count, u.content_prefs,
+                (SELECT COUNT(*) FROM calls WHERE receiver_id = u.id AND status = 'ended') AS calls_count
+         FROM users u WHERE u.gender='girl' AND u.is_blocked=0 AND u.is_verified=1 ${blockFilter}
+         ORDER BY u.rating DESC, u.rating_count DESC, u.is_online DESC LIMIT 20`,
+        params
+      );
+    } catch (_) {
+      [rows] = await pool.query(
+        `SELECT u.id, u.name, u.avatar_url, u.city, u.language, u.is_online, u.rating, u.rating_count, u.content_prefs,
+                (SELECT COUNT(*) FROM calls WHERE receiver_id = u.id AND status = 'ended') AS calls_count
+         FROM users u WHERE u.gender='girl' AND u.is_blocked=0 AND u.is_verified=1
+         ORDER BY u.rating DESC, u.rating_count DESC, u.is_online DESC LIMIT 20`
+      );
+    }
+
     const io = req.app.get('io');
     const onlineMap = io?.onlineUsers;
     res.json(rows.map(r => {
@@ -231,22 +280,54 @@ router.delete('/me', auth, async (req, res) => {
 
 router.get('/blocked', auth, async (req, res) => {
   try {
-    const [rows] = await pool.query(
-      `SELECT u.id, u.name, u.avatar_url, u.city, u.language, u.gender
-       FROM blocks b JOIN users u ON b.blocked_id=u.id
-       WHERE b.blocker_id=? ORDER BY b.created_at DESC`,
-      [req.user.userId]
-    );
-    res.json(rows);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+    let rows;
+    try {
+      [rows] = await pool.query(
+        `SELECT u.id, u.name, u.avatar_url, u.city, u.language, u.gender, b.created_at
+         FROM blocks b JOIN users u ON b.blocked_id=u.id
+         WHERE b.blocker_id=? ORDER BY b.created_at DESC`,
+        [req.user.userId]
+      );
+    } catch (_) {
+      [rows] = await pool.query(
+        `SELECT u.id, u.name, u.avatar_url, u.city, u.language, u.gender
+         FROM users u
+         WHERE u.id IN (SELECT blocked_id FROM blocks WHERE blocker_id=?)`,
+        [req.user.userId]
+      );
+    }
+    res.json(rows || []);
+  } catch (err) {
+    console.error('GET /users/blocked error:', err.message);
+    try {
+      const [rows] = await pool.query(
+        `SELECT id, name, avatar_url, city, language, gender
+         FROM users
+         WHERE id IN (SELECT blocked_id FROM blocks WHERE blocker_id=?)`,
+        [req.user.userId]
+      );
+      res.json(rows || []);
+    } catch (e2) {
+      res.status(500).json({ error: e2.message });
+    }
+  }
 });
 
 router.post('/:id/block', auth, async (req, res) => {
   try {
-    await pool.query('INSERT IGNORE INTO blocks (id,blocker_id,blocked_id) VALUES (?,?,?)',
-      [uuidv4(), req.user.userId, req.params.id]);
+    const blockedId = req.params.id;
+    if (!blockedId || blockedId === req.user.userId) {
+      return res.status(400).json({ error: 'Invalid user to block' });
+    }
+    await pool.query(
+      'INSERT INTO blocks (id, blocker_id, blocked_id) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE id=VALUES(id)',
+      [uuidv4(), req.user.userId, blockedId]
+    );
     res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) {
+    console.error('POST /users/:id/block error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 router.delete('/:id/block', auth, async (req, res) => {
