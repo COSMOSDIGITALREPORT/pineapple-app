@@ -379,30 +379,6 @@ const styles = StyleSheet.create({
   boundaryTitle: { fontSize: 14, fontWeight: '700', color: '#1e293b' },
   boundarySub: { fontSize: 11, color: '#94A3B8', marginTop: 2 },
 
-  bentoSection: { gap: 12, marginBottom: 28, marginTop: 8 },
-  bentoCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 10,
-    elevation: 2,
-  },
-  bentoLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  bentoIcon: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  bentoTitle: { fontSize: 15, fontWeight: '700', color: Colors.dark, includeFontPadding: false },
-  bentoSub: { fontSize: 12, color: '#94a3b8', marginTop: 2, includeFontPadding: false },
-
-  toggle: { width: 44, height: 24, borderRadius: 12, backgroundColor: '#E2E8F0', padding: 2 },
-  toggleActive: { backgroundColor: Colors.secondary },
-  toggleKnob: { width: 20, height: 20, borderRadius: 10, backgroundColor: '#fff' },
-  toggleKnobActive: { alignSelf: 'flex-end' },
-
   saveBtn: {
     height: 58,
     borderRadius: 29,
