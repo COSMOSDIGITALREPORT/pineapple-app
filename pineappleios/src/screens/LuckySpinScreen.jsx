@@ -68,14 +68,41 @@ export default function LuckySpinScreen({ onBack, onPremium }) {
   const [resultData, setResultData] = useState(null);
   const [error, setError] = useState('');
   const [spinAvailable, setSpinAvailable] = useState(false);
+  const [statusInfo, setStatusInfo] = useState(null);
   const [statusLoading, setStatusLoading] = useState(true);
 
   React.useEffect(() => {
     getSpinStatus()
-      .then(d => setSpinAvailable(!!d.spinAvailable))
-      .catch(() => setSpinAvailable(false))
+      .then(d => {
+        setStatusInfo(d);
+        setSpinAvailable(!!d.spinAvailable && ((coins || 0) > 0));
+      })
+      .catch(() => {
+        setSpinAvailable(false);
+      })
       .finally(() => setStatusLoading(false));
-  }, []);
+  }, [coins]);
+
+  const effectiveSpinAvailable = spinAvailable && ((coins || 0) > 0);
+
+  const handleCenterButtonPress = () => {
+    if (effectiveSpinAvailable) {
+      doSpin();
+      return;
+    }
+    if (statusInfo?.reason === 'already_spun_today') {
+      Alert.alert('Daily Spin Used', 'You can only spin the wheel once per day. Please come back tomorrow!');
+      return;
+    }
+    if ((coins || 0) <= 0 || statusInfo?.reason === 'no_coins') {
+      Alert.alert('Coins Finished', 'Your membership coins are 0. Please recharge coins to unlock daily spin.', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Get Coins', onPress: onPremium }
+      ]);
+      return;
+    }
+    onPremium?.();
+  };
 
   const spinDeg = spinAnim.interpolate({
     inputRange: [0, 1],
@@ -84,7 +111,7 @@ export default function LuckySpinScreen({ onBack, onPremium }) {
   });
 
   const doSpin = async () => {
-    if (isSpinning || !spinAvailable) return;
+    if (isSpinning || !effectiveSpinAvailable) return;
     setIsSpinning(true);
     setShowResult(false);
     setError('');
@@ -94,6 +121,7 @@ export default function LuckySpinScreen({ onBack, onPremium }) {
       const res = await spinApi();
       serverPrize = res;
       setSpinAvailable(false);
+      setStatusInfo(prev => ({ ...(prev || {}), spinAvailable: false, reason: 'already_spun_today' }));
       if (res.coins !== undefined) dispatch(setProfile({ coins: res.coins }));
     } catch (err) {
       setError(err.message || 'Buy premium to spin!');
@@ -149,7 +177,7 @@ export default function LuckySpinScreen({ onBack, onPremium }) {
         </TouchableOpacity>
         <View style={styles.coinBadge}>
           <Icon name="star" size={16} color={Colors.primary} />
-          <Text style={styles.coinText}>{coins.toLocaleString('en-IN')}</Text>
+          <Text style={styles.coinText}>{(coins || 0).toLocaleString('en-IN')}</Text>
         </View>
       </View>
 
@@ -157,7 +185,7 @@ export default function LuckySpinScreen({ onBack, onPremium }) {
       <View style={styles.content}>
         <View style={styles.titleGroup}>
           <Text style={styles.title}>Fortune Wheel</Text>
-          <Text style={styles.subtitle}>Spin to win exclusive rewards</Text>
+          <Text style={styles.subtitle}>Spin once daily to win exclusive rewards</Text>
         </View>
 
         {error.length > 0 && (
@@ -228,27 +256,41 @@ export default function LuckySpinScreen({ onBack, onPremium }) {
           {/* Center SPIN button */}
           <TouchableOpacity
             style={[styles.spinBtnWrap, { top: SPIN_BTN_OFFSET, left: SPIN_BTN_OFFSET }]}
-            onPress={spinAvailable ? doSpin : onPremium}
+            onPress={handleCenterButtonPress}
             disabled={isSpinning || statusLoading}
             activeOpacity={0.9}>
             <LinearGradient
-              colors={spinAvailable ? Gradients.primary : ['#94A3B8', '#64748B']}
+              colors={effectiveSpinAvailable ? Gradients.primary : ['#94A3B8', '#64748B']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.spinBtn}>
               {statusLoading ? (
                 <Text style={styles.spinBtnText}>...</Text>
-              ) : spinAvailable ? (
+              ) : effectiveSpinAvailable ? (
                 <Text style={styles.spinBtnText}>SPIN</Text>
+              ) : statusInfo?.reason === 'already_spun_today' ? (
+                <Text style={[styles.spinBtnText, { fontSize: 13 }]}>1/DAY</Text>
               ) : (
                 <Icon name="lock" size={28} color="#fff" />
               )}
             </LinearGradient>
           </TouchableOpacity>
 
-          {!spinAvailable && !statusLoading && (
-            <TouchableOpacity style={styles.premiumLockBanner} onPress={onPremium} activeOpacity={0.85}>
-              <Text style={styles.premiumLockText}>🔒 Buy Premium (₹500) to unlock spin</Text>
+          {!effectiveSpinAvailable && !statusLoading && (
+            <TouchableOpacity
+              style={[
+                styles.premiumLockBanner,
+                statusInfo?.reason === 'already_spun_today' && { backgroundColor: '#475569' }
+              ]}
+              onPress={handleCenterButtonPress}
+              activeOpacity={0.85}>
+              <Text style={styles.premiumLockText}>
+                {statusInfo?.reason === 'already_spun_today'
+                  ? '⏰ Daily spin used. Come back tomorrow!'
+                  : ((coins || 0) <= 0 || statusInfo?.reason === 'no_coins')
+                  ? '🔒 Coins finished (0 coins). Recharge to spin'
+                  : '🔒 Buy Premium (₹500) to unlock daily spin'}
+              </Text>
             </TouchableOpacity>
           )}
         </View>

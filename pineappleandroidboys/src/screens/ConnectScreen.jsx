@@ -74,31 +74,32 @@ const DUMMY_REVIEWS = [
   { stars: 4, reviewer_name: 'Vikas', review_text: 'Nice voice and polite. Recommended!' },
 ];
 
-const BUBBLE_SIZE = 62;
-const ROW_DUR  = 16000;
-const END_X    = -(BUBBLE_SIZE + 20);
-const START_X  = width + BUBBLE_SIZE + 20;
+const BUBBLE_SIZE = 58;
+const ROW_DUR  = 18000;
+const END_X    = -(BUBBLE_SIZE + 40);
+const START_X  = width + BUBBLE_SIZE + 40;
 const TOTAL    = START_X - END_X;
 
 /*
-  9 bubbles across 3 rows, interleaved so no two bubbles from different rows
-  ever share the same horizontal position. Phase for bubble (rowIdx, bubIdx):
-    phase = (bubIdx * 3 + rowIdx) / 9
-  → all 9 phases are 0, 1/9, 2/9, … 8/9 — perfectly distributed.
-  Each row also gets a slight random vertical jitter so they don't look grid-like.
+  3 fixed, well-separated vertical rows with safe clearances so bubbles never overlap vertically:
+  Row 0: topRatio = 0.05
+  Row 1: topRatio = 0.38
+  Row 2: topRatio = 0.70
+  Each row contains 2 horizontally separated bubbles with synchronized speed.
 */
-const ROWS = [0.06, 0.40, 0.74];
-const ROW_SPEEDS = [ROW_DUR, ROW_DUR * 1.15, ROW_DUR * 0.88]; // vary speed per row
-const POSITIONS = ROWS.flatMap((topRatio, rowIdx) =>
-  [0, 1, 2].map((bubIdx) => {
-    const phase = (bubIdx * ROWS.length + rowIdx) / (ROWS.length * 3);
-    return {
-      topRatio: topRatio + (rowIdx % 2 === 0 ? 0 : 0.03), // tiny vertical stagger on odd rows
-      initialX: START_X - TOTAL * phase,
-      duration: ROW_SPEEDS[rowIdx],
-      size: BUBBLE_SIZE,
-    };
-  })
+const ROW_CONFIGS = [
+  { topRatio: 0.05, phases: [0.0, 0.50] },
+  { topRatio: 0.38, phases: [0.25, 0.75] },
+  { topRatio: 0.70, phases: [0.12, 0.62] },
+];
+
+const POSITIONS = ROW_CONFIGS.flatMap((row) =>
+  row.phases.map((phase) => ({
+    topRatio: row.topRatio,
+    initialX: START_X - TOTAL * phase,
+    duration: ROW_DUR,
+    size: BUBBLE_SIZE,
+  }))
 );
 
 function FloatingBubble({ user, topRatio, initialX, duration, stageH, onPress, size = BUBBLE_SIZE }) {
@@ -120,7 +121,7 @@ function FloatingBubble({ user, topRatio, initialX, duration, stageH, onPress, s
 
   return (
     <Animated.View style={[bStyles.wrap, { top, left: 0, transform: [{ translateX: anim }] }]}>
-      <TouchableOpacity activeOpacity={0.8} onPress={onPress}>
+      <TouchableOpacity activeOpacity={0.8} onPress={onPress} style={bStyles.touchWrap}>
         {/* Gradient glow ring — gold for top, pink for others */}
         <LinearGradient
           colors={isPremium
@@ -169,24 +170,8 @@ function FloatingBubble({ user, topRatio, initialX, duration, stageH, onPress, s
           <Text style={bStyles.langText}>{user?.language || 'HI'}</Text>
         </View>
 
-        {/* Name */}
+        {/* Name — location removed to prevent clutter/overlap */}
         <Text style={bStyles.name} numberOfLines={1}>{(user?.name || '').split(' ')[0]}</Text>
-
-        {/* City */}
-        {!!user?.city && (
-          <View style={bStyles.cityRow}>
-            <Text style={bStyles.cityPin}>📍</Text>
-            <Text style={bStyles.cityText} numberOfLines={1}>{user.city}</Text>
-          </View>
-        )}
-
-        {/* Rating below name */}
-        {hasRating && (
-          <View style={bStyles.botRatingRow}>
-            <Text style={bStyles.botStar}>⭐</Text>
-            <Text style={bStyles.botRatingText}>{parseFloat(user.rating).toFixed(1)}</Text>
-          </View>
-        )}
       </TouchableOpacity>
     </Animated.View>
   );
@@ -462,21 +447,24 @@ export default function ConnectScreen({ onVideoCall, onAudioCall, onDrawer, onBu
             </TouchableOpacity>
           </View>
         ) : (
-          POSITIONS.map((pos, i) => {
-            const u = visibleUsers[i % visibleUsers.length];
-            return (
-              <FloatingBubble
-                key={i}
-                user={u}
-                stageH={stageH}
-                onPress={() => checkCoinsAndCall(u)}
-                topRatio={pos.topRatio}
-                initialX={pos.initialX}
-                duration={pos.duration}
-                size={pos.size}
-              />
-            );
-          })
+          (() => {
+            const count = visibleUsers.length === 1 ? 2 : (visibleUsers.length === 2 ? 4 : POSITIONS.length);
+            return POSITIONS.slice(0, count).map((pos, i) => {
+              const u = visibleUsers[i % visibleUsers.length];
+              return (
+                <FloatingBubble
+                  key={`${u?.id || 'u'}-${i}`}
+                  user={u}
+                  stageH={stageH}
+                  onPress={() => checkCoinsAndCall(u)}
+                  topRatio={pos.topRatio}
+                  initialX={pos.initialX}
+                  duration={pos.duration}
+                  size={pos.size}
+                />
+              );
+            });
+          })()
         )}
       </View>
 
@@ -754,10 +742,11 @@ export default function ConnectScreen({ onVideoCall, onAudioCall, onDrawer, onBu
 
 /* ─── Bubble styles ─── */
 const bStyles = StyleSheet.create({
-  wrap: { position: 'absolute', alignItems: 'center' },
+  wrap: { position: 'absolute' },
+  touchWrap: { alignItems: 'center', width: 80 },
   dot: {
-    position: 'absolute', top: 6, right: 0,
-    width: 13, height: 13, borderRadius: 7,
+    position: 'absolute', top: 4, right: 6,
+    width: 12, height: 12, borderRadius: 6,
     backgroundColor: '#22C55E', borderWidth: 2, borderColor: '#fff', zIndex: 5,
   },
   circle: {
@@ -765,21 +754,21 @@ const bStyles = StyleSheet.create({
     borderWidth: 2, borderColor: 'rgba(255,255,255,0.5)',
   },
   glowRing: {
-    position: 'absolute', top: -4, left: -4,
+    position: 'absolute', top: -4, alignSelf: 'center',
     shadowColor: '#FF3870',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.9,
-    shadowRadius: 12,
-    elevation: 12,
+    shadowRadius: 10,
+    elevation: 10,
   },
   img: { width: '100%', height: '100%' },
   initial: { alignItems: 'center', justifyContent: 'center' },
   initialText: { color: '#fff', fontWeight: '900' },
   ratingBadge: {
-    position: 'absolute', top: -10, left: -6, zIndex: 6,
+    position: 'absolute', top: -8, left: 2, zIndex: 6,
     backgroundColor: 'rgba(0,0,0,0.75)',
-    paddingHorizontal: 6, paddingVertical: 2,
-    borderRadius: 8, borderWidth: 1, borderColor: 'rgba(255,215,0,0.4)',
+    paddingHorizontal: 5, paddingVertical: 1,
+    borderRadius: 7, borderWidth: 1, borderColor: 'rgba(255,215,0,0.4)',
   },
   ratingText: { color: '#FFD700', fontSize: 9, fontWeight: '900' },
   crownBadge: {
@@ -787,23 +776,15 @@ const bStyles = StyleSheet.create({
   },
   langBadge: {
     backgroundColor: 'rgba(0,0,0,0.55)',
-    paddingHorizontal: 8, paddingVertical: 2,
-    borderRadius: 8, marginTop: 5, alignSelf: 'center',
+    paddingHorizontal: 6, paddingVertical: 1,
+    borderRadius: 6, marginTop: 4, alignSelf: 'center',
     borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)',
   },
-  langText: { color: '#fff', fontSize: 10, fontWeight: '800' },
+  langText: { color: '#fff', fontSize: 9, fontWeight: '800' },
   name: {
-    color: '#fff', fontSize: 12, fontWeight: '900', marginTop: 2,
-    textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4,
-    textAlign: 'center', maxWidth: 90,
-  },
-  city: {
-    color: 'rgba(255,255,255,0.75)', fontSize: 10, fontWeight: '500',
-    textAlign: 'center', maxWidth: 90, marginTop: 1,
-  },
-  ratingRow: {
-    color: '#FFD700', fontSize: 10, fontWeight: '800',
-    textAlign: 'center', marginTop: 1,
+    color: '#fff', fontSize: 11, fontWeight: '800', marginTop: 2,
+    textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3,
+    textAlign: 'center', maxWidth: 78,
   },
 });
 
