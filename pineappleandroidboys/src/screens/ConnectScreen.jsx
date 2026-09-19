@@ -75,52 +75,96 @@ const DUMMY_REVIEWS = [
 ];
 
 const BUBBLE_SIZE = 58;
-const ROW_DUR  = 18000;
-const END_X    = -(BUBBLE_SIZE + 40);
-const START_X  = width + BUBBLE_SIZE + 40;
-const TOTAL    = START_X - END_X;
+const FLOAT_DUR  = 19000;
+const END_X      = -(BUBBLE_SIZE + 40);
+const START_X    = width + BUBBLE_SIZE + 40;
+const TOTAL      = START_X - END_X;
 
 /*
-  3 fixed, well-separated vertical rows with safe clearances so bubbles never overlap vertically:
-  Row 0: topRatio = 0.05
-  Row 1: topRatio = 0.38
-  Row 2: topRatio = 0.70
-  Each row contains 2 horizontally separated bubbles with synchronized speed.
+  Organic, dynamic floating bubble layout:
+  - Staggered vertical heights (upar-niche) across the whole stage
+  - Independent bobbing amplitude and duration (sinusoidal float)
+  - Wide horizontal phase separation so bubbles never bunch up or overlap
 */
-const ROW_CONFIGS = [
-  { topRatio: 0.05, phases: [0.0, 0.50] },
-  { topRatio: 0.38, phases: [0.25, 0.75] },
-  { topRatio: 0.70, phases: [0.12, 0.62] },
+const ORGANIC_BUBBLES = [
+  { topRatio: 0.05, phase: 0.00, size: 58, bobRange: 10, bobDur: 3200, delay: 0 },
+  { topRatio: 0.44, phase: 0.17, size: 54, bobRange: 14, bobDur: 2700, delay: 400 },
+  { topRatio: 0.18, phase: 0.34, size: 62, bobRange: 9,  bobDur: 3500, delay: 900 },
+  { topRatio: 0.65, phase: 0.51, size: 56, bobRange: 12, bobDur: 2900, delay: 200 },
+  { topRatio: 0.30, phase: 0.68, size: 60, bobRange: 11, bobDur: 3300, delay: 700 },
+  { topRatio: 0.72, phase: 0.85, size: 56, bobRange: 13, bobDur: 3100, delay: 500 },
 ];
 
-const POSITIONS = ROW_CONFIGS.flatMap((row) =>
-  row.phases.map((phase) => ({
-    topRatio: row.topRatio,
-    initialX: START_X - TOTAL * phase,
-    duration: ROW_DUR,
-    size: BUBBLE_SIZE,
-  }))
-);
+const POSITIONS = ORGANIC_BUBBLES.map((cfg) => ({
+  topRatio: cfg.topRatio,
+  initialX: START_X - TOTAL * cfg.phase,
+  duration: FLOAT_DUR,
+  size: cfg.size,
+  bobRange: cfg.bobRange,
+  bobDur: cfg.bobDur,
+  delay: cfg.delay,
+}));
 
-function FloatingBubble({ user, topRatio, initialX, duration, stageH, onPress, size = BUBBLE_SIZE }) {
+function FloatingBubble({
+  user,
+  topRatio,
+  initialX,
+  duration,
+  stageH,
+  onPress,
+  size = BUBBLE_SIZE,
+  bobRange = 10,
+  bobDur = 3000,
+  delay = 0,
+}) {
   const top  = stageH * topRatio;
-  const anim = useRef(new Animated.Value(initialX)).current;
+  const animX = useRef(new Animated.Value(initialX)).current;
+  const bobY  = useRef(new Animated.Value(0)).current;
   const hasRating = user?.rating && parseFloat(user.rating) > 0;
   const isPremium = user?.is_premium;
 
   useEffect(() => {
-    const loop = () => {
-      anim.setValue(START_X);
-      Animated.timing(anim, { toValue: END_X, duration, useNativeDriver: true })
-        .start(({ finished }) => { if (finished) loop(); });
+    // Horizontal drift
+    const loopX = () => {
+      animX.setValue(START_X);
+      Animated.timing(animX, { toValue: END_X, duration, useNativeDriver: true })
+        .start(({ finished }) => { if (finished) loopX(); });
     };
     const firstDur = duration * (initialX - END_X) / TOTAL;
-    Animated.timing(anim, { toValue: END_X, duration: firstDur, useNativeDriver: true })
-      .start(({ finished }) => { if (finished) loop(); });
+    Animated.timing(animX, { toValue: END_X, duration: firstDur, useNativeDriver: true })
+      .start(({ finished }) => { if (finished) loopX(); });
+
+    // Organic vertical floating / bobbing (upar-niche)
+    let bobLoop;
+    const timer = setTimeout(() => {
+      bobLoop = Animated.loop(
+        Animated.sequence([
+          Animated.timing(bobY, { toValue: -bobRange, duration: bobDur / 2, useNativeDriver: true }),
+          Animated.timing(bobY, { toValue: bobRange, duration: bobDur / 2, useNativeDriver: true }),
+        ])
+      );
+      bobLoop.start();
+    }, delay);
+
+    return () => {
+      clearTimeout(timer);
+      bobLoop?.stop();
+    };
   }, []);
 
   return (
-    <Animated.View style={[bStyles.wrap, { top, left: 0, transform: [{ translateX: anim }] }]}>
+    <Animated.View
+      style={[
+        bStyles.wrap,
+        {
+          top,
+          left: 0,
+          transform: [
+            { translateX: animX },
+            { translateY: bobY },
+          ],
+        },
+      ]}>
       <TouchableOpacity activeOpacity={0.8} onPress={onPress} style={bStyles.touchWrap}>
         {/* Gradient glow ring — gold for top, pink for others */}
         <LinearGradient
@@ -448,7 +492,7 @@ export default function ConnectScreen({ onVideoCall, onAudioCall, onDrawer, onBu
           </View>
         ) : (
           (() => {
-            const count = visibleUsers.length === 1 ? 2 : (visibleUsers.length === 2 ? 4 : POSITIONS.length);
+            const count = visibleUsers.length === 1 ? 3 : (visibleUsers.length === 2 ? 4 : POSITIONS.length);
             return POSITIONS.slice(0, count).map((pos, i) => {
               const u = visibleUsers[i % visibleUsers.length];
               return (
@@ -461,6 +505,9 @@ export default function ConnectScreen({ onVideoCall, onAudioCall, onDrawer, onBu
                   initialX={pos.initialX}
                   duration={pos.duration}
                   size={pos.size}
+                  bobRange={pos.bobRange}
+                  bobDur={pos.bobDur}
+                  delay={pos.delay}
                 />
               );
             });
