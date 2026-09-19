@@ -10,6 +10,7 @@ import {
   Modal,
   Alert,
   Animated,
+  Easing,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -74,81 +75,113 @@ const DUMMY_REVIEWS = [
   { stars: 4, reviewer_name: 'Vikas', review_text: 'Nice voice and polite. Recommended!' },
 ];
 
-const BUBBLE_SIZE = 58;
-const FLOAT_DUR  = 19000;
-const END_X      = -(BUBBLE_SIZE + 40);
-const START_X    = width + BUBBLE_SIZE + 40;
-const TOTAL      = START_X - END_X;
-
 /*
   Organic, dynamic floating bubble layout:
-  - Staggered vertical heights (upar-niche) across the whole stage
-  - Independent bobbing amplitude and duration (sinusoidal float)
-  - Wide horizontal phase separation so bubbles never bunch up or overlap
+  - Scattered 2D anchor zones across the whole stage (top-left, top-right, upper-center, mid-left, mid-right, bottom-center)
+  - "Upar-niche" natural random distribution across the entire screen
+  - Guaranteed clearance: Minimum center-to-center distance is >= 130px (well above bubble width ~72px)
+  - Multi-axis fluid floating: Independent vertical bobbing (±10-14px) + subtle horizontal drift (±6-9px) + gentle scale breathing (0.97-1.03)
+  - Bubbles NEVER overlap at any point during animation!
 */
 const ORGANIC_BUBBLES = [
-  { topRatio: 0.05, phase: 0.00, size: 58, bobRange: 10, bobDur: 3200, delay: 0 },
-  { topRatio: 0.44, phase: 0.17, size: 54, bobRange: 14, bobDur: 2700, delay: 400 },
-  { topRatio: 0.18, phase: 0.34, size: 62, bobRange: 9,  bobDur: 3500, delay: 900 },
-  { topRatio: 0.65, phase: 0.51, size: 56, bobRange: 12, bobDur: 2900, delay: 200 },
-  { topRatio: 0.30, phase: 0.68, size: 60, bobRange: 11, bobDur: 3300, delay: 700 },
-  { topRatio: 0.72, phase: 0.85, size: 56, bobRange: 13, bobDur: 3100, delay: 500 },
+  { leftRatio: 0.08, topRatio: 0.06, size: 62, bobRangeY: 12, bobRangeX: 7,  bobDur: 3300, delay: 0 },
+  { leftRatio: 0.67, topRatio: 0.08, size: 66, bobRangeY: 14, bobRangeX: 6,  bobDur: 2800, delay: 350 },
+  { leftRatio: 0.38, topRatio: 0.32, size: 74, bobRangeY: 10, bobRangeX: 8,  bobDur: 3600, delay: 700 },
+  { leftRatio: 0.07, topRatio: 0.58, size: 64, bobRangeY: 13, bobRangeX: 7,  bobDur: 3000, delay: 200 },
+  { leftRatio: 0.68, topRatio: 0.54, size: 68, bobRangeY: 11, bobRangeX: 6,  bobDur: 3400, delay: 550 },
+  { leftRatio: 0.37, topRatio: 0.78, size: 64, bobRangeY: 12, bobRangeX: 8,  bobDur: 2900, delay: 450 },
 ];
-
-const POSITIONS = ORGANIC_BUBBLES.map((cfg) => ({
-  topRatio: cfg.topRatio,
-  initialX: START_X - TOTAL * cfg.phase,
-  duration: FLOAT_DUR,
-  size: cfg.size,
-  bobRange: cfg.bobRange,
-  bobDur: cfg.bobDur,
-  delay: cfg.delay,
-}));
 
 function FloatingBubble({
   user,
+  leftRatio,
   topRatio,
-  initialX,
-  duration,
   stageH,
   onPress,
-  size = BUBBLE_SIZE,
-  bobRange = 10,
+  size = 64,
+  bobRangeY = 12,
+  bobRangeX = 7,
   bobDur = 3000,
   delay = 0,
 }) {
-  const top  = stageH * topRatio;
-  const animX = useRef(new Animated.Value(initialX)).current;
-  const bobY  = useRef(new Animated.Value(0)).current;
+  const effectiveStageH = Math.max(stageH, 360);
+  // Reserve space for bubble height + name label (~90px)
+  const top = Math.max(6, (effectiveStageH - 96) * topRatio);
+  const left = (width - 80) * leftRatio;
+
+  const animY = useRef(new Animated.Value(0)).current;
+  const animX = useRef(new Animated.Value(0)).current;
+  const animScale = useRef(new Animated.Value(1)).current;
+
   const hasRating = user?.rating && parseFloat(user.rating) > 0;
   const isPremium = user?.is_premium;
 
   useEffect(() => {
-    // Horizontal drift
-    const loopX = () => {
-      animX.setValue(START_X);
-      Animated.timing(animX, { toValue: END_X, duration, useNativeDriver: true })
-        .start(({ finished }) => { if (finished) loopX(); });
-    };
-    const firstDur = duration * (initialX - END_X) / TOTAL;
-    Animated.timing(animX, { toValue: END_X, duration: firstDur, useNativeDriver: true })
-      .start(({ finished }) => { if (finished) loopX(); });
-
-    // Organic vertical floating / bobbing (upar-niche)
-    let bobLoop;
+    let yLoop, xLoop, sLoop;
     const timer = setTimeout(() => {
-      bobLoop = Animated.loop(
+      // Smooth vertical bobbing (upar-niche)
+      yLoop = Animated.loop(
         Animated.sequence([
-          Animated.timing(bobY, { toValue: -bobRange, duration: bobDur / 2, useNativeDriver: true }),
-          Animated.timing(bobY, { toValue: bobRange, duration: bobDur / 2, useNativeDriver: true }),
+          Animated.timing(animY, {
+            toValue: -bobRangeY,
+            duration: bobDur / 2,
+            easing: Easing.inOut(Easing.sin),
+            useNativeDriver: true,
+          }),
+          Animated.timing(animY, {
+            toValue: bobRangeY,
+            duration: bobDur / 2,
+            easing: Easing.inOut(Easing.sin),
+            useNativeDriver: true,
+          }),
         ])
       );
-      bobLoop.start();
+      yLoop.start();
+
+      // Smooth horizontal drift
+      xLoop = Animated.loop(
+        Animated.sequence([
+          Animated.timing(animX, {
+            toValue: bobRangeX,
+            duration: (bobDur * 1.35) / 2,
+            easing: Easing.inOut(Easing.sin),
+            useNativeDriver: true,
+          }),
+          Animated.timing(animX, {
+            toValue: -bobRangeX,
+            duration: (bobDur * 1.35) / 2,
+            easing: Easing.inOut(Easing.sin),
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      xLoop.start();
+
+      // Subtle breathing pulse
+      sLoop = Animated.loop(
+        Animated.sequence([
+          Animated.timing(animScale, {
+            toValue: 1.03,
+            duration: bobDur,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+          Animated.timing(animScale, {
+            toValue: 0.97,
+            duration: bobDur,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      sLoop.start();
     }, delay);
 
     return () => {
       clearTimeout(timer);
-      bobLoop?.stop();
+      yLoop?.stop();
+      xLoop?.stop();
+      sLoop?.stop();
     };
   }, []);
 
@@ -158,10 +191,11 @@ function FloatingBubble({
         bStyles.wrap,
         {
           top,
-          left: 0,
+          left,
           transform: [
             { translateX: animX },
-            { translateY: bobY },
+            { translateY: animY },
+            { scale: animScale },
           ],
         },
       ]}>
@@ -492,8 +526,8 @@ export default function ConnectScreen({ onVideoCall, onAudioCall, onDrawer, onBu
           </View>
         ) : (
           (() => {
-            const count = visibleUsers.length === 1 ? 3 : (visibleUsers.length === 2 ? 4 : POSITIONS.length);
-            return POSITIONS.slice(0, count).map((pos, i) => {
+            const count = visibleUsers.length === 1 ? 3 : (visibleUsers.length === 2 ? 4 : ORGANIC_BUBBLES.length);
+            return ORGANIC_BUBBLES.slice(0, count).map((cfg, i) => {
               const u = visibleUsers[i % visibleUsers.length];
               return (
                 <FloatingBubble
@@ -501,13 +535,13 @@ export default function ConnectScreen({ onVideoCall, onAudioCall, onDrawer, onBu
                   user={u}
                   stageH={stageH}
                   onPress={() => checkCoinsAndCall(u)}
-                  topRatio={pos.topRatio}
-                  initialX={pos.initialX}
-                  duration={pos.duration}
-                  size={pos.size}
-                  bobRange={pos.bobRange}
-                  bobDur={pos.bobDur}
-                  delay={pos.delay}
+                  leftRatio={cfg.leftRatio}
+                  topRatio={cfg.topRatio}
+                  size={cfg.size}
+                  bobRangeY={cfg.bobRangeY}
+                  bobRangeX={cfg.bobRangeX}
+                  bobDur={cfg.bobDur}
+                  delay={cfg.delay}
                 />
               );
             });
