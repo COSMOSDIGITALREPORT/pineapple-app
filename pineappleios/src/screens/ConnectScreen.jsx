@@ -124,13 +124,11 @@ function FloatingBubble({
           Animated.timing(animY, {
             toValue: -bobRangeY,
             duration: bobDur / 2,
-            easing: Easing.inOut(Easing.sin),
             useNativeDriver: true,
           }),
           Animated.timing(animY, {
             toValue: bobRangeY,
             duration: bobDur / 2,
-            easing: Easing.inOut(Easing.sin),
             useNativeDriver: true,
           }),
         ])
@@ -142,14 +140,12 @@ function FloatingBubble({
         Animated.sequence([
           Animated.timing(animX, {
             toValue: bobRangeX,
-            duration: (bobDur * 1.35) / 2,
-            easing: Easing.inOut(Easing.sin),
+            duration: Math.round((bobDur * 1.35) / 2),
             useNativeDriver: true,
           }),
           Animated.timing(animX, {
             toValue: -bobRangeX,
-            duration: (bobDur * 1.35) / 2,
-            easing: Easing.inOut(Easing.sin),
+            duration: Math.round((bobDur * 1.35) / 2),
             useNativeDriver: true,
           }),
         ])
@@ -162,13 +158,11 @@ function FloatingBubble({
           Animated.timing(animScale, {
             toValue: 1.03,
             duration: bobDur,
-            easing: Easing.inOut(Easing.ease),
             useNativeDriver: true,
           }),
           Animated.timing(animScale, {
             toValue: 0.97,
             duration: bobDur,
-            easing: Easing.inOut(Easing.ease),
             useNativeDriver: true,
           }),
         ])
