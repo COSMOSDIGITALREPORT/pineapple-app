@@ -120,9 +120,8 @@ export default function SettingsScreen({ onBack, onLogout, onBlockedUsers }) {
   };
 
   const handleNavPress = (key) => {
-    if (key === 'blockList') {
-      if (onBlockedUsers) onBlockedUsers();
-      else setShowBlocked(true);
+    if (key === 'blockList' || key === 'blockedUsers') {
+      setShowBlocked(true);
       return;
     }
     if (key === 'privacy')    { setShowPrivacy(true); return; }

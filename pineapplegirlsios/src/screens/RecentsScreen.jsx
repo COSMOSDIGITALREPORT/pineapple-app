@@ -87,9 +87,9 @@ export default function RecentsScreen({ onRandom, onBack, onDrawer, onCall }) {
 
   const handleCallerPress = (item) => {
     if (!item) return;
-    const cid = item?.id || item?.other_user_id || item?.other_user?.id || item?.caller_id || item?.receiver_id;
-    const cname = item?.name || item?.other_user_name || item?.other_user?.name || item?.caller_name || 'Caller';
-    const cavatar = item?.avatar_url || item?.other_user_avatar || item?.other_user?.avatar_url || item?.caller_avatar || null;
+    const cid = item?.other_user_id || item?.other_user?.id || item?.caller_id || item?.receiver_id || item?.id;
+    const cname = item?.other_user_name || item?.caller_name || item?.other_user?.name || item?.name || 'Caller';
+    const cavatar = item?.other_user_avatar || item?.caller_avatar || item?.other_user?.avatar_url || item?.avatar_url || null;
 
     setSelectedCaller({
       id: cid,
