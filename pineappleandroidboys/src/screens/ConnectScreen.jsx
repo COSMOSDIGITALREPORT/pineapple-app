@@ -14,7 +14,7 @@ import {
 import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSelector, useDispatch } from 'react-redux';
-import { reportUser, blockUser, getUserReviews, getLiveUsers, getTopGirls, getMe } from '../services/api';
+import { reportUser, blockUser, getBlockedUsers, getUserReviews, getLiveUsers, getTopGirls, getMe } from '../services/api';
 import { setProfile } from '../store/slices/userSlice';
 import { getSocket } from '../services/socket';
 import Icon from '../components/Icon';
@@ -43,24 +43,36 @@ const stHeart = { base: { position: 'absolute', color: 'rgba(255,255,255,0.18)' 
 
 const FILTERS = [
   { key: 'All',       label: 'All',     icon: '✨' },
-  { key: '🔴 Live',  label: 'Live',    icon: '🔴' },
-  { key: 'Hindi',    label: 'Hindi',   icon: '🇮🇳' },
-  { key: 'English',  label: 'English', icon: '🌎' },
-  { key: 'New',      label: 'New',     icon: '💫' },
-];
-
-const DUMMY_REVIEWS = [
-  { stars: 5, reviewer_name: 'Anonymous', review_text: 'Sweet and fun to talk to!' },
-  { stars: 4, reviewer_name: 'Anonymous', review_text: 'Great conversation, would call again.' },
+  { key: '🔴 Live',   label: 'Live',    icon: '' },
+  { key: 'Hindi',     label: 'Hindi',   icon: '🇮🇳' },
+  { key: 'English',   label: 'English', icon: '🌐' },
+  { key: 'New',       label: 'New',     icon: '🆕' },
 ];
 
 function parseContentPrefs(raw) {
-  if (!raw) return { topics: [], noInappropriate: true };
-  try { return typeof raw === 'string' ? JSON.parse(raw) : raw; } catch { return { topics: [], noInappropriate: true }; }
+  if (!raw) return { noInappropriate: true, topics: [] };
+  if (typeof raw === 'object') {
+    return {
+      noInappropriate: raw.noInappropriate !== false,
+      topics: Array.isArray(raw.topics) ? raw.topics : [],
+    };
+  }
+  try {
+    const p = JSON.parse(raw);
+    return {
+      noInappropriate: p.noInappropriate !== false,
+      topics: Array.isArray(p.topics) ? p.topics : [],
+    };
+  } catch {
+    return { noInappropriate: true, topics: [] };
+  }
 }
 
-
-
+const DUMMY_REVIEWS = [
+  { stars: 5, reviewer_name: 'Rahul', review_text: 'Very sweet and friendly! Loved talking to her ❤️' },
+  { stars: 5, reviewer_name: 'Aman', review_text: 'Great conversation, felt very comfortable.' },
+  { stars: 4, reviewer_name: 'Vikas', review_text: 'Nice voice and polite. Recommended!' },
+];
 
 const BUBBLE_SIZE = 62;
 const ROW_DUR  = 16000;
@@ -132,7 +144,7 @@ function FloatingBubble({ user, topRatio, initialX, duration, stageH, onPress, s
           </View>
         )}
 
-        {/* Green online dot — only when girl is actually online */}
+        {/* Green online dot — strictly when girl is actually online */}
         {!!(user?.is_online === 1 || user?.is_online === true) && (
           <View style={bStyles.dot} />
         )}
@@ -158,12 +170,22 @@ function FloatingBubble({ user, topRatio, initialX, duration, stageH, onPress, s
         </View>
 
         {/* Name */}
-        <Text style={bStyles.name} numberOfLines={1}>{user?.name || '—'}</Text>
+        <Text style={bStyles.name} numberOfLines={1}>{(user?.name || '').split(' ')[0]}</Text>
+
+        {/* City */}
         {!!user?.city && (
-          <Text style={bStyles.city} numberOfLines={1}>📍 {user.city}</Text>
+          <View style={bStyles.cityRow}>
+            <Text style={bStyles.cityPin}>📍</Text>
+            <Text style={bStyles.cityText} numberOfLines={1}>{user.city}</Text>
+          </View>
         )}
+
+        {/* Rating below name */}
         {hasRating && (
-          <Text style={bStyles.ratingRow}>⭐ {parseFloat(user.rating).toFixed(1)}</Text>
+          <View style={bStyles.botRatingRow}>
+            <Text style={bStyles.botStar}>⭐</Text>
+            <Text style={bStyles.botRatingText}>{parseFloat(user.rating).toFixed(1)}</Text>
+          </View>
         )}
       </TouchableOpacity>
     </Animated.View>
@@ -193,6 +215,7 @@ export default function ConnectScreen({ onVideoCall, onAudioCall, onDrawer, onBu
   const { coins } = useSelector((s) => s.user);
   const [activeFilter, setActiveFilter] = useState('All');
   const [users, setUsers] = useState([]);
+  const [blockedIds, setBlockedIds] = useState(new Set());
   const [callPickerUser, setCallPickerUser] = useState(null);
   const [userReviews, setUserReviews] = useState([]);
   const [, setLoadingReviews] = useState(false);
@@ -236,6 +259,10 @@ export default function ConnectScreen({ onVideoCall, onAudioCall, onDrawer, onBu
   }, [callPickerUser?.id]);
 
   const checkCoinsAndCall = (user) => {
+    if (user?.id && blockedIds.has(user.id)) {
+      Alert.alert('User Blocked', 'You have blocked this user. Unblock them from Settings > Block List to make calls.');
+      return;
+    }
     if (coins < 1) {
       setShowCoinsModal(true);
       return;
@@ -245,11 +272,20 @@ export default function ConnectScreen({ onVideoCall, onAudioCall, onDrawer, onBu
 
   const fetchUsers = async () => {
     try {
+      let bIds = blockedIds;
+      try {
+        const blist = await getBlockedUsers();
+        if (Array.isArray(blist)) {
+          bIds = new Set(blist.map((b) => b.id));
+          setBlockedIds(bIds);
+        }
+      } catch (_) {}
+
       const data = await getLiveUsers();
-      // deduplicate by id
+      // deduplicate by id and filter out blocked users
       const seen = new Set();
       const unique = (data || []).filter((u) => {
-        if (seen.has(u.id)) return false;
+        if (!u.id || seen.has(u.id) || bIds.has(u.id)) return false;
         seen.add(u.id);
         return true;
       });
@@ -259,17 +295,27 @@ export default function ConnectScreen({ onVideoCall, onAudioCall, onDrawer, onBu
     }
   };
 
+  const fetchTopGirls = async () => {
+    try {
+      const data = await getTopGirls();
+      const filtered = (data || []).filter((g) => !blockedIds.has(g.id)).slice(0, 8);
+      setTopGirls(filtered);
+    } catch (_) {}
+  };
+
   useEffect(() => {
     fetchUsers();
+    fetchTopGirls();
     const interval = setInterval(fetchUsers, 10000);
 
     const socket = getSocket();
     const handleStatusChanged = ({ userId, is_online }) => {
+      const onlineVal = (is_online === 1 || is_online === true) ? 1 : 0;
       setUsers((prev) =>
-        prev.map((u) => (u.id === userId ? { ...u, is_online: !!is_online } : u))
+        prev.map((u) => (u.id === userId ? { ...u, is_online: onlineVal } : u))
       );
       setTopGirls((prev) =>
-        prev.map((g) => (g.id === userId ? { ...g, is_online: !!is_online } : g))
+        prev.map((g) => (g.id === userId ? { ...g, is_online: onlineVal } : g))
       );
     };
 
@@ -281,12 +327,8 @@ export default function ConnectScreen({ onVideoCall, onAudioCall, onDrawer, onBu
     };
   }, []);
 
-  useEffect(() => {
-    getTopGirls().then((data) => setTopGirls((data || []).slice(0, 8))).catch(() => {});
-  }, []);
-
   const visibleUsers = users.filter((u) => {
-    if (activeFilter === '🔴 Live') return u.is_online;
+    if (activeFilter === '🔴 Live') return u.is_online === 1 || u.is_online === true;
     if (activeFilter === 'Hindi')   return (u.language || '').toLowerCase().includes('hindi') || u.language === 'HI';
     if (activeFilter === 'English') return (u.language || '').toLowerCase().includes('english') || u.language === 'EN';
     if (activeFilter === 'New')     return !u.is_online;
@@ -558,6 +600,11 @@ export default function ConnectScreen({ onVideoCall, onAudioCall, onDrawer, onBu
                 style={pStyles.btn}
                 activeOpacity={0.85}
                 onPress={() => {
+                  const u = callPickerUser;
+                  if (u?.id && blockedIds.has(u.id)) {
+                    Alert.alert('User Blocked', 'You have blocked this user. Unblock them from Settings > Block List to make calls.');
+                    return;
+                  }
                   if ((coins || 0) < 1) {
                     Alert.alert(
                       'Insufficient Coins',
@@ -569,7 +616,6 @@ export default function ConnectScreen({ onVideoCall, onAudioCall, onDrawer, onBu
                     );
                     return;
                   }
-                  const u = callPickerUser;
                   setCallPickerUser(null);
                   onAudioCall(u);
                 }}>
@@ -584,6 +630,11 @@ export default function ConnectScreen({ onVideoCall, onAudioCall, onDrawer, onBu
                 style={pStyles.btn}
                 activeOpacity={0.85}
                 onPress={() => {
+                  const u = callPickerUser;
+                  if (u?.id && blockedIds.has(u.id)) {
+                    Alert.alert('User Blocked', 'You have blocked this user. Unblock them from Settings > Block List to make calls.');
+                    return;
+                  }
                   if ((coins || 0) < 2) {
                     Alert.alert(
                       'Insufficient Coins',
@@ -595,7 +646,6 @@ export default function ConnectScreen({ onVideoCall, onAudioCall, onDrawer, onBu
                     );
                     return;
                   }
-                  const u = callPickerUser;
                   setCallPickerUser(null);
                   onVideoCall(u);
                 }}>
@@ -624,7 +674,20 @@ export default function ConnectScreen({ onVideoCall, onAudioCall, onDrawer, onBu
                 <TouchableOpacity style={pStyles.safetyBtn} onPress={() => {
                   const u = callPickerUser;
                   Alert.alert('Block User', `Block ${u.name}? They won't be able to contact you.`, [
-                    { text: 'Block', style: 'destructive', onPress: () => { blockUser(u.id); setCallPickerUser(null); Alert.alert('Blocked', `${u.name} has been blocked.`); }},
+                    {
+                      text: 'Block',
+                      style: 'destructive',
+                      onPress: async () => {
+                        try {
+                          await blockUser(u.id);
+                          setBlockedIds((prev) => new Set([...prev, u.id]));
+                          setUsers((prev) => prev.filter((user) => user.id !== u.id));
+                          setTopGirls((prev) => prev.filter((girl) => girl.id !== u.id));
+                        } catch (_) {}
+                        setCallPickerUser(null);
+                        Alert.alert('Blocked', `${u.name} has been blocked.`);
+                      },
+                    },
                     { text: 'Cancel', style: 'cancel' },
                   ]);
                 }}>

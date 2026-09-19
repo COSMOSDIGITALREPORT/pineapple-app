@@ -18,6 +18,15 @@ function calcAge(dob) {
   return age;
 }
 
+function isHideOnline(prefs) {
+  if (!prefs) return false;
+  let p = prefs;
+  if (typeof p === 'string') {
+    try { p = JSON.parse(p); } catch { return false; }
+  }
+  return !!(p.hideOnline || p.hide_online || p.hideOnlineStatus || p.hide_online_status);
+}
+
 router.get('/me', auth, async (req, res) => {
   try {
     await pool.query('UPDATE users SET is_online=1, last_seen=NOW() WHERE id=?', [req.user.userId]);
@@ -120,7 +129,20 @@ router.get('/live', auth, async (req, res) => {
       [rows] = await pool.query(q.sql, q.params);
     }
 
-    rows = rows.map(u => ({ ...u, rating: parseFloat(u.rating || 0), age: calcAge(u.dob) }));
+    const io = req.app.get('io');
+    const onlineMap = io?.onlineUsers;
+
+    rows = rows.map(u => {
+      const activeInSocket = onlineMap ? onlineMap.has(u.id) : (u.is_online === 1);
+      const hidden = isHideOnline(u.content_prefs);
+      const isOnline = (activeInSocket && !hidden) ? 1 : 0;
+      return {
+        ...u,
+        is_online: isOnline,
+        rating: parseFloat(u.rating || 0),
+        age: calcAge(u.dob),
+      };
+    });
     res.set('Cache-Control', 'no-store');
     res.json(rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -148,12 +170,23 @@ router.get('/random', auth, async (req, res) => {
 router.get('/top', async (req, res) => {
   try {
     const [rows] = await pool.query(
-      `SELECT u.id, u.name, u.avatar_url, u.city, u.language, u.is_online, u.rating, u.rating_count,
+      `SELECT u.id, u.name, u.avatar_url, u.city, u.language, u.is_online, u.rating, u.rating_count, u.content_prefs,
               (SELECT COUNT(*) FROM calls WHERE receiver_id = u.id AND status = 'ended') AS calls_count
        FROM users u WHERE u.gender='girl' AND u.is_blocked=0 AND u.is_verified=1
        ORDER BY u.rating DESC, u.rating_count DESC, u.is_online DESC LIMIT 20`
     );
-    res.json(rows.map(r => ({ ...r, rating: parseFloat(r.rating || 0), age: calcAge(r.dob) })));
+    const io = req.app.get('io');
+    const onlineMap = io?.onlineUsers;
+    res.json(rows.map(r => {
+      const activeInSocket = onlineMap ? onlineMap.has(r.id) : (r.is_online === 1);
+      const hidden = isHideOnline(r.content_prefs);
+      return {
+        ...r,
+        is_online: (activeInSocket && !hidden) ? 1 : 0,
+        rating: parseFloat(r.rating || 0),
+        age: calcAge(r.dob),
+      };
+    }));
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

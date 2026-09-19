@@ -13,7 +13,7 @@ import { useSelector } from 'react-redux';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from '../components/Icon';
 import { Colors } from '../theme/colors';
-import { getRandomUser } from '../services/api';
+import { getRandomUser, getBlockedUsers } from '../services/api';
 import { connectSocket, getSocket, disconnectSocket } from '../services/socket';
 import LinearGradient from 'react-native-linear-gradient';
 import DrawerMenu from './DrawerMenu';
@@ -170,7 +170,16 @@ export default function HomeScreen({ onLogout }) {
     incomingCallRef.current = null;
   };
 
-  const handleStartAudioCall = (u) => {
+  const handleStartAudioCall = async (u) => {
+    if (u?.id) {
+      try {
+        const blist = await getBlockedUsers();
+        if (Array.isArray(blist) && blist.some((b) => b.id === u.id)) {
+          Alert.alert('User Blocked', 'You have blocked this user. Unblock them from Settings > Block List to make calls.');
+          return;
+        }
+      } catch (_) {}
+    }
     if ((user?.coins || 0) < 1) {
       Alert.alert(
         'Insufficient Coins',
@@ -186,7 +195,16 @@ export default function HomeScreen({ onLogout }) {
     setCurrentSubScreen('audioCall');
   };
 
-  const handleStartVideoCall = (u) => {
+  const handleStartVideoCall = async (u) => {
+    if (u?.id) {
+      try {
+        const blist = await getBlockedUsers();
+        if (Array.isArray(blist) && blist.some((b) => b.id === u.id)) {
+          Alert.alert('User Blocked', 'You have blocked this user. Unblock them from Settings > Block List to make calls.');
+          return;
+        }
+      } catch (_) {}
+    }
     if ((user?.coins || 0) < 2) {
       Alert.alert(
         'Insufficient Coins',

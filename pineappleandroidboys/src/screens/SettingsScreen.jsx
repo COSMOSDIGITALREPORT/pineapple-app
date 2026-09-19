@@ -90,9 +90,8 @@ export default function SettingsScreen({ onBack, onLogout, onBlockedUsers, onPri
   const flip = (key) => setToggles((prev) => ({ ...prev, [key]: !prev[key] }));
 
   const handleNavPress = (key) => {
-    if (key === 'blockList') {
-      if (onBlockedUsers) onBlockedUsers();
-      else setShowBlocked(true);
+    if (key === 'blockList' || key === 'blockedUsers') {
+      setShowBlocked(true);
       return;
     }
     if (key === 'privacy') {

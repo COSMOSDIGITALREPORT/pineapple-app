@@ -15,6 +15,15 @@ router.post('/initiate', auth, async (req, res) => {
   const { receiverId, type = 'audio', freeTrialCall } = req.body;
   const callId = uuidv4(), channelName = uuidv4();
   try {
+    // Check if either caller or receiver has blocked the other
+    const [blocked] = await pool.query(
+      'SELECT 1 FROM blocks WHERE (blocker_id=? AND blocked_id=?) OR (blocker_id=? AND blocked_id=?) LIMIT 1',
+      [req.user.userId, receiverId, receiverId, req.user.userId]
+    ).catch(() => [[]]);
+    if (blocked && blocked.length > 0) {
+      return res.status(403).json({ error: 'Cannot start call. You or this user is blocked.' });
+    }
+
     if (freeTrialCall) {
       const [userRows] = await pool.query('SELECT free_trial_used FROM users WHERE id=?', [req.user.userId]);
       if (userRows[0]?.free_trial_used) return res.status(400).json({ error: 'Free trial already used.' });

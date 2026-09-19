@@ -24,6 +24,20 @@ module.exports = (io) => {
     socket.on('call:ring', async ({ receiverId, callId, callerName, callerAvatar, channelName, type }) => {
       console.log(`[CALL] ring from ${userId} → ${receiverId}`);
       console.log(`[CALL] online users:`, [...online.keys()]);
+
+      // Check if blocked
+      try {
+        const [blocked] = await pool.query(
+          'SELECT 1 FROM blocks WHERE (blocker_id=? AND blocked_id=?) OR (blocker_id=? AND blocked_id=?) LIMIT 1',
+          [userId, receiverId, receiverId, userId]
+        );
+        if (blocked && blocked.length > 0) {
+          console.log(`[CALL] 🚫 Blocked: ${userId} <-> ${receiverId}`);
+          socket.emit('call:unavailable', { receiverId, error: 'Blocked user' });
+          return;
+        }
+      } catch (_) {}
+
       const dest = online.get(receiverId);
       console.log(`[CALL] dest socket: ${dest}`);
       if (dest) {
