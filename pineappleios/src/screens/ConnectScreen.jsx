@@ -394,23 +394,25 @@ export default function ConnectScreen({ onVideoCall, onAudioCall, onDrawer, onBu
     <View style={styles.root}>
       {/* ── Hero Header ── */}
       <LinearGradient
-        colors={['#7B0050', '#C0003A', '#8B1030']}
-        start={{ x: 0.2, y: 0 }} end={{ x: 0.8, y: 1 }}
+        colors={['#180024', '#3E002C', '#6E0035']}
+        start={{ x: 0.1, y: 0 }} end={{ x: 0.9, y: 1 }}
         style={styles.headerSection}>
 
-        {/* Top row: menu + logo + coins */}
-        <View style={[styles.headerTopRow, { paddingTop: insets.top + 24 }]}>
-          <TouchableOpacity onPress={onDrawer} style={styles.menuBtn}>
-            <Icon name="menu" size={24} color="#fff" />
+        {/* Top row: menu + brand + coins */}
+        <View style={[styles.headerTopRow, { paddingTop: insets.top + 8 }]}>
+          <TouchableOpacity onPress={onDrawer} style={styles.menuBtn} activeOpacity={0.75}>
+            <View style={styles.glassIconBtn}>
+              <Icon name="menu" size={20} color="#fff" />
+            </View>
           </TouchableOpacity>
           <View style={styles.headerCenter}>
             <Text style={styles.headerBrand}>Pineapple</Text>
-            <Text style={styles.headerSub}>Meet New People</Text>
+            <Text style={styles.headerSub}>Meet New People 💕</Text>
           </View>
-          <View style={styles.coinBadge}>
+          <TouchableOpacity onPress={onBuyCoins} activeOpacity={0.8} style={styles.coinBadge}>
             <Icon name="star" size={13} color="#FFD700" filled />
             <Text style={styles.coinText}>{coins.toLocaleString()}</Text>
-          </View>
+          </TouchableOpacity>
         </View>
 
         <ScrollView
@@ -424,6 +426,7 @@ export default function ConnectScreen({ onVideoCall, onAudioCall, onDrawer, onBu
             return (
               <TouchableOpacity
                 key={f.key}
+                activeOpacity={0.8}
                 onPress={() => setActiveFilter(f.key)}
                 style={[styles.filterTab, isAct && styles.filterTabActive]}>
                 {isLive ? (
@@ -437,45 +440,51 @@ export default function ConnectScreen({ onVideoCall, onAudioCall, onDrawer, onBu
           })}
         </ScrollView>
 
-        {/* ── Top Rated Girls strip ── */}
+        {/* ── Top Rated Girls Glass Strip ── */}
         {topGirls.length > 0 && (
           <View style={styles.topRatedSection}>
-            <View style={styles.topRatedHeader}>
-              <Text style={styles.topRatedLabel}>⭐ Top Rated</Text>
-              <View style={styles.topRatedDivider} />
-            </View>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.topRatedList}>
-              {topGirls.map((girl, i) => (
-                <TouchableOpacity
-                  key={girl.id}
-                  style={styles.topRatedItem}
-                  activeOpacity={0.8}
-                  onPress={() => checkCoinsAndCall(girl)}>
-                  <View style={styles.topRatedAvatarWrap}>
-                    {i < 3 && (
-                      <View style={styles.topRatedCrown}>
-                        <Text style={styles.topRatedCrownText}>{['🥇','🥈','🥉'][i]}</Text>
+            <View style={styles.topRatedGlassCard}>
+              <View style={styles.topRatedHeader}>
+                <View style={styles.topRatedBadge}>
+                  <Text style={styles.topRatedLabel}>⭐ TOP RATED</Text>
+                </View>
+                <View style={styles.topRatedDivider} />
+              </View>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.topRatedList}>
+                {topGirls.map((girl, i) => (
+                  <TouchableOpacity
+                    key={girl.id}
+                    style={styles.topRatedItem}
+                    activeOpacity={0.8}
+                    onPress={() => checkCoinsAndCall(girl)}>
+                    <View style={styles.topRatedAvatarWrap}>
+                      {i < 3 && (
+                        <View style={styles.topRatedCrown}>
+                          <Text style={styles.topRatedCrownText}>{['🥇','🥈','🥉'][i]}</Text>
+                        </View>
+                      )}
+                      {girl.avatar_url ? (
+                        <Image source={{ uri: girl.avatar_url }} style={styles.topRatedAvatar} />
+                      ) : (
+                        <LinearGradient colors={['#FF3870','#C0004A']} style={styles.topRatedAvatar}>
+                          <Text style={styles.topRatedInitial}>{(girl.name||'?')[0].toUpperCase()}</Text>
+                        </LinearGradient>
+                      )}
+                      {!!girl.is_online && <View style={styles.topRatedOnline} />}
+                    </View>
+                    <Text style={styles.topRatedName} numberOfLines={1}>{(girl.name||'').split(' ')[0]}</Text>
+                    {girl.rating > 0 && (
+                      <View style={styles.ratingPill}>
+                        <Text style={styles.topRatedRating}>⭐ {parseFloat(girl.rating).toFixed(1)}</Text>
                       </View>
                     )}
-                    {girl.avatar_url ? (
-                      <Image source={{ uri: girl.avatar_url }} style={styles.topRatedAvatar} />
-                    ) : (
-                      <LinearGradient colors={['#FF3870','#C0004A']} style={styles.topRatedAvatar}>
-                        <Text style={styles.topRatedInitial}>{(girl.name||'?')[0].toUpperCase()}</Text>
-                      </LinearGradient>
-                    )}
-                    {!!girl.is_online && <View style={styles.topRatedOnline} />}
-                  </View>
-                  <Text style={styles.topRatedName} numberOfLines={1}>{(girl.name||'').split(' ')[0]}</Text>
-                  {girl.rating > 0 && (
-                    <Text style={styles.topRatedRating}>⭐{parseFloat(girl.rating).toFixed(1)}</Text>
-                  )}
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
           </View>
         )}
       </LinearGradient>
@@ -484,20 +493,24 @@ export default function ConnectScreen({ onVideoCall, onAudioCall, onDrawer, onBu
       <View
         style={styles.stage}
         onLayout={(e) => setStageH(e.nativeEvent.layout.height)}>
-        {/* Purple bottom-left → crimson top-right gradient */}
+        {/* Deep romantic luxury gradient */}
         <LinearGradient
-          colors={['#3A0068', '#7B0050', '#C0003A']}
+          colors={['#10001D', '#2B0028', '#540030', '#7E0038']}
           start={{ x: 0, y: 1 }} end={{ x: 1, y: 0 }}
           style={StyleSheet.absoluteFill}
         />
 
+        {/* Ambient background glow orbs */}
+        <View style={styles.ambientOrb1} />
+        <View style={styles.ambientOrb2} />
+
         {/* Floating background hearts */}
-        <FloatingHeartBg left={-40}       top={-20}  size={200} delay={0}    />
-        <FloatingHeartBg left={width-100} top={20}   size={160} delay={600}  />
-        <FloatingHeartBg left={20}        top={180}  size={120} delay={1200} />
-        <FloatingHeartBg left={width-80}  top={260}  size={100} delay={400}  />
-        <FloatingHeartBg left={width/2-60} top={80}  size={90}  delay={800}  />
-        <FloatingHeartBg left={-30}       top={320}  size={140} delay={1600} />
+        <FloatingHeartBg left={-30}       top={-10}  size={190} delay={0}    />
+        <FloatingHeartBg left={width-110} top={20}   size={150} delay={600}  />
+        <FloatingHeartBg left={20}        top={170}  size={110} delay={1200} />
+        <FloatingHeartBg left={width-85}  top={250}  size={95}  delay={400}  />
+        <FloatingHeartBg left={width/2-55} top={75}  size={85}  delay={800}  />
+        <FloatingHeartBg left={-20}       top={310}  size={130} delay={1600} />
 
         {visibleUsers.length === 0 ? (
           <View style={styles.empty}>
@@ -509,7 +522,7 @@ export default function ConnectScreen({ onVideoCall, onAudioCall, onDrawer, onBu
               activeOpacity={0.85}
               onPress={() => { if (onRandomCall) onRandomCall(); }}>
               <LinearGradient
-                colors={['#FF3870', '#C0004A']}
+                colors={['#FF2A6D', '#C0004A']}
                 start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
                 style={styles.emptyBtnInner}>
                 <Text style={styles.emptyBtnText}>⚡ Try Random Match</Text>
@@ -546,9 +559,10 @@ export default function ConnectScreen({ onVideoCall, onAudioCall, onDrawer, onBu
             onPress={() => { if (onRandomCall) onRandomCall(); else checkCoinsAndCall({ name: 'Random' }); }}
             style={{ flex: 1 }}>
             <LinearGradient
-              colors={['#FF3870', '#C0004A']}
+              colors={['#FF2A6D', '#FF0055', '#C0004A']}
               start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
               style={styles.randomBtnInner}>
+              <View style={styles.btnGlossHighlight} />
               <Text style={styles.randomLightning}>⚡</Text>
               <Text style={styles.randomLabel}>Start Matching</Text>
             </LinearGradient>
@@ -827,37 +841,57 @@ const bStyles = StyleSheet.create({
     borderWidth: 2, borderColor: 'rgba(255,255,255,0.5)',
   },
   glowRing: {
+/* ─── Bubble styles ─── */
+const bStyles = StyleSheet.create({
+  wrap: { position: 'absolute' },
+  touchWrap: { alignItems: 'center', width: 84 },
+  dot: {
+    position: 'absolute', top: 3, right: 8,
+    width: 13, height: 13, borderRadius: 6.5,
+    backgroundColor: '#22C55E', borderWidth: 2.5, borderColor: '#fff', zIndex: 5,
+    shadowColor: '#22C55E', shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.9, shadowRadius: 6, elevation: 4,
+  },
+  circle: {
+    overflow: 'hidden', backgroundColor: '#7A0035',
+    borderWidth: 2.5, borderColor: 'rgba(255,255,255,0.85)',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35, shadowRadius: 8, elevation: 6,
+  },
+  glowRing: {
     position: 'absolute', top: -4, alignSelf: 'center',
-    shadowColor: '#FF3870',
+    shadowColor: '#FF2A6D',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.9,
-    shadowRadius: 10,
-    elevation: 10,
+    shadowOpacity: 0.95,
+    shadowRadius: 14,
+    elevation: 12,
   },
   img: { width: '100%', height: '100%' },
   initial: { alignItems: 'center', justifyContent: 'center' },
   initialText: { color: '#fff', fontWeight: '900' },
   ratingBadge: {
-    position: 'absolute', top: -8, left: 2, zIndex: 6,
-    backgroundColor: 'rgba(0,0,0,0.75)',
-    paddingHorizontal: 5, paddingVertical: 1,
-    borderRadius: 7, borderWidth: 1, borderColor: 'rgba(255,215,0,0.4)',
+    position: 'absolute', top: -7, left: 2, zIndex: 6,
+    backgroundColor: 'rgba(18,0,28,0.92)',
+    paddingHorizontal: 6, paddingVertical: 1.5,
+    borderRadius: 8, borderWidth: 1, borderColor: 'rgba(255,215,0,0.55)',
+    shadowColor: '#FFD700', shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.5, shadowRadius: 4, elevation: 3,
   },
-  ratingText: { color: '#FFD700', fontSize: 9, fontWeight: '900' },
+  ratingText: { color: '#FFD700', fontSize: 9.5, fontWeight: '900', letterSpacing: 0.2 },
   crownBadge: {
     position: 'absolute', top: -14, alignSelf: 'center', zIndex: 6,
   },
   langBadge: {
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    paddingHorizontal: 6, paddingVertical: 1,
-    borderRadius: 6, marginTop: 4, alignSelf: 'center',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    paddingHorizontal: 8, paddingVertical: 2,
+    borderRadius: 8, marginTop: 4, alignSelf: 'center',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.28)',
   },
-  langText: { color: '#fff', fontSize: 9, fontWeight: '800' },
+  langText: { color: '#fff', fontSize: 9.5, fontWeight: '800', letterSpacing: 0.3 },
   name: {
-    color: '#fff', fontSize: 11, fontWeight: '800', marginTop: 2,
-    textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3,
-    textAlign: 'center', maxWidth: 78,
+    color: '#fff', fontSize: 11.5, fontWeight: '800', marginTop: 2,
+    textShadowColor: 'rgba(0,0,0,0.85)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4,
+    textAlign: 'center', maxWidth: 80, letterSpacing: 0.2,
   },
 });
 
@@ -865,7 +899,7 @@ const bStyles = StyleSheet.create({
 const pStyles = StyleSheet.create({
   overlay: {
     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.55)',
+    backgroundColor: 'rgba(0,0,0,0.65)',
   },
   safetyRow: { flexDirection: 'row', justifyContent: 'center', gap: 20, marginTop: 16 },
   safetyBtn: { paddingVertical: 6, paddingHorizontal: 14 },
@@ -878,18 +912,18 @@ const pStyles = StyleSheet.create({
   },
   card: {
     width: '100%',
-    backgroundColor: 'rgba(255,255,255,0.18)',
+    backgroundColor: 'rgba(26,0,40,0.92)',
     borderRadius: 32,
     padding: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.3)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 20 },
-    shadowOpacity: 0.4,
-    shadowRadius: 40,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.25)',
+    shadowColor: '#FF2A6D',
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.45,
+    shadowRadius: 36,
     elevation: 20,
   },
-  title: { fontSize: 24, fontWeight: '900', color: '#fff', textAlign: 'center' },
+  title: { fontSize: 24, fontWeight: '900', color: '#fff', textAlign: 'center', letterSpacing: -0.3 },
   sub: { fontSize: 13, color: 'rgba(255,255,255,0.75)', textAlign: 'center', marginTop: 6, marginBottom: 22, fontWeight: '600' },
   previewBio: { fontSize: 12, color: 'rgba(255,255,255,0.7)', textAlign: 'center', marginTop: -14, marginBottom: 18, lineHeight: 17, fontStyle: 'italic', paddingHorizontal: 8 },
   prefsSection: { alignItems: 'center', marginTop: -8, marginBottom: 18 },
@@ -1071,56 +1105,74 @@ const pStyles = StyleSheet.create({
 
 /* ─── Main styles ─── */
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#8B1030' },
+  root: { flex: 1, backgroundColor: '#10001D' },
 
-  headerSection: { paddingBottom: 8 },
+  headerSection: { paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.08)' },
   headerTopRow: {
     flexDirection: 'row', alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20, paddingBottom: 4,
+    paddingHorizontal: 16, paddingBottom: 4,
   },
-  menuBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  heroBrand: { paddingHorizontal: 20, paddingTop: 6, paddingBottom: 10 },
+  menuBtn: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center' },
+  glassIconBtn: {
+    width: 38, height: 38, borderRadius: 19,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)',
+    alignItems: 'center', justifyContent: 'center',
+  },
   headerCenter: { flex: 1, alignItems: 'center' },
-  headerBrand: { textAlign: 'center', fontSize: 26, fontWeight: '900', color: '#fff', fontFamily: 'Pacifico-Regular', letterSpacing: 0.5 },
-  headerSub: { fontSize: 13, color: 'rgba(255,255,255,0.75)', fontWeight: '500', marginTop: 2, textAlign: 'center', letterSpacing: 0.5 },
+  headerBrand: { textAlign: 'center', fontSize: 27, fontWeight: '900', color: '#fff', letterSpacing: 0.8 },
+  headerSub: { fontSize: 12.5, color: 'rgba(255,255,255,0.8)', fontWeight: '600', marginTop: 2, textAlign: 'center', letterSpacing: 0.4 },
   coinBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.35)',
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: 'rgba(255,215,0,0.12)',
+    paddingHorizontal: 13, paddingVertical: 7, borderRadius: 999,
+    borderWidth: 1.2, borderColor: 'rgba(255,215,0,0.38)',
+    shadowColor: '#FFD700', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.4, shadowRadius: 6, elevation: 4,
   },
-  coinText: { fontSize: 13, fontWeight: '900', color: '#fff' },
+  coinText: { fontSize: 13.5, fontWeight: '900', color: '#FFD700', letterSpacing: 0.3 },
   filterBar: { backgroundColor: 'transparent', maxHeight: 58 },
-  filterBarContent: { paddingHorizontal: 20, paddingVertical: 7, gap: 8, flexDirection: 'row' },
+  filterBarContent: { paddingHorizontal: 16, paddingVertical: 8, gap: 8, flexDirection: 'row' },
 
   liveDotChip: {
-    width: 9, height: 9, borderRadius: 5,
+    width: 9, height: 9, borderRadius: 4.5,
     backgroundColor: '#FF2D2D',
     shadowColor: '#FF2D2D', shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 1, shadowRadius: 5,
+    shadowOpacity: 1, shadowRadius: 6, elevation: 3,
   },
 
   filterTab: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 16, height: 44, borderRadius: 22,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)',
+    paddingHorizontal: 16, height: 42, borderRadius: 21,
+    backgroundColor: 'rgba(255,255,255,0.09)',
+    borderWidth: 1.2, borderColor: 'rgba(255,255,255,0.18)',
   },
   filterTabActive: {
-    backgroundColor: '#fff',
-    borderColor: '#fff',
-    shadowColor: '#fff',
-    shadowOffset: { width: 0, height: 0 },
+    backgroundColor: '#FFFFFF',
+    borderColor: '#FFFFFF',
+    shadowColor: '#FF2E7E',
+    shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.6,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowRadius: 10,
+    elevation: 6,
   },
   filterIcon: { fontSize: 13 },
-  filterText: { fontSize: 12, fontWeight: '700', color: 'rgba(255,255,255,0.85)' },
-  filterTextActive: { color: '#FF3870', fontWeight: '900' },
+  filterText: { fontSize: 12.5, fontWeight: '700', color: 'rgba(255,255,255,0.85)' },
+  filterTextActive: { color: '#FF2E7E', fontWeight: '900' },
 
   stage: { flex: 1, overflow: 'hidden' },
+
+  ambientOrb1: {
+    position: 'absolute', top: 20, left: -40,
+    width: 200, height: 200, borderRadius: 100,
+    backgroundColor: 'rgba(255,42,109,0.12)',
+  },
+  ambientOrb2: {
+    position: 'absolute', bottom: 40, right: -40,
+    width: 240, height: 240, borderRadius: 120,
+    backgroundColor: 'rgba(157,0,224,0.12)',
+  },
 
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 32 },
   emptyIcon: { fontSize: 52, marginBottom: 4 },
@@ -1132,43 +1184,71 @@ const styles = StyleSheet.create({
 
   bottomBar: {
     paddingHorizontal: 16, paddingVertical: 14,
-    backgroundColor: '#1A0028',
+    backgroundColor: 'rgba(16,0,29,0.96)',
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255,56,112,0.15)',
+    borderTopColor: 'rgba(255,56,112,0.22)',
   },
   randomBtnWrap: {
     height: 64, borderRadius: 32, overflow: 'hidden',
-    shadowColor: '#FF3870', shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.85, shadowRadius: 28, elevation: 20,
+    shadowColor: '#FF2A6D', shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.85, shadowRadius: 24, elevation: 18,
   },
   randomBtnInner: {
     flex: 1, flexDirection: 'row', alignItems: 'center',
     justifyContent: 'center', gap: 10, borderRadius: 32,
+    position: 'relative', overflow: 'hidden',
+    borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.4)',
+  },
+  btnGlossHighlight: {
+    position: 'absolute', top: 0, left: 0, right: 0, height: '45%',
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    borderTopLeftRadius: 32, borderTopRightRadius: 32,
   },
   randomLightning: { fontSize: 22 },
-  randomLabel: { fontSize: 20, fontWeight: '900', color: '#fff', letterSpacing: 0.3 },
+  randomLabel: { fontSize: 20, fontWeight: '900', color: '#fff', letterSpacing: 0.5 },
 
-  /* ── Top Rated strip ── */
-  topRatedSection: { paddingBottom: 12, paddingTop: 4 },
-  topRatedHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, marginBottom: 10 },
-  topRatedLabel: { fontSize: 13, fontWeight: '900', color: '#fff', letterSpacing: 0.5 },
-  topRatedDivider: { flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.15)', marginLeft: 10 },
-  topRatedList: { paddingHorizontal: 16, paddingTop: 12, gap: 16 },
-  topRatedItem: { alignItems: 'center', width: 60 },
+  /* ── Top Rated glass strip ── */
+  topRatedSection: { paddingTop: 6, paddingBottom: 2 },
+  topRatedGlassCard: {
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    marginHorizontal: 16,
+    borderRadius: 20,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
+  },
+  topRatedHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, marginBottom: 8 },
+  topRatedBadge: {
+    backgroundColor: 'rgba(255,215,0,0.12)',
+    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8,
+    borderWidth: 1, borderColor: 'rgba(255,215,0,0.28)',
+  },
+  topRatedLabel: { fontSize: 10.5, fontWeight: '800', color: '#FFD700', letterSpacing: 0.6 },
+  topRatedDivider: { flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.12)', marginLeft: 10 },
+  topRatedList: { paddingHorizontal: 14, paddingTop: 6, gap: 16 },
+  topRatedItem: { alignItems: 'center', width: 62 },
   topRatedAvatarWrap: { position: 'relative', marginBottom: 5, overflow: 'visible' },
   topRatedAvatar: {
     width: 52, height: 52, borderRadius: 26,
-    borderWidth: 2, borderColor: 'rgba(255,255,255,0.5)',
+    borderWidth: 2, borderColor: 'rgba(255,215,0,0.65)',
     alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+    shadowColor: '#FF2E7E', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.6, shadowRadius: 6,
   },
   topRatedInitial: { fontSize: 20, fontWeight: '900', color: '#fff' },
   topRatedOnline: {
     position: 'absolute', bottom: 1, right: 1,
     width: 12, height: 12, borderRadius: 6,
-    backgroundColor: '#22C55E', borderWidth: 2, borderColor: 'rgba(139,16,48,1)',
+    backgroundColor: '#22C55E', borderWidth: 2, borderColor: '#180024',
   },
-  topRatedCrown: { position: 'absolute', top: -6, left: '50%', marginLeft: -8, zIndex: 5 },
+  topRatedCrown: { position: 'absolute', top: -7, left: '50%', marginLeft: -8, zIndex: 5 },
   topRatedCrownText: { fontSize: 14 },
-  topRatedName: { fontSize: 11, fontWeight: '700', color: '#fff', textAlign: 'center', maxWidth: 58 },
-  topRatedRating: { fontSize: 10, color: '#FFD700', fontWeight: '700', marginTop: 1 },
+  topRatedName: { fontSize: 11.5, fontWeight: '700', color: '#fff', textAlign: 'center', maxWidth: 60 },
+  ratingPill: {
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    paddingHorizontal: 6, paddingVertical: 1.5,
+    borderRadius: 7, marginTop: 2,
+    borderWidth: 1, borderColor: 'rgba(255,215,0,0.25)',
+  },
+  topRatedRating: { fontSize: 9.5, color: '#FFD700', fontWeight: '800' },
 });

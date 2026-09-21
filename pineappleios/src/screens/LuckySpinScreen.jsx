@@ -90,14 +90,7 @@ export default function LuckySpinScreen({ onBack, onPremium }) {
       doSpin();
       return;
     }
-    Alert.alert(
-      'Fortune Wheel Locked',
-      'Fortune Wheel unlocks once with every Premium Plan (₹500). Recharge a Premium Plan to unlock your spin!',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Recharge Premium', onPress: onPremium }
-      ]
-    );
+    onPremium?.();
   };
 
   const spinDeg = spinAnim.interpolate({
@@ -273,7 +266,7 @@ export default function LuckySpinScreen({ onBack, onPremium }) {
           {!effectiveSpinAvailable && !statusLoading && (
             <TouchableOpacity
               style={styles.premiumLockBanner}
-              onPress={handleCenterButtonPress}
+              onPress={() => onPremium?.()}
               activeOpacity={0.85}>
               <Text style={styles.premiumLockText}>
                 🔒 Recharge Premium Plan to Unlock
