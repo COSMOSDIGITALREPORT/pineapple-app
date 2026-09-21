@@ -9,15 +9,18 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSelector } from 'react-redux';
 import Icon from '../components/Icon';
 
-import { getEarnings, getCallHistory, getWallet, getUserReviews } from '../services/api';
+import { getEarnings, getCallHistory, getWallet, getUserReviews, getWithdrawals } from '../services/api';
 import { getSocket } from '../services/socket';
 
 const GIFT_EMOJI = { Rose:'🌹', Chocolate:'🍫', Pastry:'🍰', Pineapple:'🍍', Heart:'❤️', Perfume:'🌸', Crown:'👑' };
 
 export default function GirlsEarningsScreen({ onDrawer, onRedeem }) {
   const insets = useSafeAreaInsets();
-  const { name, avatarUrl } = useSelector((s) => s.user);
+  const user = useSelector((s) => s.user);
+  const { name, avatarUrl } = user || {};
+  const userId = user?.id || user?.userId;
   const [earnings, setEarnings] = useState({ earnings: [], summary: { total_mins: 0, total_inr: 0, available_inr: 0, available_coins: 0 } });
+  const [withdrawals, setWithdrawals] = useState([]);
   const [calls, setCalls]       = useState([]);
   const [gifts, setGifts]       = useState([]);
   const [isLive, setIsLive]     = useState(true);
@@ -28,11 +31,11 @@ export default function GirlsEarningsScreen({ onDrawer, onRedeem }) {
   const [reviews, setReviews] = useState([]);
   const [loadingReviews, setLoadingReviews] = useState(false);
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { loadData(); }, [userId]);
 
   const loadData = async () => {
     try {
-      const [eRes, cRes, wRes] = await Promise.allSettled([getEarnings(), getCallHistory(), getWallet()]);
+      const [eRes, cRes, wRes, wdRes] = await Promise.allSettled([getEarnings(), getCallHistory(), getWallet(), getWithdrawals()]);
       if (eRes.status === 'fulfilled' && eRes.value) {
         setEarnings(eRes.value);
       }
@@ -41,6 +44,9 @@ export default function GirlsEarningsScreen({ onDrawer, onRedeem }) {
       }
       if (wRes.status === 'fulfilled' && wRes.value) {
         setGifts(wRes.value?.gifts || []);
+      }
+      if (wdRes.status === 'fulfilled' && Array.isArray(wdRes.value)) {
+        setWithdrawals(wdRes.value);
       }
     } catch {}
   };
@@ -51,7 +57,11 @@ export default function GirlsEarningsScreen({ onDrawer, onRedeem }) {
     setShowReviewsModal(true);
     setLoadingReviews(true);
     try {
-      const res = await getUserReviews('me');
+      const target = userId || user?.id || user?.userId || 'me';
+      let res = await getUserReviews(target);
+      if ((!res || res.length === 0) && target !== 'me') {
+        res = await getUserReviews('me');
+      }
       setReviews(Array.isArray(res) ? res : []);
     } catch {
       setReviews([]);
@@ -81,9 +91,11 @@ export default function GirlsEarningsScreen({ onDrawer, onRedeem }) {
     .reduce((s, e) => s + (parseFloat(e.mins_received) || parseFloat(e.coins_received) || 0), 0);
   const totalCoins = parseFloat(earnings.summary?.total_coins || earnings.summary?.total_mins || 0);
   const totalInr   = parseFloat(earnings.summary?.total_inr  || 0);
-  const availableInr = Number(earnings.summary?.available_inr != null
+  const totalWithdrawn = (withdrawals || []).filter(w => w.status !== 'rejected').reduce((s, w) => s + (parseFloat(w.amount) || 0), 0);
+  const availableInr = Number(earnings.summary?.available_inr != null && Number(earnings.summary.available_inr) < totalInr
     ? earnings.summary.available_inr
-    : Math.max(0, (earnings.summary?.total_inr || 0) - (earnings.summary?.total_withdrawn_inr || 0)));
+    : Math.max(0, Math.round((totalInr - totalWithdrawn) * 100) / 100));
+  const availableCoins = Math.max(0, Math.round((totalCoins - (totalWithdrawn * 2)) * 10) / 10);
   const totalCalls = earnings.summary?.total_calls != null && Number(earnings.summary.total_calls) > 0
     ? Number(earnings.summary.total_calls)
     : calls.length;

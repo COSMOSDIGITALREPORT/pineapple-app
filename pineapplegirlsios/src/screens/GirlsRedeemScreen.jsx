@@ -7,7 +7,7 @@ import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from '../components/Icon';
 import { Colors, Gradients } from '../theme/colors';
-import { getEarnings, requestWithdrawal } from '../services/api';
+import { getEarnings, getWithdrawals, requestWithdrawal } from '../services/api';
 
 const MIN_WITHDRAW = 100; // ₹100 minimum
 const SAME_DAY_FEE_RATE = 0.10; // 10% fee for same-day withdrawal
@@ -24,8 +24,26 @@ export default function GirlsRedeemScreen({ onBack }) {
   const [submittingType, setSubmittingType] = useState(null); // 'standard' | 'instant' | null
 
   useEffect(() => {
-    getEarnings()
-      .then((d) => setSummary(d?.summary || { total_mins: 0, total_inr: 0, available_inr: 0, available_coins: 0 }))
+    Promise.allSettled([getEarnings(), getWithdrawals()])
+      .then(([eRes, wRes]) => {
+        const eData = eRes.status === 'fulfilled' ? eRes.value : null;
+        const wData = wRes.status === 'fulfilled' ? (wRes.value || []) : [];
+        const totalWd = Array.isArray(wData)
+          ? wData.filter(w => w.status !== 'rejected').reduce((s, w) => s + (parseFloat(w.amount) || 0), 0)
+          : 0;
+        const totalInr = parseFloat(eData?.summary?.total_inr || 0);
+        const totalCoins = parseFloat(eData?.summary?.total_coins || eData?.summary?.total_mins || 0);
+        const availInr = Math.max(0, Math.round((totalInr - totalWd) * 100) / 100);
+        const availCoins = Math.max(0, Math.round((totalCoins - (totalWd * 2)) * 10) / 10);
+        setSummary({
+          total_mins: totalCoins,
+          total_coins: totalCoins,
+          total_inr: totalInr,
+          total_withdrawn_inr: totalWd,
+          available_inr: availInr,
+          available_coins: availCoins,
+        });
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
