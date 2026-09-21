@@ -966,6 +966,21 @@ td b{color:var(--text);font-weight:600;}
           <div class="stat-num" id="ec-boys-wallet">0</div>
           <div class="stat-label">Boys Unspent Coins</div>
         </div>
+        <div class="stat-card c-orange">
+          <div class="stat-top"><div class="stat-icon-wrap">🎁</div><span class="stat-trend" style="background:#FFFBEB;color:#D97706">Spin Free</span></div>
+          <div class="stat-num" id="ec-spin-gifts-coins">0</div>
+          <div class="stat-label" id="ec-spin-gifts-label">Lucky Spin Gifts Won</div>
+        </div>
+        <div class="stat-card c-pink">
+          <div class="stat-top"><div class="stat-icon-wrap">🎀</div><span class="stat-trend" style="background:#FFF0F4;color:var(--pink)">Gifts Spent</span></div>
+          <div class="stat-num" id="ec-gifts-spent-coins">0</div>
+          <div class="stat-label" id="ec-gifts-spent-label">Virtual Gifts Sent</div>
+        </div>
+        <div class="stat-card c-green">
+          <div class="stat-top"><div class="stat-icon-wrap">🏦</div><span class="stat-trend" style="background:#F0FDF4;color:#16A34A">Bank Float</span></div>
+          <div class="stat-num" id="ec-unspent-inflow">₹0</div>
+          <div class="stat-label">Unconsumed Advance Inflow (₹)</div>
+        </div>
       </div>
 
       <!-- 2-Column Split Details -->
@@ -1852,6 +1867,22 @@ async function loadFinancials(isAuto=false) {
     animateCurrency('ec-pending-payout', pendingPayout);
     animateCurrency('ec-host-balance', unpaidHostBal);
     animateNum('ec-boys-wallet', f.economics.boysWalletCoins || 0);
+
+    // Spin gifts won & gifts spent & unspent inflow
+    const spinCoins = f.spinGifts?.totalCoins || 0;
+    const spinCount = f.spinGifts?.count || 0;
+    animateNum('ec-spin-gifts-coins', spinCoins);
+    const spinLabel = document.getElementById('ec-spin-gifts-label');
+    if (spinLabel) spinLabel.textContent = `Spin Gifts Won (${spinCount} wins)`;
+
+    const giftCoins = f.consumption?.giftCoins || 0;
+    const giftsCount = f.consumption?.giftsCount || 0;
+    animateNum('ec-gifts-spent-coins', giftCoins);
+    const giftLabel = document.getElementById('ec-gifts-spent-label');
+    if (giftLabel) giftLabel.textContent = `Gifts Sent (${giftsCount} gifts · ₹${(f.economics?.giftGirlEarnings||0).toFixed(0)} Host)`;
+
+    const unspentInflow = f.inflow?.unspentInflowInr ?? Math.max(0, Math.round(((f.inflow?.estimatedGrossInflowInr||0) - (grossGirlEarn + (f.economics?.platformRevenue||0))) * 100) / 100);
+    animateCurrency('ec-unspent-inflow', unspentInflow);
 
     // Consumption details
     document.getElementById('ec-audio-detail').textContent = `${f.consumption.audioCalls.count} calls · ${f.consumption.audioCalls.coins} coins`;

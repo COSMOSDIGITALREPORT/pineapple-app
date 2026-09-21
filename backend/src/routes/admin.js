@@ -455,11 +455,22 @@ router.get('/financials', adminAuth, async (req, res) => {
        ORDER BY t.created_at DESC LIMIT 200`
     );
 
+    // Spin gifts won (Bonus/Free coins minted from Lucky Spin)
+    let spinCoins = 0, spinCount = 0;
+    try {
+      const [[spinSummary]] = await pool.query(
+        "SELECT COUNT(*) AS total_spins, COALESCE(SUM(amount), 0) AS total_spin_coins FROM wallet_transactions WHERE type='spin_gift'"
+      );
+      spinCoins = Number(spinSummary?.total_spin_coins) || 0;
+      spinCount = Number(spinSummary?.total_spins) || 0;
+    } catch (_) {}
+
     res.json({
       inflow: {
         totalPurchases: purchases.total_purchases || 0,
         totalCoinsPurchased: Number(purchases.total_coins_purchased) || 0,
         estimatedGrossInflowInr,
+        unspentInflowInr: Math.max(0, Math.round((estimatedGrossInflowInr - (totalGirlEarnings + totalPlatformRev)) * 100) / 100),
         packCounts,
       },
       consumption: {
@@ -471,6 +482,10 @@ router.get('/financials', adminAuth, async (req, res) => {
         giftCoins: giftsCoins,
         giftsCount,
         giftTypes,
+      },
+      spinGifts: {
+        totalCoins: spinCoins,
+        count: spinCount,
       },
       economics: {
         platformRevenue: totalPlatformRev,
