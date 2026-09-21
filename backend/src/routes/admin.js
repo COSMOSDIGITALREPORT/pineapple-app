@@ -60,6 +60,7 @@ router.get('/stats', adminAuth, async (req, res) => {
     );
     const [[earnings]] = await pool.query('SELECT COALESCE(SUM(amount_inr),0) AS total_girl_earned FROM earnings');
     const [[pending]]  = await pool.query('SELECT COUNT(*) AS total, COALESCE(SUM(amount),0) AS total_amount FROM withdrawals WHERE status="pending"');
+    const [[paidOut]]  = await pool.query('SELECT COALESCE(SUM(amount),0) AS total_paid FROM withdrawals WHERE status="approved"');
     const [[reports]]  = await pool.query('SELECT COUNT(*) AS total FROM reports WHERE status="pending"');
     const [[unverified]] = await pool.query('SELECT COUNT(*) AS total FROM users WHERE gender="girl" AND is_verified=0');
     let pendingSupport = { total: 0 };
@@ -68,9 +69,26 @@ router.get('/stats', adminAuth, async (req, res) => {
       if (sp) pendingSupport = sp;
     } catch {}
 
-    const totalCoinsSpent = Number(calls.total_coins) || 0;
-    const totalPlatformCallRev = parseFloat(calls.call_platform_rev) || 0;
-    const totalGirlEarnings = Math.max(parseFloat(earnings.total_girl_earned) || 0, parseFloat(calls.call_girl_earnings) || 0);
+    let giftsCoins = 0;
+    try {
+      const [[giftsSummary]] = await pool.query(
+        'SELECT COALESCE(SUM(coins_spent), 0) AS total_gift_coins FROM gifts'
+      );
+      giftsCoins = Number(giftsSummary?.total_gift_coins) || 0;
+    } catch (_) {}
+
+    const totalCallCoins = Number(calls.total_coins) || 0;
+    const totalCoinsSpent = totalCallCoins + giftsCoins;
+    const callPlatformRev = parseFloat(calls.call_platform_rev) || 0;
+    const giftPlatformRev = parseFloat((giftsCoins * 0.33).toFixed(2));
+    const totalPlatformRev = parseFloat((callPlatformRev + giftPlatformRev).toFixed(2));
+
+    const recordedCallGirlEarnings = parseFloat(calls.call_girl_earnings) || 0;
+    const giftGirlEarningsInr = parseFloat((giftsCoins * 0.50).toFixed(2));
+    const totalGirlEarnings = Math.max(parseFloat(earnings.total_girl_earned) || 0, recordedCallGirlEarnings + giftGirlEarningsInr);
+    const totalPaid = parseFloat(paidOut?.total_paid) || 0;
+    const unpaidHostBalance = Math.max(0, Math.round((totalGirlEarnings - totalPaid) * 100) / 100);
+
     const pendingWithdrawalAmount = parseFloat(pending.total_amount) || 0;
     const totalMinsTalked = Math.round((Number(calls.total_secs) || 0) / 60);
 
@@ -82,8 +100,9 @@ router.get('/stats', adminAuth, async (req, res) => {
       totalCalls: calls.total,
       totalMins: totalMinsTalked,
       totalCoins: totalCoinsSpent,
-      platformRevenue: totalPlatformCallRev,
+      platformRevenue: totalPlatformRev,
       girlEarnings: totalGirlEarnings,
+      unpaidHostBalance: unpaidHostBalance,
       pendingWithdrawalAmount,
       pendingWithdrawals: pending.total,
       pendingReports: reports.total,
@@ -373,11 +392,11 @@ router.get('/financials', adminAuth, async (req, res) => {
 
     const totalCoinsConsumed = (Number(callsStats.total_call_coins) || 0) + giftsCoins;
     const recordedCallGirlEarnings = parseFloat(callsStats.call_girl_earnings) || 0;
-    const totalGirlEarnings = Math.max(parseFloat(totalEarnings.total) || 0, recordedCallGirlEarnings) + giftGirlEarningsInr;
-    const totalPlatformRev = (parseFloat(callsStats.call_platform_rev) || 0) + giftPlatformRevInr;
+    const totalGirlEarnings = Math.max(parseFloat(totalEarnings.total) || 0, recordedCallGirlEarnings + giftGirlEarningsInr);
+    const totalPlatformRev = parseFloat(((parseFloat(callsStats.call_platform_rev) || 0) + giftPlatformRevInr).toFixed(2));
     const totalPaidOut = parseFloat(payoutsApproved.total) || 0;
     const totalPendingPayout = parseFloat(payoutsPending.total) || 0;
-    const unpaidHostBalance = Math.max(0, totalGirlEarnings - totalPaidOut);
+    const unpaidHostBalance = Math.max(0, Math.round((totalGirlEarnings - totalPaidOut) * 100) / 100);
 
     // 6. Host-Wise Earnings Breakdown
     const [hostBreakdown] = await pool.query(`
