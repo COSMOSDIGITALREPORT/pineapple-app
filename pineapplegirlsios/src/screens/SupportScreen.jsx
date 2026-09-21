@@ -22,7 +22,7 @@ const BOT_RESPONSES = {
   default: "Hi! I'm Pineapple Bot 🍍\nHow can I help you today?\n\nYou can ask me about:\n• Calling minutes & plans\n• Sending gifts\n• Fortune Wheel\n• Account issues",
   coins: "To get calling minutes, purchase coin packages from the Wallet / Coin store. Packages start from just ₹9! You can also win bonus coins and gifts on the Fortune Wheel! 🎯",
   gift: "To send a gift during a call, tap the 🎁 Gift icon at the bottom of the call screen. Choose from Roses, Diamonds, Crowns, Cars, or Castles to send them instantly! ✨",
-  spin: "Go to the Fortune Wheel from the side menu (Lucky Spin). Spin to win exciting gifts, coin bonuses, and special rewards! 🎡",
+  spin: "Go to the Fortune Wheel from the side menu. Spin to win exciting gifts, coin bonuses, and special rewards! 🎡",
   refund: "For payment and refund inquiries, our support team will review your account details. If you experienced a failed transaction, it is usually refunded within 24-48 hours. You can also chat with admin here! 💬",
   autoAck: "Thanks for your message! 🍍 Your question has been forwarded to our support team. An admin will review and reply directly to you right here.",
 };

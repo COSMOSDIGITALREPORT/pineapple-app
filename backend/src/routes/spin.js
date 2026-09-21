@@ -12,7 +12,7 @@ const PRIZES = [
   { index:4, type:'pineapple', label:'Pineapple', emoji:'🍍', value:100,   weight:40  },
   { index:5, type:'miss',      label:'Luck!',     emoji:'🍀', value:0,     weight:100 },
   { index:6, type:'heart',     label:'Heart',     emoji:'❤️', value:200,   weight:12  },
-  { index:7, type:'perfume',   label:'Perfume',   emoji:'🌸', value:500,   weight:5   },
+  { index:7, type:'perfume',   label:'Perfume',   emoji:'🧴', value:500,   weight:5   },
   { index:8, type:'crown',     label:'Crown',     emoji:'👑', value:5000,  weight:2   },
   { index:9, type:'diamond',   label:'Diamond',   emoji:'💎', value:10000, weight:1   },
 ];
@@ -24,24 +24,16 @@ function pickPrize() {
   return PRIZES[0];
 }
 
+// GET /spin/status — Check if user has an unlocked spin from a premium plan
 router.get('/status', auth, async (req, res) => {
   try {
     const [rows] = await pool.query('SELECT spin_available, is_premium, minutes FROM users WHERE id=?', [req.user.userId]);
     const user = rows[0];
     if (!user) return res.status(404).json({ error: 'User not found' });
 
-    const isPremiumMember = !!(user.is_premium || user.spin_available);
+    const hasSpinCredit = user.spin_available === 1;
     const hasCoins = (user.minutes || 0) > 0;
-
-    // Check if user already spun today in Indian Standard Time (UTC+5:30)
-    const [todaySpin] = await pool.query(
-      `SELECT id, spun_at FROM spin_history 
-       WHERE user_id = ? 
-         AND DATE(CONVERT_TZ(spun_at, '+00:00', '+05:30')) = DATE(CONVERT_TZ(NOW(), '+00:00', '+05:30'))
-       LIMIT 1`,
-      [req.user.userId]
-    );
-    const alreadySpunToday = todaySpin.length > 0;
+    const isPremiumMember = !!(user.is_premium || hasSpinCredit);
 
     let reason = '';
     let message = '';
@@ -49,73 +41,67 @@ router.get('/status', auth, async (req, res) => {
 
     if (!isPremiumMember) {
       reason = 'not_premium';
-      message = 'Buy Premium (₹500) to unlock daily Fortune Wheel spin!';
+      message = 'Recharge a Premium Plan to unlock Fortune Wheel!';
     } else if (!hasCoins) {
       reason = 'no_coins';
-      message = 'Your membership coins are finished (0 coins). Buy coins to unlock daily spin!';
-    } else if (alreadySpunToday) {
-      reason = 'already_spun_today';
-      message = 'Daily spin used! Come back tomorrow for your next spin.';
+      message = 'Your membership coins are 0. Recharge a Premium Plan to unlock Fortune Wheel!';
+    } else if (!hasSpinCredit) {
+      reason = 'plan_spin_used';
+      message = 'Fortune Wheel spin used for this plan. Recharge a Premium Plan to unlock another spin!';
     } else {
       spinAvailable = true;
-      message = 'Daily spin available!';
+      message = 'Fortune Wheel spin available!';
     }
 
     res.json({
       spinAvailable,
       isPremium: isPremiumMember,
+      hasSpinCredit,
       coins: user.minutes || 0,
-      alreadySpunToday,
       reason,
       message,
     });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// POST /spin — Execute Fortune Wheel spin (Only 1 spin per premium plan recharge)
 router.post('/', auth, async (req, res) => {
   try {
     const [rows] = await pool.query('SELECT spin_available, is_premium, minutes FROM users WHERE id=?', [req.user.userId]);
     const user = rows[0];
     if (!user) return res.status(404).json({ error: 'User not found' });
 
-    const isPremiumMember = !!(user.is_premium || user.spin_available);
-    const hasCoins = (user.minutes || 0) > 0;
-
-    if (!isPremiumMember) {
-      return res.status(400).json({ error: 'Buy Premium (₹500) to unlock daily Fortune Wheel spin!' });
+    if (user.spin_available !== 1) {
+      return res.status(400).json({ error: 'Recharge a Premium Plan to unlock Fortune Wheel!' });
     }
-    if (!hasCoins) {
-      return res.status(400).json({ error: 'Your membership coins have finished. Buy coins to spin!' });
-    }
-
-    // Check once per day (IST)
-    const [todaySpin] = await pool.query(
-      `SELECT id, spun_at FROM spin_history 
-       WHERE user_id = ? 
-         AND DATE(CONVERT_TZ(spun_at, '+00:00', '+05:30')) = DATE(CONVERT_TZ(NOW(), '+00:00', '+05:30'))
-       LIMIT 1`,
-      [req.user.userId]
-    );
-    if (todaySpin.length > 0) {
-      return res.status(400).json({ error: 'You have already used your spin for today. Come back tomorrow!' });
+    if ((user.minutes || 0) <= 0) {
+      return res.status(400).json({ error: 'Recharge coins to spin Fortune Wheel!' });
     }
 
     const prize = pickPrize();
     await pool.query('INSERT INTO spin_history (id,user_id,reward_type,reward_value) VALUES (?,?,?,?)',
       [uuidv4(), req.user.userId, prize.type, prize.value]);
 
-    if (prize.value > 0) {
-      await pool.query('UPDATE users SET minutes=minutes+? WHERE id=?', [prize.value, req.user.userId]);
+    // Consume the spin credit and add prize coins (if any)
+    const prizeCoins = prize.value || 0;
+    await pool.query(
+      'UPDATE users SET spin_available=0, minutes=minutes+? WHERE id=?',
+      [prizeCoins, req.user.userId]
+    );
+
+    if (prizeCoins > 0) {
       await pool.query(
         'INSERT INTO wallet_transactions (id,user_id,type,amount,description) VALUES (?,?,?,?,?)',
-        [uuidv4(), req.user.userId, 'spin_gift', prize.value, `Won ${prize.emoji} ${prize.label} (Worth ₹${prize.value}) on Spin`]
+        [uuidv4(), req.user.userId, 'spin_gift', prizeCoins, `Won ${prize.emoji} ${prize.label} (Worth ₹${prizeCoins}) on Fortune Wheel`]
       );
     }
-    const [updatedUser] = await pool.query('SELECT minutes FROM users WHERE id=?', [req.user.userId]);
+
+    const [updatedUser] = await pool.query('SELECT minutes, spin_available FROM users WHERE id=?', [req.user.userId]);
     res.json({
       prizeIndex: prize.index,
       prize: { type: prize.type, label: prize.label, emoji: prize.emoji, value: prize.value },
       coins: updatedUser[0]?.minutes ?? user.minutes,
+      spinAvailable: false,
     });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });

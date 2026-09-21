@@ -158,7 +158,7 @@ export default function DrawerMenu({ visible, onClose, onLuckySpin, onPremium, o
             </TouchableOpacity>
           )}
 
-          {/* Lucky Spin entry */}
+          {/* Fortune Wheel entry */}
           <TouchableOpacity
             style={styles.spinItem}
             onPress={() => {
@@ -175,7 +175,7 @@ export default function DrawerMenu({ visible, onClose, onLuckySpin, onPremium, o
                 <View style={styles.zapIconWrap}>
                   <Text style={{ fontSize: 16 }}>🎡</Text>
                 </View>
-                <Text style={styles.spinItemText}>Lucky Spin</Text>
+                <Text style={styles.spinItemText}>Fortune Wheel</Text>
               </View>
               <Icon name="chevron-right" size={18} color="#fff" />
             </LinearGradient>

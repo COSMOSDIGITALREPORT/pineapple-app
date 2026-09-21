@@ -204,9 +204,9 @@ export default function MainHomeScreen({ onFindMatch, onRooms, onWallet, onPremi
         <View style={styles.featureRow}>
           <TouchableOpacity style={styles.featureCardTall} onPress={onLuckySpin} activeOpacity={0.9}>
             <LinearGradient colors={['#FF3870', '#FF8A5B']} style={styles.featureCardGrad}>
-              <Text style={styles.featureEmoji}>🎰</Text>
-              <Text style={styles.featureTitle}>Lucky{'\n'}Spin</Text>
-              <Text style={styles.featureSub}>Win daily</Text>
+              <Text style={styles.featureEmoji}>🎡</Text>
+              <Text style={styles.featureTitle}>Fortune{'\n'}Wheel</Text>
+              <Text style={styles.featureSub}>Win prizes</Text>
             </LinearGradient>
           </TouchableOpacity>
 

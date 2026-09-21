@@ -17,7 +17,7 @@ const GIFT_CATALOG = [
   { label: 'Pastry',    value: 50,  emoji: '🍰' },
   { label: 'Pineapple', value: 100, emoji: '🍍' },
   { label: 'Heart',     value: 200, emoji: '❤️' },
-  { label: 'Perfume',   value: 500, emoji: '🌸' },
+  { label: 'Perfume',   value: 500, emoji: '🧴' },
   { label: 'Crown',     value: 5000, emoji: '👑' },
 ];
 import { initiateCall, endCall, getReceiverToken, sendGift } from '../services/api';

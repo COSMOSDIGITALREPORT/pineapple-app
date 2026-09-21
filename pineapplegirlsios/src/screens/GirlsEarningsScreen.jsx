@@ -12,7 +12,7 @@ import Icon from '../components/Icon';
 import { getEarnings, getCallHistory, getWallet, getUserReviews, getWithdrawals } from '../services/api';
 import { getSocket } from '../services/socket';
 
-const GIFT_EMOJI = { Rose:'🌹', Chocolate:'🍫', Pastry:'🍰', Pineapple:'🍍', Heart:'❤️', Perfume:'🌸', Crown:'👑' };
+const GIFT_EMOJI = { Rose:'🌹', Chocolate:'🍫', Pastry:'🍰', Pineapple:'🍍', Heart:'❤️', Perfume:'🧴', Crown:'👑' };
 
 export default function GirlsEarningsScreen({ onDrawer, onRedeem }) {
   const insets = useSafeAreaInsets();

@@ -38,7 +38,7 @@ const PRIZES = [
 { label: 'Pineapple',  value: '₹100', emoji: '🍍', isLoss: false, rupeeValue: 100   },
 { label: 'Luck!',      value: 'Try',  emoji: '🍀', isLoss: true,  rupeeValue: 0     },
 { label: 'Heart',      value: '₹200', emoji: '❤️', isLoss: false, rupeeValue: 200   },
-{ label: 'Perfume',    value: '₹500', emoji: '🌸', isLoss: false, rupeeValue: 500   },
+{ label: 'Perfume',    value: '₹500', emoji: '🧴', isLoss: false, rupeeValue: 500   },
 { label: 'Crown',      value: '₹5K',  emoji: '👑', isLoss: false, rupeeValue: 5000  },
 { label: 'Diamond',    value: '₹10K', emoji: '💎', isLoss: false, rupeeValue: 10000 }];
 
@@ -90,18 +90,14 @@ export default function LuckySpinScreen({ onBack, onPremium }) {
       doSpin();
       return;
     }
-    if (statusInfo?.reason === 'already_spun_today') {
-      Alert.alert('Daily Spin Used', 'You can only spin the wheel once per day. Please come back tomorrow!');
-      return;
-    }
-    if ((coins || 0) <= 0 || statusInfo?.reason === 'no_coins') {
-      Alert.alert('Coins Finished', 'Your membership coins are 0. Please recharge coins to unlock daily spin.', [
+    Alert.alert(
+      'Fortune Wheel Locked',
+      'Fortune Wheel unlocks once with every Premium Plan (₹500). Recharge a Premium Plan to unlock your spin!',
+      [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Get Coins', onPress: onPremium }
-      ]);
-      return;
-    }
-    onPremium?.();
+        { text: 'Recharge Premium', onPress: onPremium }
+      ]
+    );
   };
 
   const spinDeg = spinAnim.interpolate({
@@ -185,7 +181,7 @@ export default function LuckySpinScreen({ onBack, onPremium }) {
       <View style={styles.content}>
         <View style={styles.titleGroup}>
           <Text style={styles.title}>Fortune Wheel</Text>
-          <Text style={styles.subtitle}>Spin once daily to win exclusive rewards</Text>
+          <Text style={styles.subtitle}>Spin once per premium recharge to win exclusive rewards</Text>
         </View>
 
         {error.length > 0 && (
@@ -268,8 +264,6 @@ export default function LuckySpinScreen({ onBack, onPremium }) {
                 <Text style={styles.spinBtnText}>...</Text>
               ) : effectiveSpinAvailable ? (
                 <Text style={styles.spinBtnText}>SPIN</Text>
-              ) : statusInfo?.reason === 'already_spun_today' ? (
-                <Text style={[styles.spinBtnText, { fontSize: 13 }]}>1/DAY</Text>
               ) : (
                 <Icon name="lock" size={28} color="#fff" />
               )}
@@ -278,18 +272,11 @@ export default function LuckySpinScreen({ onBack, onPremium }) {
 
           {!effectiveSpinAvailable && !statusLoading && (
             <TouchableOpacity
-              style={[
-                styles.premiumLockBanner,
-                statusInfo?.reason === 'already_spun_today' && { backgroundColor: '#475569' }
-              ]}
+              style={styles.premiumLockBanner}
               onPress={handleCenterButtonPress}
               activeOpacity={0.85}>
               <Text style={styles.premiumLockText}>
-                {statusInfo?.reason === 'already_spun_today'
-                  ? '⏰ Daily spin used. Come back tomorrow!'
-                  : ((coins || 0) <= 0 || statusInfo?.reason === 'no_coins')
-                  ? '🔒 Coins finished (0 coins). Recharge to spin'
-                  : '🔒 Buy Premium (₹500) to unlock daily spin'}
+                🔒 Recharge Premium Plan to Unlock
               </Text>
             </TouchableOpacity>
           )}

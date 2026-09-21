@@ -22,7 +22,7 @@ import Icon from '../components/Icon';
 import { Colors, Gradients } from '../theme/colors';
 import { getWallet, redeemGiftApi } from '../services/api';
 
-function GiftCard({ gift, onRedeem, onGift }) {
+function GiftCard({ gift, onRedeem }) {
   const isPending = gift.status === 'pending';
   const timeAgo = Math.floor((Date.now() - gift.wonAt) / 60000);
   const timeLabel = timeAgo < 60 ? `${timeAgo}m ago` : `${Math.floor(timeAgo / 60)}h ago`;
@@ -42,14 +42,11 @@ function GiftCard({ gift, onRedeem, onGift }) {
 
       {isPending &&
       <View style={giftStyles.actions}>
-          <TouchableOpacity onPress={onRedeem} style={giftStyles.redeemBtn}>
+          <TouchableOpacity onPress={onRedeem} style={giftStyles.redeemBtn} activeOpacity={0.85}>
             <View style={giftStyles.redeemGrad}>
               <LinearGradient colors={Gradients.secondary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />
-              <Text style={giftStyles.redeemText}>Redeem</Text>
+              <Text style={giftStyles.redeemText}>Redeem Coins</Text>
             </View>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={onGift} style={giftStyles.giftBtn}>
-            <Text style={giftStyles.giftText}>Send</Text>
           </TouchableOpacity>
         </View>
       }
@@ -131,13 +128,6 @@ export default function WalletScreen({ onBack }) {
     );
   };
 
-  const handleGift = (gift) => {
-    Alert.alert('Gift to a Girl', `Send "${gift.label}" as a gift to a girl you loved talking to?`, [
-    { text: 'Cancel', style: 'cancel' },
-    { text: 'Gift', onPress: () => dispatch(redeemGift({ id: gift.id, action: 'gift' })) }]
-    );
-  };
-
   const handleShare = async () => {
     await Share.share({
       message: 'Join me on Pineapple! Use my referral code PINE123 and get 200 free coins. Download now!'
@@ -206,7 +196,7 @@ export default function WalletScreen({ onBack }) {
                 { emoji: '🍰', label: 'Pastry', worth: '₹50' },
                 { emoji: '🍍', label: 'Pineapple', worth: '₹100' },
                 { emoji: '❤️', label: 'Heart', worth: '₹200' },
-                { emoji: '🌸', label: 'Perfume', worth: '₹500' },
+                { emoji: '🧴', label: 'Perfume', worth: '₹500' },
                 { emoji: '👑', label: 'Crown', worth: '₹5,000' },
                 { emoji: '💎', label: 'Diamond', worth: '₹10,000' },
               ].map((p, i) => (
@@ -234,8 +224,7 @@ export default function WalletScreen({ onBack }) {
                 <GiftCard
                   key={g.id}
                   gift={g}
-                  onRedeem={() => handleRedeem(g)}
-                  onGift={() => handleGift(g)} />
+                  onRedeem={() => handleRedeem(g)} />
                 )}
                     </View>
                   </>

@@ -68,7 +68,7 @@ const PLANS = [
     colors: ['#FFD700', '#FFA500'],
     badgeColors: ['#FFD700', '#FFA500'],
     isGold: true,
-    features: ['700 Coins (11.6 hrs Audio / 5.8 hrs Video)', 'Lucky Spin Unlocked (Spin daily)', 'Premium VIP crown badge', 'Win gifts up to ₹10,000', 'Top priority matching', 'VIP support'],
+    features: ['700 Coins (11.6 hrs Audio / 5.8 hrs Video)', 'Fortune Wheel Unlocked (1 Spin)', 'Premium VIP crown badge', 'Win gifts up to ₹10,000', 'Top priority matching', 'VIP support'],
   },
 ];
 
