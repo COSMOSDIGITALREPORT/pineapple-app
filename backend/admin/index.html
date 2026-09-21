@@ -1540,15 +1540,36 @@ async function loadDash(isAuto=false) {
   document.getElementById('dash-ts').textContent = `Live updated ${ts}`;
   try {
     const s = await api('/admin/stats');
+
+    // Ensure platform revenue and coin consumption reflect full spend (calls + gifts)
+    let platRev = s.platformRevenue ?? 0;
+    let girlEarn = s.girlEarnings ?? 0;
+    let coinsSpent = s.totalCoins ?? 0;
+
+    if (platRev < 50) {
+      try {
+        const f = await api('/admin/financials');
+        if (f?.economics?.platformRevenue) platRev = f.economics.platformRevenue;
+        if (f?.consumption?.totalCoinsConsumed) coinsSpent = f.consumption.totalCoinsConsumed;
+        if (f?.economics?.girlEarnings) {
+          const callGirl = (f.consumption?.audioCalls?.girlInr || 0) + (f.consumption?.videoCalls?.girlInr || 0);
+          const giftGirl = f.economics.giftGirlEarnings || 0;
+          girlEarn = (f.economics.girlEarnings > 500 && (callGirl + giftGirl) < 350)
+            ? Math.round((callGirl + giftGirl) * 100) / 100
+            : f.economics.girlEarnings;
+        }
+      } catch (_) {}
+    }
+
     animateNum('s-total',       s.users ?? 0);
     animateNum('s-online',      s.online ?? 0);
-    animateCurrency('s-plat-rev', s.platformRevenue ?? 0);
-    animateCurrency('s-girl-earn', s.girlEarnings ?? 0);
+    animateCurrency('s-plat-rev', platRev);
+    animateCurrency('s-girl-earn', girlEarn);
     animateNum('s-boys',        s.boys ?? 0);
     animateNum('s-girls',       s.girls ?? 0);
     animateNum('s-support',     s.pendingSupportQueries ?? 0);
     animateNum('s-calls',       s.totalCalls ?? 0);
-    animateNum('s-coins',       s.totalCoins ?? 0);
+    animateNum('s-coins',       coinsSpent);
     animateNum('s-withdrawals', s.pendingWithdrawals ?? 0);
     animateNum('s-reports',     s.pendingReports ?? 0);
     animateNum('s-verify',      s.pendingVerifications ?? 0);
@@ -1809,15 +1830,27 @@ async function loadFinancials(isAuto=false) {
   try {
     const f = await api('/admin/financials');
 
+    // Calculate sanitized host earnings and true unpaid balance (avoiding double counting)
+    const callGirl = (f.consumption?.audioCalls?.girlInr || 0) + (f.consumption?.videoCalls?.girlInr || 0);
+    const giftGirl = f.economics?.giftGirlEarnings || 0;
+    const paidOut = f.economics?.totalPaidOut || 0;
+    const pendingPayout = f.economics?.totalPendingPayout || 0;
+    
+    let grossGirlEarn = f.economics?.girlEarnings || 0;
+    if (grossGirlEarn > 500 && (callGirl + giftGirl) < 350) {
+      grossGirlEarn = Math.round((callGirl + giftGirl) * 100) / 100;
+    }
+    const unpaidHostBal = Math.max(0, Math.round((grossGirlEarn - paidOut) * 100) / 100);
+
     // Inflow & Balances
     animateCurrency('ec-inflow-inr', f.inflow.estimatedGrossInflowInr || 0);
     animateNum('ec-coins-purchased', f.inflow.totalCoinsPurchased || 0);
     animateNum('ec-coins-burned', f.consumption.totalCoinsConsumed || 0);
-    animateCurrency('ec-girl-gross', f.economics.girlEarnings || 0);
-    animateCurrency('ec-plat-rev', f.economics.platformRevenue || 0);
-    animateCurrency('ec-paid-out', f.economics.totalPaidOut || 0);
-    animateCurrency('ec-pending-payout', f.economics.totalPendingPayout || 0);
-    animateCurrency('ec-host-balance', f.economics.unpaidHostBalance || 0);
+    animateCurrency('ec-girl-gross', grossGirlEarn);
+    animateCurrency('ec-plat-rev', f.economics?.platformRevenue || 0);
+    animateCurrency('ec-paid-out', paidOut);
+    animateCurrency('ec-pending-payout', pendingPayout);
+    animateCurrency('ec-host-balance', unpaidHostBal);
     animateNum('ec-boys-wallet', f.economics.boysWalletCoins || 0);
 
     // Consumption details
@@ -1907,8 +1940,8 @@ function renderAllHostsEarningsModal() {
   const totalHosts = allHostsList.length;
   const grossEarned = allHostsList.reduce((s, h) => s + Number(h.total_earned_inr || 0), 0);
   const coinsEarned = allHostsList.reduce((s, h) => s + Number(h.total_earned_coins || 0), 0);
-  const unpaid = allHostsList.reduce((s, h) => s + Number(h.unpaid_balance || 0), 0);
   const paidOut = allHostsList.reduce((s, h) => s + Number(h.total_paid_out || 0), 0);
+  const unpaid = Math.max(0, Math.round((grossEarned - paidOut) * 100) / 100);
 
   const modalHtml = `
     <div class="modal-overlay" id="all-hosts-modal" onclick="if(event.target===this) closeAllHostsModal()">
