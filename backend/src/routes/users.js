@@ -370,17 +370,19 @@ router.delete('/:id/mute', auth, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// GET /users/:id/reviews — fetch reviews about a user (with review_text)
+// GET /users/:id/reviews — fetch reviews about a user
 router.get('/:id/reviews', auth, async (req, res) => {
   try {
+    const targetId = req.params.id === 'me' ? req.user.userId : req.params.id;
     const [rows] = await pool.query(
-      `SELECT r.stars, r.review_text, r.tags, r.created_at,
-              u.name AS reviewer_name, u.avatar_url AS reviewer_avatar
+      `SELECT r.id, r.stars, r.review_text, r.tags, r.created_at,
+              COALESCE(u.name, 'Caller') AS reviewer_name,
+              u.avatar_url AS reviewer_avatar
        FROM user_ratings r
-       JOIN users u ON r.rater_id=u.id
-       WHERE r.rated_id=? AND r.review_text IS NOT NULL AND r.review_text!=''
-       ORDER BY r.created_at DESC LIMIT 20`,
-      [req.params.id]);
+       LEFT JOIN users u ON r.rater_id=u.id
+       WHERE r.rated_id=?
+       ORDER BY r.created_at DESC LIMIT 50`,
+      [targetId]);
     res.json(rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });

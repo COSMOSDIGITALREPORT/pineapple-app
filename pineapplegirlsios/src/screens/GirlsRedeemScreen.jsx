@@ -18,27 +18,32 @@ export default function GirlsRedeemScreen({ onBack }) {
   const [loading, setLoading]     = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const [summary, setSummary]     = useState({ total_mins: 0, total_inr: 0 });
+  const [summary, setSummary]     = useState({ total_mins: 0, total_inr: 0, available_inr: 0, available_coins: 0 });
   const [error, setError]         = useState('');
   const [sameDay, setSameDay]     = useState(false);
   const [submittingType, setSubmittingType] = useState(null); // 'standard' | 'instant' | null
 
   useEffect(() => {
     getEarnings()
-      .then((d) => setSummary(d?.summary || { total_mins: 0, total_inr: 0 }))
+      .then((d) => setSummary(d?.summary || { total_mins: 0, total_inr: 0, available_inr: 0, available_coins: 0 }))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
 
-  const availableInr = Number(summary.total_inr || 0);
+  const availableInr = Number(summary.available_inr != null
+    ? summary.available_inr
+    : Math.max(0, (summary.total_inr || 0) - (summary.total_withdrawn_inr || 0)));
+  const availableCoins = Number(summary.available_coins != null
+    ? summary.available_coins
+    : (availableInr * 2));
   const canRedeem    = availableInr >= MIN_WITHDRAW && upi.trim().length > 3;
   const feeAmount     = Math.round(availableInr * SAME_DAY_FEE_RATE * 100) / 100;
-  const payoutAmount  = availableInr - feeAmount;
+  const payoutAmount  = Math.max(0, availableInr - feeAmount);
 
   const handleSubmit = async (isSameDay) => {
     if (!upi.trim()) { setError('UPI ID daalo'); return; }
     if (availableInr < MIN_WITHDRAW) {
-      setError(`Minimum ₹${MIN_WITHDRAW} chahiye. Abhi ₹${availableInr.toFixed(0)} hai.`);
+      setError(`Minimum ₹${MIN_WITHDRAW} chahiye. Abhi ₹${availableInr.toFixed(0)} available hai.`);
       return;
     }
     setSubmitting(true);
@@ -105,7 +110,7 @@ export default function GirlsRedeemScreen({ onBack }) {
             <>
               <Text style={styles.balanceLabel}>Available to Redeem</Text>
               <Text style={styles.balanceAmount}>₹{availableInr.toFixed(0)}</Text>
-              <Text style={styles.balanceMins}>{summary.total_mins || 0} coins earned</Text>
+              <Text style={styles.balanceMins}>{availableCoins > 0 ? availableCoins.toFixed(1) : '0'} coins available</Text>
             </>
           )}
         </LinearGradient>
@@ -161,12 +166,14 @@ export default function GirlsRedeemScreen({ onBack }) {
             <Text style={styles.optionSub}>Get ₹{payoutAmount.toFixed(0)} today</Text>
             <View style={[styles.optionBtn, !canRedeem && styles.optionBtnDisabled]}>
               <LinearGradient
-                colors={canRedeem ? ['#FF3870', '#C0004A'] : ['#ccc', '#ccc']}
+                colors={canRedeem ? ['#FF3870', '#C0004A'] : ['#CBD5E1', '#94A3B8']}
                 start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
                 style={styles.optionBtnGrad}>
                 {submitting && submittingType === 'instant'
                   ? <ActivityIndicator color="#fff" size="small" />
-                  : <Text style={styles.optionBtnText}>Instant Withdrawal</Text>}
+                  : <Text style={styles.optionBtnText}>
+                      {canRedeem ? 'Instant Withdrawal' : (availableInr < MIN_WITHDRAW ? `Need ₹${MIN_WITHDRAW} to Withdraw` : 'Enter UPI ID')}
+                    </Text>}
               </LinearGradient>
             </View>
           </TouchableOpacity>
@@ -185,7 +192,7 @@ export default function GirlsRedeemScreen({ onBack }) {
               {submitting && submittingType === 'standard'
                 ? <ActivityIndicator color={Colors.primary} size="small" />
                 : <Text style={styles.optionBtnOutlineText}>
-                    {canRedeem ? `Withdraw ₹${availableInr.toFixed(0)}` : `Need ₹${MIN_WITHDRAW} to Withdraw`}
+                    {canRedeem ? `Withdraw ₹${availableInr.toFixed(0)}` : (availableInr < MIN_WITHDRAW ? `Need ₹${MIN_WITHDRAW} to Withdraw` : 'Enter UPI ID')}
                   </Text>}
             </View>
           </TouchableOpacity>

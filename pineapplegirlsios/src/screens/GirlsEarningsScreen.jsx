@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
   TouchableOpacity, StatusBar, Image, Switch, RefreshControl,
+  Modal, ActivityIndicator,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSelector } from 'react-redux';
 import Icon from '../components/Icon';
 
-import { getEarnings, getCallHistory, getWallet } from '../services/api';
+import { getEarnings, getCallHistory, getWallet, getUserReviews } from '../services/api';
 import { getSocket } from '../services/socket';
 
 const GIFT_EMOJI = { Rose:'🌹', Chocolate:'🍫', Pastry:'🍰', Pineapple:'🍍', Heart:'❤️', Perfume:'🌸', Crown:'👑' };
@@ -16,11 +17,16 @@ const GIFT_EMOJI = { Rose:'🌹', Chocolate:'🍫', Pastry:'🍰', Pineapple:'�
 export default function GirlsEarningsScreen({ onDrawer, onRedeem }) {
   const insets = useSafeAreaInsets();
   const { name, avatarUrl } = useSelector((s) => s.user);
-  const [earnings, setEarnings] = useState({ earnings: [], summary: { total_mins: 0, total_inr: 0 } });
+  const [earnings, setEarnings] = useState({ earnings: [], summary: { total_mins: 0, total_inr: 0, available_inr: 0, available_coins: 0 } });
   const [calls, setCalls]       = useState([]);
   const [gifts, setGifts]       = useState([]);
   const [isLive, setIsLive]     = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Reviews modal state
+  const [showReviewsModal, setShowReviewsModal] = useState(false);
+  const [reviews, setReviews] = useState([]);
+  const [loadingReviews, setLoadingReviews] = useState(false);
 
   useEffect(() => { loadData(); }, []);
 
@@ -40,6 +46,19 @@ export default function GirlsEarningsScreen({ onDrawer, onRedeem }) {
   };
 
   const onRefresh = async () => { setRefreshing(true); await loadData(); setRefreshing(false); };
+
+  const handleOpenReviews = async () => {
+    setShowReviewsModal(true);
+    setLoadingReviews(true);
+    try {
+      const res = await getUserReviews('me');
+      setReviews(Array.isArray(res) ? res : []);
+    } catch {
+      setReviews([]);
+    } finally {
+      setLoadingReviews(false);
+    }
+  };
 
   const toggleLive = (val) => {
     setIsLive(val);
@@ -62,6 +81,9 @@ export default function GirlsEarningsScreen({ onDrawer, onRedeem }) {
     .reduce((s, e) => s + (parseFloat(e.mins_received) || parseFloat(e.coins_received) || 0), 0);
   const totalCoins = parseFloat(earnings.summary?.total_coins || earnings.summary?.total_mins || 0);
   const totalInr   = parseFloat(earnings.summary?.total_inr  || 0);
+  const availableInr = Number(earnings.summary?.available_inr != null
+    ? earnings.summary.available_inr
+    : Math.max(0, (earnings.summary?.total_inr || 0) - (earnings.summary?.total_withdrawn_inr || 0)));
   const totalCalls = earnings.summary?.total_calls != null && Number(earnings.summary.total_calls) > 0
     ? Number(earnings.summary.total_calls)
     : calls.length;
@@ -71,13 +93,16 @@ export default function GirlsEarningsScreen({ onDrawer, onRedeem }) {
     ? Number(earnings.summary.total_talk_mins)
     : (totalCalculatedSecs > 0 ? Math.round(totalCalculatedSecs / 60) || 1 : 0);
 
+  const avgRating = earnings.summary?.avg_rating || '5.0';
+  const ratingCount = Number(earnings.summary?.rating_count || 0);
+
   const STATS = [
     { label: 'Today',   value: todayCoins > 0 ? todayCoins.toFixed(1) : '0', sub: 'coins' },
     { label: 'Total',   value: totalCoins > 0 ? totalCoins.toFixed(1) : '0', sub: 'all time' },
     { label: 'Calls',   value: totalCalls,                        sub: 'received' },
     { label: 'Minutes', value: totalCallMins,                     sub: 'talked' },
     { label: 'Earned',  value: `₹${Number(totalInr).toFixed(2)}`, sub: 'total INR' },
-    { label: 'Rating',  value: '⭐ 5.0',                          sub: 'top rated' },
+    { label: 'Rating',  value: `⭐ ${avgRating}`,                 sub: ratingCount > 0 ? `${ratingCount} reviews ›` : 'view reviews ›', isRating: true },
   ];
 
   return (
@@ -108,8 +133,8 @@ export default function GirlsEarningsScreen({ onDrawer, onRedeem }) {
             <Text style={styles.profileSub}>{isLive ? '🟢 Online — receiving calls' : '⚫ Offline'}</Text>
           </View>
           <View style={styles.inrBadge}>
-            <Text style={styles.inrAmt}>₹{Number(totalInr).toFixed(0)}</Text>
-            <Text style={styles.inrSub}>earned</Text>
+            <Text style={styles.inrAmt}>₹{Number(availableInr).toFixed(0)}</Text>
+            <Text style={styles.inrSub}>available</Text>
           </View>
         </View>
 
@@ -135,20 +160,35 @@ export default function GirlsEarningsScreen({ onDrawer, onRedeem }) {
 
         {/* 6 STATS GRID */}
         <View style={styles.statsGrid}>
-          {STATS.map((s, i) => (
-            <View key={i} style={styles.statBox}>
-              <Text style={styles.statVal}>{s.value}</Text>
-              <Text style={styles.statName}>{s.label}</Text>
-              <Text style={styles.statSub}>{s.sub}</Text>
-            </View>
-          ))}
+          {STATS.map((s, i) => {
+            const isClickable = s.isRating;
+            const BoxContent = (
+              <View style={[styles.statBox, isClickable && styles.statBoxClickable]}>
+                <Text style={styles.statVal}>{s.value}</Text>
+                <Text style={styles.statName}>{s.label}</Text>
+                <Text style={[styles.statSub, isClickable && styles.statSubRating]}>{s.sub}</Text>
+              </View>
+            );
+            if (isClickable) {
+              return (
+                <TouchableOpacity key={i} activeOpacity={0.75} onPress={handleOpenReviews} style={styles.statWrap}>
+                  {BoxContent}
+                </TouchableOpacity>
+              );
+            }
+            return (
+              <View key={i} style={styles.statWrap}>
+                {BoxContent}
+              </View>
+            );
+          })}
         </View>
 
         {/* REDEEM BUTTON */}
         <TouchableOpacity onPress={onRedeem} activeOpacity={0.85} style={styles.redeemBtn}>
           <LinearGradient colors={['#FF3870', '#C0004A']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.redeemGrad}>
             <Text style={styles.redeemEmoji}>💸</Text>
-            <Text style={styles.redeemLabel}>Redeem  ₹{Number(totalInr).toFixed(0)}</Text>
+            <Text style={styles.redeemLabel}>Redeem  ₹{Number(availableInr).toFixed(0)}</Text>
           </LinearGradient>
         </TouchableOpacity>
 
@@ -219,6 +259,114 @@ export default function GirlsEarningsScreen({ onDrawer, onRedeem }) {
           </View>
         ))}
       </ScrollView>
+
+      {/* ── RATINGS & REVIEWS MODAL ── */}
+      <Modal visible={showReviewsModal} transparent animationType="slide" onRequestClose={() => setShowReviewsModal(false)}>
+        <View style={rvStyles.overlay}>
+          <View style={[rvStyles.card, { paddingBottom: insets.bottom + 20 }]}>
+            {/* Header */}
+            <View style={rvStyles.header}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <View style={rvStyles.headerIconWrap}>
+                  <Text style={{ fontSize: 20 }}>⭐</Text>
+                </View>
+                <View>
+                  <Text style={rvStyles.title}>Ratings & Reviews</Text>
+                  <Text style={rvStyles.sub}>Callers feedback & compliments</Text>
+                </View>
+              </View>
+              <TouchableOpacity onPress={() => setShowReviewsModal(false)} style={rvStyles.closeBtn} activeOpacity={0.7}>
+                <Text style={rvStyles.closeBtnText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Score Banner */}
+            <LinearGradient colors={['#FFF0F5', '#FFE4EC']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={rvStyles.scoreBanner}>
+              <View style={rvStyles.scoreLeft}>
+                <Text style={rvStyles.scoreNum}>{avgRating}</Text>
+                <View style={{ flexDirection: 'row', gap: 2, marginTop: 2 }}>
+                  {[1, 2, 3, 4, 5].map((st) => (
+                    <Text key={st} style={{ fontSize: 15, color: st <= Math.round(parseFloat(avgRating)) ? '#FFB800' : '#CBD5E1' }}>★</Text>
+                  ))}
+                </View>
+                <Text style={rvStyles.scoreCount}>{reviews.length} {reviews.length === 1 ? 'review' : 'ratings'}</Text>
+              </View>
+              <View style={rvStyles.scoreDivider} />
+              <View style={rvStyles.scoreRight}>
+                <Text style={rvStyles.scoreRightTitle}>Top Rated Host</Text>
+                <Text style={rvStyles.scoreRightSub}>Callers enjoy talking with you! Your ratings help attract more callers.</Text>
+              </View>
+            </LinearGradient>
+
+            {/* Reviews List */}
+            {loadingReviews ? (
+              <View style={rvStyles.loadingWrap}>
+                <ActivityIndicator size="large" color="#FF3870" />
+                <Text style={rvStyles.loadingText}>Loading ratings & reviews...</Text>
+              </View>
+            ) : reviews.length === 0 ? (
+              <View style={rvStyles.emptyWrap}>
+                <Text style={{ fontSize: 44 }}>✨</Text>
+                <Text style={rvStyles.emptyTitle}>No Reviews Yet</Text>
+                <Text style={rvStyles.emptySub}>
+                  When callers submit stars and compliments after calls, they will appear here!
+                </Text>
+              </View>
+            ) : (
+              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={rvStyles.list}>
+                {reviews.map((rv, idx) => {
+                  let tags = [];
+                  if (Array.isArray(rv.tags)) tags = rv.tags;
+                  else if (typeof rv.tags === 'string' && rv.tags.startsWith('[')) {
+                    try { tags = JSON.parse(rv.tags); } catch {}
+                  }
+                  const dateStr = rv.created_at
+                    ? new Date(rv.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+                    : '';
+                  return (
+                    <View key={rv.id || idx} style={rvStyles.reviewItem}>
+                      <View style={rvStyles.itemTop}>
+                        <View style={rvStyles.reviewerAvatar}>
+                          {rv.reviewer_avatar ? (
+                            <Image source={{ uri: rv.reviewer_avatar }} style={{ width: '100%', height: '100%' }} />
+                          ) : (
+                            <Text style={rvStyles.avatarInit}>{(rv.reviewer_name || 'C')[0].toUpperCase()}</Text>
+                          )}
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={rvStyles.reviewerName}>{rv.reviewer_name || 'Caller'}</Text>
+                          {!!dateStr && <Text style={rvStyles.reviewDate}>{dateStr}</Text>}
+                        </View>
+                        <View style={rvStyles.starsWrap}>
+                          {[1, 2, 3, 4, 5].map((s) => (
+                            <Text key={s} style={{ fontSize: 13, color: s <= (rv.stars || 5) ? '#FFB800' : '#E2E8F0' }}>★</Text>
+                          ))}
+                        </View>
+                      </View>
+
+                      {tags.length > 0 && (
+                        <View style={rvStyles.tagsWrap}>
+                          {tags.map((t, ti) => (
+                            <View key={ti} style={rvStyles.tagChip}>
+                              <Text style={rvStyles.tagText}>✨ {t}</Text>
+                            </View>
+                          ))}
+                        </View>
+                      )}
+
+                      {!!rv.review_text && (
+                        <View style={rvStyles.commentBubble}>
+                          <Text style={rvStyles.commentText}>"{rv.review_text}"</Text>
+                        </View>
+                      )}
+                    </View>
+                  );
+                })}
+              </ScrollView>
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -267,18 +415,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row', flexWrap: 'wrap',
     marginHorizontal: 16, marginTop: 16, marginBottom: 12, gap: 10,
   },
-  statBox: {
+  statWrap: {
     width: '30%', flexGrow: 1,
+  },
+  statBox: {
+    width: '100%',
     backgroundColor: '#fff', borderRadius: 18, padding: 14, alignItems: 'center',
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
+  },
+  statBoxClickable: {
+    borderWidth: 1.5, borderColor: '#FF3870',
+    backgroundColor: '#FFF8FA',
   },
   statVal: { fontSize: 22, fontWeight: '900', color: '#0F172A' },
   statName: { fontSize: 12, fontWeight: '700', color: '#64748B', marginTop: 3 },
   statSub: { fontSize: 10, color: '#CBD5E1', marginTop: 1 },
+  statSubRating: { fontSize: 10, color: '#FF3870', fontWeight: '800', marginTop: 1 },
 
   /* Redeem */
-  redeemBtn: { marginHorizontal: 6, marginBottom: 20, borderRadius: 98, overflow: 'hidden', },
-  redeemGrad: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 0 ,paddingHorizontal: 0,height: 48},
+  redeemBtn: { marginHorizontal: 16, marginBottom: 20, borderRadius: 98, overflow: 'hidden' },
+  redeemGrad: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, height: 50 },
   redeemEmoji: { fontSize: 24 },
   redeemLabel: { fontSize: 17, fontWeight: '900', color: '#fff' },
 
@@ -304,4 +460,84 @@ const styles = StyleSheet.create({
   rowName: { fontSize: 15, fontWeight: '700', color: '#0F172A' },
   rowMeta: { fontSize: 12, color: '#94A3B8', marginTop: 2 },
   rowEarned: { fontSize: 14, fontWeight: '800', color: '#22C55E' },
+});
+
+/* ─── Reviews Modal Styles ─── */
+const rvStyles = StyleSheet.create({
+  overlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'flex-end',
+  },
+  card: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 32, borderTopRightRadius: 32,
+    maxHeight: '85%', minHeight: '50%',
+    paddingTop: 20, paddingHorizontal: 20,
+    shadowColor: '#000', shadowOffset: { width: 0, height: -6 },
+    shadowOpacity: 0.2, shadowRadius: 20, elevation: 25,
+  },
+  header: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: '#F1F5F9',
+  },
+  headerIconWrap: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: '#FFF0F5', alignItems: 'center', justifyContent: 'center',
+  },
+  title: { fontSize: 18, fontWeight: '900', color: '#0F172A' },
+  sub: { fontSize: 12, color: '#64748B', marginTop: 1 },
+  closeBtn: {
+    width: 32, height: 32, borderRadius: 16,
+    backgroundColor: '#F1F5F9', alignItems: 'center', justifyContent: 'center',
+  },
+  closeBtnText: { fontSize: 14, fontWeight: '800', color: '#64748B' },
+
+  scoreBanner: {
+    flexDirection: 'row', alignItems: 'center',
+    borderRadius: 20, padding: 16, marginTop: 16, marginBottom: 16,
+    borderWidth: 1, borderColor: '#FFE0EB',
+  },
+  scoreLeft: { alignItems: 'center', paddingRight: 16 },
+  scoreNum: { fontSize: 32, fontWeight: '900', color: '#FF3870' },
+  scoreCount: { fontSize: 11, color: '#64748B', fontWeight: '700', marginTop: 2 },
+  scoreDivider: { width: 1, height: '80%', backgroundColor: '#FFD0DF', marginHorizontal: 4 },
+  scoreRight: { flex: 1, paddingLeft: 12 },
+  scoreRightTitle: { fontSize: 14, fontWeight: '900', color: '#0F172A' },
+  scoreRightSub: { fontSize: 11, color: '#64748B', marginTop: 2, lineHeight: 16 },
+
+  loadingWrap: { paddingVertical: 50, alignItems: 'center', gap: 10 },
+  loadingText: { fontSize: 13, color: '#64748B', fontWeight: '600' },
+
+  emptyWrap: { paddingVertical: 45, alignItems: 'center', gap: 8, paddingHorizontal: 20 },
+  emptyTitle: { fontSize: 17, fontWeight: '900', color: '#0F172A' },
+  emptySub: { fontSize: 13, color: '#64748B', textAlign: 'center', lineHeight: 19 },
+
+  list: { paddingBottom: 24 },
+  reviewItem: {
+    backgroundColor: '#F8FAFC', borderRadius: 18, padding: 14,
+    marginBottom: 10, borderWidth: 1, borderColor: '#E2E8F0',
+  },
+  itemTop: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  reviewerAvatar: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: '#FF3870', alignItems: 'center', justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  avatarInit: { fontSize: 15, fontWeight: '900', color: '#fff' },
+  reviewerName: { fontSize: 14, fontWeight: '800', color: '#0F172A' },
+  reviewDate: { fontSize: 11, color: '#94A3B8', marginTop: 1 },
+  starsWrap: { flexDirection: 'row', gap: 1 },
+
+  tagsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 },
+  tagChip: {
+    backgroundColor: '#FFF0F5', paddingHorizontal: 10, paddingVertical: 4,
+    borderRadius: 12, borderWidth: 1, borderColor: '#FFD0DF',
+  },
+  tagText: { fontSize: 11, fontWeight: '700', color: '#FF3870' },
+
+  commentBubble: {
+    backgroundColor: '#fff', borderRadius: 12, padding: 10,
+    marginTop: 10, borderWidth: 1, borderColor: '#E2E8F0',
+  },
+  commentText: { fontSize: 13, color: '#334155', fontStyle: 'italic', lineHeight: 18 },
 });
