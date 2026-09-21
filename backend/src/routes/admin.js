@@ -135,7 +135,7 @@ router.get('/hosts', adminAuth, async (req, res) => {
         COALESCE(c.call_earned_inr, 0) AS call_earned_inr,
         COALESCE(w_app.paid_out, 0) AS total_paid_out,
         COALESCE(w_pen.pending_payout, 0) AS pending_payout,
-        (GREATEST(COALESCE(e.total_earned_inr, 0), COALESCE(c.call_earned_inr, 0)) - COALESCE(w_app.paid_out, 0)) AS unpaid_balance
+        GREATEST(0, (GREATEST(COALESCE(e.total_earned_inr, 0), COALESCE(c.call_earned_inr, 0)) - COALESCE(w_app.paid_out, 0))) AS unpaid_balance
       FROM users u
       LEFT JOIN (
         SELECT girl_id, 
@@ -416,7 +416,7 @@ router.get('/financials', adminAuth, async (req, res) => {
         COALESCE(c.call_earned_inr, 0) AS call_earned_inr,
         COALESCE(w_app.paid_out, 0) AS total_paid_out,
         COALESCE(w_pen.pending_payout, 0) AS pending_payout,
-        (GREATEST(COALESCE(e.total_earned_inr, 0), COALESCE(c.call_earned_inr, 0)) - COALESCE(w_app.paid_out, 0)) AS unpaid_balance
+        GREATEST(0, (GREATEST(COALESCE(e.total_earned_inr, 0), COALESCE(c.call_earned_inr, 0)) - COALESCE(w_app.paid_out, 0))) AS unpaid_balance
       FROM users u
       LEFT JOIN (
         SELECT girl_id, 
