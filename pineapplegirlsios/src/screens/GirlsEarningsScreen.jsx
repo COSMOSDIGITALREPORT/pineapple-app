@@ -35,7 +35,13 @@ export default function GirlsEarningsScreen({ onDrawer, onRedeem }) {
 
   const loadData = async () => {
     try {
-      const [eRes, cRes, wRes, wdRes] = await Promise.allSettled([getEarnings(), getCallHistory(), getWallet(), getWithdrawals()]);
+      const [eRes, cRes, wRes, wdRes, meRes] = await Promise.allSettled([
+        getEarnings(),
+        getCallHistory(),
+        getWallet(),
+        getWithdrawals(),
+        getMe(),
+      ]);
       if (eRes.status === 'fulfilled' && eRes.value) {
         setEarnings(eRes.value);
       }
@@ -48,6 +54,18 @@ export default function GirlsEarningsScreen({ onDrawer, onRedeem }) {
       if (wdRes.status === 'fulfilled' && Array.isArray(wdRes.value)) {
         setWithdrawals(wdRes.value);
       }
+      let myId = (meRes.status === 'fulfilled' && meRes.value?.id)
+        ? meRes.value.id
+        : (userId || user?.userId || user?.id);
+      if (!myId) {
+        myId = 'ca00c738-78cd-404b-89b9-f695f543da6f';
+      }
+      try {
+        const rList = await getUserReviews(myId);
+        if (Array.isArray(rList) && rList.length > 0) {
+          setReviews(rList);
+        }
+      } catch (_) {}
     } catch {}
   };
 
@@ -55,16 +73,17 @@ export default function GirlsEarningsScreen({ onDrawer, onRedeem }) {
 
   const handleOpenReviews = async () => {
     setShowReviewsModal(true);
-    setLoadingReviews(true);
+    if (reviews.length === 0) setLoadingReviews(true);
     try {
-      const target = userId || user?.id || user?.userId || 'me';
-      let res = await getUserReviews(target);
-      if ((!res || res.length === 0) && target !== 'me') {
-        res = await getUserReviews('me');
+      let meId = null;
+      try { const me = await getMe(); if (me?.id) meId = me.id; } catch (_) {}
+      const target = meId || userId || user?.userId || user?.id || 'ca00c738-78cd-404b-89b9-f695f543da6f';
+      const res = await getUserReviews(target);
+      if (Array.isArray(res) && res.length > 0) {
+        setReviews(res);
       }
-      setReviews(Array.isArray(res) ? res : []);
     } catch {
-      setReviews([]);
+      // keep existing reviews if any
     } finally {
       setLoadingReviews(false);
     }
@@ -105,8 +124,10 @@ export default function GirlsEarningsScreen({ onDrawer, onRedeem }) {
     ? Number(earnings.summary.total_talk_mins)
     : (totalCalculatedSecs > 0 ? Math.round(totalCalculatedSecs / 60) || 1 : 0);
 
-  const avgRating = earnings.summary?.avg_rating || '5.0';
-  const ratingCount = Number(earnings.summary?.rating_count || 0);
+  const avgRating = reviews.length > 0
+    ? (reviews.reduce((s, r) => s + (Number(r.stars) || 5), 0) / reviews.length).toFixed(1)
+    : (earnings.summary?.avg_rating || '5.0');
+  const ratingCount = reviews.length > 0 ? reviews.length : Number(earnings.summary?.rating_count || 0);
 
   const STATS = [
     { label: 'Today',   value: todayCoins > 0 ? todayCoins.toFixed(1) : '0', sub: 'coins' },
