@@ -571,205 +571,222 @@ export default function ConnectScreen({ onVideoCall, onAudioCall, onDrawer, onBu
       </View>
 
       {/* ── Profile + Call type picker ── */}
-      <Modal visible={!!callPickerUser} transparent animationType="fade">
+      <Modal visible={!!callPickerUser} transparent animationType="fade" onRequestClose={() => setCallPickerUser(null)}>
         <TouchableOpacity style={pStyles.overlay} activeOpacity={1} onPress={() => setCallPickerUser(null)} />
-        <View style={pStyles.container}>
+        <View style={pStyles.container} pointerEvents="box-none">
           <View style={pStyles.card}>
-            {callPickerUser?.name === 'Random' ? (
-              <>
-                <Text style={pStyles.title}>Random Match</Text>
-                <Text style={pStyles.sub}>Choose how you want to connect</Text>
-              </>
-            ) : (
-              <>
-                {/* Profile preview */}
-                <View style={pStyles.profilePreview}>
-                  <View style={pStyles.previewAvatarWrap}>
-                    {callPickerUser?.avatar_url ? (
-                      <Image source={{ uri: callPickerUser.avatar_url }} style={pStyles.previewAvatar} />
-                    ) : (
-                      <View style={[pStyles.previewAvatar, pStyles.previewAvatarPlaceholder]}>
-                        <Icon name="user" size={36} color="rgba(255,255,255,0.5)" />
-                      </View>
-                    )}
-                  </View>
-                  <View style={pStyles.previewInfo}>
-                    <Text style={pStyles.previewName}>
-                      {callPickerUser?.name}{callPickerUser?.age ? `, ${callPickerUser.age}` : ''}
-                    </Text>
-                    {!!callPickerUser?.city && (
-                      <Text style={pStyles.previewSub}>📍 {callPickerUser.city}</Text>
-                    )}
-                    <StarRating rating={callPickerUser?.rating || 0} count={callPickerUser?.rating_count || 0} />
-                    <View style={pStyles.previewBadges}>
-                      <View style={pStyles.langBadgePreview}>
-                        <Text style={pStyles.langBadgePreviewText}>{callPickerUser?.language || 'HI'}</Text>
-                      </View>
-                      {!!callPickerUser?.is_online && (
-                        <View style={pStyles.onlineBadge}>
-                          <View style={pStyles.onlineDot} />
-                          <Text style={pStyles.onlineBadgeText}>Online</Text>
+            <ScrollView
+              bounces={false}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={pStyles.cardScroll}>
+              {callPickerUser?.name === 'Random' ? (
+                <>
+                  <Text style={pStyles.title}>Random Match</Text>
+                  <Text style={pStyles.sub}>Choose how you want to connect</Text>
+                </>
+              ) : (
+                <>
+                  {/* Profile preview */}
+                  <View style={pStyles.profilePreview}>
+                    <View style={pStyles.previewAvatarWrap}>
+                      {callPickerUser?.avatar_url ? (
+                        <Image source={{ uri: callPickerUser.avatar_url }} style={pStyles.previewAvatar} />
+                      ) : (
+                        <View style={[pStyles.previewAvatar, pStyles.previewAvatarPlaceholder]}>
+                          <Icon name="user" size={30} color="rgba(255,255,255,0.5)" />
                         </View>
                       )}
                     </View>
-                  </View>
-                </View>
-                <Text style={pStyles.sub}>Connect with {callPickerUser?.name}</Text>
-                {!!callPickerUser?.bio && (
-                  <Text style={pStyles.previewBio}>"{callPickerUser.bio}"</Text>
-                )}
-
-                {/* Conversation preferences — topics she's comfortable with + boundary */}
-                {(() => {
-                  const prefs = parseContentPrefs(callPickerUser?.content_prefs);
-                  if (!prefs.topics?.length && prefs.noInappropriate === false) return null;
-                  return (
-                    <View style={pStyles.prefsSection}>
-                      {!!prefs.topics?.length && (
-                        <View style={pStyles.prefsTopicsWrap}>
-                          {prefs.topics.map(t => (
-                            <View key={t} style={pStyles.prefsTopicTag}>
-                              <Text style={pStyles.prefsTopicTagText}>{t}</Text>
-                            </View>
-                          ))}
-                        </View>
+                    <View style={pStyles.previewInfo}>
+                      <Text style={pStyles.previewName} numberOfLines={1}>
+                        {callPickerUser?.name}{callPickerUser?.age ? `, ${callPickerUser.age}` : ''}
+                      </Text>
+                      {!!callPickerUser?.city && (
+                        <Text style={pStyles.previewSub} numberOfLines={1}>📍 {callPickerUser.city}</Text>
                       )}
-                      {prefs.noInappropriate !== false && (
-                        <View style={pStyles.prefsBoundary}>
-                          <Text style={pStyles.prefsBoundaryText}>🚫 No inappropriate conversations</Text>
+                      <StarRating rating={callPickerUser?.rating || 0} count={callPickerUser?.rating_count || 0} />
+                      <View style={pStyles.previewBadges}>
+                        <View style={pStyles.langBadgePreview}>
+                          <Text style={pStyles.langBadgePreviewText}>{callPickerUser?.language || 'HI'}</Text>
                         </View>
-                      )}
-                    </View>
-                  );
-                })()}
-
-                {/* Reviews section — falls back to sample reviews when there are none yet */}
-                {(() => {
-                  const showingDummy = userReviews.length === 0;
-                  const list = showingDummy ? DUMMY_REVIEWS : userReviews;
-                  return (
-                    <View style={pStyles.reviewsSection}>
-                      <Text style={pStyles.reviewsTitle}>★ What people say</Text>
-                      {list.slice(0, 3).map((rv, i) => (
-                        <View key={i} style={pStyles.reviewItem}>
-                          <View style={pStyles.reviewHeader}>
-                            <Text style={pStyles.reviewStars}>{'★'.repeat(rv.stars)}{'☆'.repeat(5 - rv.stars)}</Text>
-                            <Text style={pStyles.reviewerName}>— {rv.reviewer_name}</Text>
+                        {!!callPickerUser?.is_online && (
+                          <View style={pStyles.onlineBadge}>
+                            <View style={pStyles.onlineDot} />
+                            <Text style={pStyles.onlineBadgeText}>Online</Text>
                           </View>
-                          <Text style={pStyles.reviewText}>"{rv.review_text}"</Text>
-                        </View>
-                      ))}
-                      {!showingDummy && userReviews.length > 3 && (
-                        <Text style={pStyles.reviewsMore}>+{userReviews.length - 3} more reviews</Text>
-                      )}
+                        )}
+                      </View>
                     </View>
-                  );
-                })()}
-              </>
-            )}
-            <View style={pStyles.btnRow}>
-              <TouchableOpacity
-                style={pStyles.btn}
-                activeOpacity={0.85}
-                onPress={() => {
-                  if (callPickerUser?.id && blockedIds.has(callPickerUser.id)) {
-                    Alert.alert('User Blocked', 'You cannot call a blocked user. Unblock them from Settings > Block List first.');
-                    return;
-                  }
-                  if ((coins || 0) < 1) {
-                    Alert.alert(
-                      'Insufficient Coins',
-                      'Audio calls cost 1 coin/min. Please recharge your wallet to continue.',
-                      [
-                        { text: 'Cancel', style: 'cancel' },
-                        { text: 'Get Coins', onPress: () => { setCallPickerUser(null); setShowCoinsModal(true); } },
-                      ]
-                    );
-                    return;
-                  }
-                  const u = callPickerUser;
-                  setCallPickerUser(null);
-                  onAudioCall(u);
-                }}>
-                <View style={pStyles.btnInner}>
-                  <LinearGradient colors={['#FF3870','#C0004A']} start={{x:0,y:0}} end={{x:1,y:1}} style={StyleSheet.absoluteFill} />
-                  <Icon name="phone" size={32} color="#fff" />
-                  <Text style={pStyles.btnLabel}>Audio Call</Text>
-                  <Text style={pStyles.btnSub}>1 coin/min</Text>
-                </View>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={pStyles.btn}
-                activeOpacity={0.85}
-                onPress={() => {
-                  if (callPickerUser?.id && blockedIds.has(callPickerUser.id)) {
-                    Alert.alert('User Blocked', 'You cannot call a blocked user. Unblock them from Settings > Block List first.');
-                    return;
-                  }
-                  if ((coins || 0) < 2) {
-                    Alert.alert(
-                      'Insufficient Coins',
-                      `Video calls cost 2 coins/min. You have ${coins || 0} coin${coins === 1 ? '' : 's'}.\n\nYou need at least 2 coins to start a video call.`,
-                      [
-                        { text: 'Cancel', style: 'cancel' },
-                        { text: 'Get Coins', onPress: () => { setCallPickerUser(null); setShowCoinsModal(true); } },
-                      ]
-                    );
-                    return;
-                  }
-                  const u = callPickerUser;
-                  setCallPickerUser(null);
-                  onVideoCall(u);
-                }}>
-                <View style={pStyles.btnInner}>
-                  <LinearGradient colors={['#FF3870','#C0004A']} start={{x:0,y:0}} end={{x:1,y:1}} style={StyleSheet.absoluteFill} />
-                  <Icon name="video" size={32} color="#fff" />
-                  <Text style={pStyles.btnLabel}>Video Call</Text>
-                  <Text style={pStyles.btnSub}>2 coins/min</Text>
-                </View>
-              </TouchableOpacity>
-            </View>
+                  </View>
+                  <Text style={pStyles.sub}>Connect with {callPickerUser?.name}</Text>
+                  {!!callPickerUser?.bio && (
+                    <Text style={pStyles.previewBio} numberOfLines={2}>"{callPickerUser.bio.trim()}"</Text>
+                  )}
 
-            {/* Report / Block */}
-            {callPickerUser?.name !== 'Random' && callPickerUser?.id && (
-              <View style={pStyles.safetyRow}>
-                <TouchableOpacity style={pStyles.safetyBtn} onPress={() => {
-                  const u = callPickerUser;
-                  Alert.alert('Report User', 'Why are you reporting this user?', [
-                    { text: 'Inappropriate behaviour', onPress: () => { reportUser(u.id, 'inappropriate'); setCallPickerUser(null); Alert.alert('Reported', 'Thank you. We will review this.'); }},
-                    { text: 'Fake profile', onPress: () => { reportUser(u.id, 'fake'); setCallPickerUser(null); Alert.alert('Reported', 'Thank you. We will review this.'); }},
-                    { text: 'Cancel', style: 'cancel' },
-                  ]);
-                }}>
-                  <Text style={pStyles.reportText}>⚑ Report</Text>
+                  {/* Conversation preferences — topics she's comfortable with + boundary */}
+                  {(() => {
+                    const prefs = parseContentPrefs(callPickerUser?.content_prefs);
+                    if (!prefs.topics?.length && prefs.noInappropriate === false) return null;
+                    return (
+                      <View style={pStyles.prefsSection}>
+                        {!!prefs.topics?.length && (
+                          <View style={pStyles.prefsTopicsWrap}>
+                            {prefs.topics.map(t => (
+                              <View key={t} style={pStyles.prefsTopicTag}>
+                                <Text style={pStyles.prefsTopicTagText}>{t}</Text>
+                              </View>
+                            ))}
+                          </View>
+                        )}
+                        {prefs.noInappropriate !== false && (
+                          <View style={pStyles.prefsBoundary}>
+                            <Text style={pStyles.prefsBoundaryText}>🚫 No inappropriate conversations</Text>
+                          </View>
+                        )}
+                      </View>
+                    );
+                  })()}
+
+                  {/* Reviews section — compact, only shows last 2 reviews + (+N more reviews) */}
+                  {(() => {
+                    const validReviews = (userReviews || [])
+                      .map(r => ({ ...r, review_text: (r.review_text || '').replace(/\s+/g, ' ').trim() }))
+                      .filter(r => r.review_text.length > 0);
+                    
+                    const showingDummy = validReviews.length === 0;
+                    const list = showingDummy ? DUMMY_REVIEWS.slice(0, 2) : validReviews.slice(0, 2);
+                    const totalCount = showingDummy ? 0 : userReviews.length;
+                    const remainingReviews = Math.max(0, totalCount - 2);
+
+                    return (
+                      <View style={pStyles.reviewsSection}>
+                        <View style={pStyles.reviewsHeaderRow}>
+                          <Text style={pStyles.reviewsTitle}>★ What people say</Text>
+                          {remainingReviews > 0 && (
+                            <Text style={pStyles.reviewsCountBadge}>+{remainingReviews} more</Text>
+                          )}
+                        </View>
+                        {list.map((rv, i) => (
+                          <View key={i} style={pStyles.reviewItem}>
+                            <View style={pStyles.reviewHeader}>
+                              <Text style={pStyles.reviewStars}>{'★'.repeat(Math.min(5, Math.max(1, rv.stars || 5)))}{'☆'.repeat(Math.max(0, 5 - (rv.stars || 5)))}</Text>
+                              <Text style={pStyles.reviewerName}>— {rv.reviewer_name || 'Him'}</Text>
+                            </View>
+                            <Text style={pStyles.reviewText} numberOfLines={2} ellipsizeMode="tail">"{rv.review_text}"</Text>
+                          </View>
+                        ))}
+                        {remainingReviews > 0 && (
+                          <Text style={pStyles.reviewsMore}>+{remainingReviews} more reviews</Text>
+                        )}
+                      </View>
+                    );
+                  })()}
+                </>
+              )}
+              <View style={pStyles.btnRow}>
+                <TouchableOpacity
+                  style={pStyles.btn}
+                  activeOpacity={0.85}
+                  onPress={() => {
+                    if (callPickerUser?.id && blockedIds.has(callPickerUser.id)) {
+                      Alert.alert('User Blocked', 'You cannot call a blocked user. Unblock them from Settings > Block List first.');
+                      return;
+                    }
+                    if ((coins || 0) < 1) {
+                      Alert.alert(
+                        'Insufficient Coins',
+                        'Audio calls cost 1 coin/min. Please recharge your wallet to continue.',
+                        [
+                          { text: 'Cancel', style: 'cancel' },
+                          { text: 'Get Coins', onPress: () => { setCallPickerUser(null); setShowCoinsModal(true); } },
+                        ]
+                      );
+                      return;
+                    }
+                    const u = callPickerUser;
+                    setCallPickerUser(null);
+                    onAudioCall(u);
+                  }}>
+                  <View style={pStyles.btnInner}>
+                    <LinearGradient colors={['#FF3870','#C0004A']} start={{x:0,y:0}} end={{x:1,y:1}} style={StyleSheet.absoluteFill} />
+                    <Icon name="phone" size={26} color="#fff" />
+                    <Text style={pStyles.btnLabel}>Audio Call</Text>
+                    <Text style={pStyles.btnSub}>1 coin/min</Text>
+                  </View>
                 </TouchableOpacity>
-                <TouchableOpacity style={pStyles.safetyBtn} onPress={() => {
-                  const u = callPickerUser;
-                  Alert.alert('Block User', `Block ${u.name}? They won't be able to contact you.`, [
-                    {
-                      text: 'Block',
-                      style: 'destructive',
-                      onPress: async () => {
-                        try {
-                          await blockUser(u.id);
-                          setBlockedIds((prev) => new Set([...prev, u.id]));
-                          setUsers((prev) => prev.filter((item) => item.id !== u.id));
-                          setTopGirls((prev) => prev.filter((item) => item.id !== u.id));
-                          setCallPickerUser(null);
-                          Alert.alert('Blocked', `${u.name} has been blocked.`);
-                        } catch (_) {
-                          setCallPickerUser(null);
-                          Alert.alert('Blocked', `${u.name} has been blocked.`);
-                        }
-                      },
-                    },
-                    { text: 'Cancel', style: 'cancel' },
-                  ]);
-                }}>
-                  <Text style={pStyles.blockText}>🚫 Block</Text>
+                <TouchableOpacity
+                  style={pStyles.btn}
+                  activeOpacity={0.85}
+                  onPress={() => {
+                    if (callPickerUser?.id && blockedIds.has(callPickerUser.id)) {
+                      Alert.alert('User Blocked', 'You cannot call a blocked user. Unblock them from Settings > Block List first.');
+                      return;
+                    }
+                    if ((coins || 0) < 2) {
+                      Alert.alert(
+                        'Insufficient Coins',
+                        `Video calls cost 2 coins/min. You have ${coins || 0} coin${coins === 1 ? '' : 's'}.\n\nYou need at least 2 coins to start a video call.`,
+                        [
+                          { text: 'Cancel', style: 'cancel' },
+                          { text: 'Get Coins', onPress: () => { setCallPickerUser(null); setShowCoinsModal(true); } },
+                        ]
+                      );
+                      return;
+                    }
+                    const u = callPickerUser;
+                    setCallPickerUser(null);
+                    onVideoCall(u);
+                  }}>
+                  <View style={pStyles.btnInner}>
+                    <LinearGradient colors={['#FF3870','#C0004A']} start={{x:0,y:0}} end={{x:1,y:1}} style={StyleSheet.absoluteFill} />
+                    <Icon name="video" size={26} color="#fff" />
+                    <Text style={pStyles.btnLabel}>Video Call</Text>
+                    <Text style={pStyles.btnSub}>2 coins/min</Text>
+                  </View>
                 </TouchableOpacity>
               </View>
-            )}
+
+              {/* Report / Block */}
+              {callPickerUser?.name !== 'Random' && callPickerUser?.id && (
+                <View style={pStyles.safetyRow}>
+                  <TouchableOpacity style={pStyles.safetyBtn} onPress={() => {
+                    const u = callPickerUser;
+                    Alert.alert('Report User', 'Why are you reporting this user?', [
+                      { text: 'Inappropriate behaviour', onPress: () => { reportUser(u.id, 'inappropriate'); setCallPickerUser(null); Alert.alert('Reported', 'Thank you. We will review this.'); }},
+                      { text: 'Fake profile', onPress: () => { reportUser(u.id, 'fake'); setCallPickerUser(null); Alert.alert('Reported', 'Thank you. We will review this.'); }},
+                      { text: 'Cancel', style: 'cancel' },
+                    ]);
+                  }}>
+                    <Text style={pStyles.reportText}>⚑ Report</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={pStyles.safetyBtn} onPress={() => {
+                    const u = callPickerUser;
+                    Alert.alert('Block User', `Block ${u.name}? They won't be able to contact you.`, [
+                      {
+                        text: 'Block',
+                        style: 'destructive',
+                        onPress: async () => {
+                          try {
+                            await blockUser(u.id);
+                            setBlockedIds((prev) => new Set([...prev, u.id]));
+                            setUsers((prev) => prev.filter((item) => item.id !== u.id));
+                            setTopGirls((prev) => prev.filter((item) => item.id !== u.id));
+                            setCallPickerUser(null);
+                            Alert.alert('Blocked', `${u.name} has been blocked.`);
+                          } catch (_) {
+                            setCallPickerUser(null);
+                            Alert.alert('Blocked', `${u.name} has been blocked.`);
+                          }
+                        },
+                      },
+                      { text: 'Cancel', style: 'cancel' },
+                    ]);
+                  }}>
+                    <Text style={pStyles.blockText}>🚫 Block</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -899,63 +916,57 @@ const bStyles = StyleSheet.create({
 const pStyles = StyleSheet.create({
   overlay: {
     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.65)',
+    backgroundColor: 'rgba(0,0,0,0.7)',
   },
-  safetyRow: { flexDirection: 'row', justifyContent: 'center', gap: 20, marginTop: 16 },
-  safetyBtn: { paddingVertical: 6, paddingHorizontal: 14 },
-  reportText: { fontSize: 13, color: 'rgba(255,255,255,0.6)', fontWeight: '600' },
-  blockText: { fontSize: 13, color: 'rgba(255,255,255,0.6)', fontWeight: '600' },
   container: {
     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
     justifyContent: 'center', alignItems: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
+    paddingVertical: 20,
   },
   card: {
     width: '100%',
-    backgroundColor: 'rgba(26,0,40,0.92)',
-    borderRadius: 32,
-    padding: 24,
+    maxHeight: '90%',
+    backgroundColor: 'rgba(22, 0, 36, 0.96)',
+    borderRadius: 28,
     borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.25)',
+    borderColor: 'rgba(255,255,255,0.22)',
     shadowColor: '#FF2A6D',
-    shadowOffset: { width: 0, height: 16 },
+    shadowOffset: { width: 0, height: 14 },
     shadowOpacity: 0.45,
-    shadowRadius: 36,
+    shadowRadius: 30,
     elevation: 20,
+    overflow: 'hidden',
   },
-  title: { fontSize: 24, fontWeight: '900', color: '#fff', textAlign: 'center', letterSpacing: -0.3 },
-  sub: { fontSize: 13, color: 'rgba(255,255,255,0.75)', textAlign: 'center', marginTop: 6, marginBottom: 22, fontWeight: '600' },
-  previewBio: { fontSize: 12, color: 'rgba(255,255,255,0.7)', textAlign: 'center', marginTop: -14, marginBottom: 18, lineHeight: 17, fontStyle: 'italic', paddingHorizontal: 8 },
-  prefsSection: { alignItems: 'center', marginTop: -8, marginBottom: 18 },
-  prefsTopicsWrap: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 6, marginBottom: 8 },
-  prefsTopicTag: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.12)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
-  prefsTopicTagText: { fontSize: 11, fontWeight: '600', color: 'rgba(255,255,255,0.85)' },
-  prefsBoundary: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.1)' },
-  prefsBoundaryText: { fontSize: 11, fontWeight: '600', color: 'rgba(255,255,255,0.75)' },
-  btnRow: { flexDirection: 'row', gap: 14 },
-  btn: {
-    flex: 1, borderRadius: 24, overflow: 'hidden',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25, shadowRadius: 16, elevation: 8,
+  cardScroll: {
+    paddingHorizontal: 18,
+    paddingVertical: 16,
   },
-  btnInner: { paddingVertical: 28, alignItems: 'center', justifyContent: 'center', gap: 10 },
-  btnLabel: { fontSize: 16, fontWeight: '900', color: '#fff', letterSpacing: 0.3 },
-  btnSub: { fontSize: 11, color: 'rgba(255,255,255,0.85)', fontWeight: '600' },
+  title: { fontSize: 22, fontWeight: '900', color: '#fff', textAlign: 'center', letterSpacing: -0.3 },
+  sub: { fontSize: 12.5, color: 'rgba(255,255,255,0.75)', textAlign: 'center', marginTop: 2, marginBottom: 8, fontWeight: '600' },
+  previewBio: { fontSize: 11.5, color: 'rgba(255,255,255,0.7)', textAlign: 'center', marginTop: -4, marginBottom: 8, lineHeight: 16, fontStyle: 'italic', paddingHorizontal: 6 },
+  prefsSection: { alignItems: 'center', marginTop: 0, marginBottom: 8 },
+  prefsTopicsWrap: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 6, marginBottom: 6 },
+  prefsTopicTag: { paddingHorizontal: 9, paddingVertical: 3, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.12)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
+  prefsTopicTagText: { fontSize: 10.5, fontWeight: '600', color: 'rgba(255,255,255,0.85)' },
+  prefsBoundary: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.1)' },
+  prefsBoundaryText: { fontSize: 10.5, fontWeight: '600', color: 'rgba(255,255,255,0.75)' },
+  
   profilePreview: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
-    marginBottom: 16,
-    paddingBottom: 16,
+    gap: 12,
+    marginBottom: 8,
+    paddingBottom: 8,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.15)',
+    borderBottomColor: 'rgba(255,255,255,0.12)',
   },
   previewAvatarWrap: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 58,
+    height: 58,
+    borderRadius: 29,
     borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.4)',
+    borderColor: 'rgba(255,215,0,0.6)',
     overflow: 'hidden',
   },
   previewAvatar: { width: '100%', height: '100%' },
@@ -964,106 +975,132 @@ const pStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  previewInfo: { flex: 1, gap: 4 },
+  previewInfo: { flex: 1, gap: 2 },
   previewName: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '900',
     color: '#fff',
-    letterSpacing: -0.3,
+    letterSpacing: -0.2,
   },
   previewSub: {
-    fontSize: 13,
+    fontSize: 11.5,
     color: 'rgba(255,255,255,0.7)',
     fontWeight: '600',
   },
   previewBadges: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginTop: 4,
+    gap: 6,
+    marginTop: 2,
   },
   langBadgePreview: {
     backgroundColor: 'rgba(255,255,255,0.15)',
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
   },
   langBadgePreviewText: {
     color: '#fff',
-    fontSize: 11,
+    fontSize: 10.5,
     fontWeight: '800',
   },
   onlineBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
     backgroundColor: 'rgba(34,197,94,0.2)',
   },
   onlineDot: {
-    width: 6,
-    height: 6,
+    width: 5.5,
+    height: 5.5,
     borderRadius: 3,
     backgroundColor: '#22C55E',
   },
   onlineBadgeText: {
     color: '#22C55E',
-    fontSize: 11,
+    fontSize: 10.5,
     fontWeight: '700',
   },
+
   reviewsSection: {
-    marginTop: 12,
-    marginBottom: 6,
-    paddingTop: 14,
+    marginTop: 4,
+    marginBottom: 8,
+    paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.15)',
+    borderTopColor: 'rgba(255,255,255,0.12)',
+  },
+  reviewsHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
   },
   reviewsTitle: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '800',
     color: '#FFD700',
-    marginBottom: 8,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
+  reviewsCountBadge: {
+    fontSize: 10.5,
+    color: 'rgba(255,255,255,0.5)',
+    fontWeight: '700',
+  },
   reviewItem: {
-    marginBottom: 8,
-    backgroundColor: 'rgba(0,0,0,0.25)',
-    borderRadius: 10,
-    padding: 10,
+    marginBottom: 4,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
   },
   reviewHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginBottom: 2,
+    marginBottom: 1,
   },
   reviewStars: {
-    fontSize: 11,
+    fontSize: 10,
     color: '#FFD700',
     fontWeight: '700',
   },
   reviewerName: {
-    fontSize: 11,
+    fontSize: 10,
     color: 'rgba(255,255,255,0.6)',
     fontWeight: '600',
   },
   reviewText: {
-    fontSize: 12,
+    fontSize: 11,
     color: 'rgba(255,255,255,0.9)',
     fontWeight: '500',
-    lineHeight: 17,
+    lineHeight: 15,
     fontStyle: 'italic',
   },
   reviewsMore: {
-    fontSize: 11,
+    fontSize: 10.5,
     color: 'rgba(255,255,255,0.5)',
     fontWeight: '700',
     textAlign: 'center',
     marginTop: 2,
   },
+
+  btnRow: { flexDirection: 'row', gap: 12, marginTop: 4 },
+  btn: {
+    flex: 1, borderRadius: 18, overflow: 'hidden',
+    shadowColor: '#FF2A6D', shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35, shadowRadius: 10, elevation: 8,
+  },
+  btnInner: { paddingVertical: 14, alignItems: 'center', justifyContent: 'center', gap: 4 },
+  btnLabel: { fontSize: 15, fontWeight: '900', color: '#fff', letterSpacing: 0.3 },
+  btnSub: { fontSize: 10.5, color: 'rgba(255,255,255,0.85)', fontWeight: '600' },
+  safetyRow: { flexDirection: 'row', justifyContent: 'center', gap: 20, marginTop: 10, paddingTop: 4 },
+  safetyBtn: { paddingVertical: 4, paddingHorizontal: 12, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.06)' },
+  reportText: { fontSize: 11.5, color: 'rgba(255,255,255,0.6)', fontWeight: '600' },
+  blockText: { fontSize: 11.5, color: 'rgba(255,100,100,0.8)', fontWeight: '600' },
   coinsCard: {
     width: '100%',
     borderRadius: 32,
