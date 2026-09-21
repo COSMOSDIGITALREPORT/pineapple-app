@@ -348,7 +348,12 @@ export default function ConnectScreen({ onVideoCall, onAudioCall, onDrawer, onBu
   const fetchTopGirls = async () => {
     try {
       const data = await getTopGirls();
-      const filtered = (data || []).filter((g) => !blockedIds.has(g.id)).slice(0, 8);
+      const seen = new Set();
+      const filtered = (data || []).filter((g) => {
+        if (!g.id || seen.has(g.id) || blockedIds.has(g.id)) return false;
+        seen.add(g.id);
+        return true;
+      }).slice(0, 8);
       setTopGirls(filtered);
     } catch (_) {}
   };
@@ -512,27 +517,24 @@ export default function ConnectScreen({ onVideoCall, onAudioCall, onDrawer, onBu
             </TouchableOpacity>
           </View>
         ) : (
-          (() => {
-            const count = visibleUsers.length === 1 ? 3 : (visibleUsers.length === 2 ? 4 : POSITIONS.length);
-            return POSITIONS.slice(0, count).map((pos, i) => {
-              const u = visibleUsers[i % visibleUsers.length];
-              return (
-                <FloatingBubble
-                  key={`${u?.id || 'u'}-${i}`}
-                  user={u}
-                  stageH={stageH}
-                  onPress={() => checkCoinsAndCall(u)}
-                  topRatio={pos.topRatio}
-                  initialX={pos.initialX}
-                  duration={pos.duration}
-                  size={pos.size}
-                  bobRange={pos.bobRange}
-                  bobDur={pos.bobDur}
-                  delay={pos.delay}
-                />
-              );
-            });
-          })()
+          visibleUsers.slice(0, POSITIONS.length).map((u, i) => {
+            const pos = POSITIONS[i];
+            return (
+              <FloatingBubble
+                key={u?.id || `u-${i}`}
+                user={u}
+                stageH={stageH}
+                onPress={() => checkCoinsAndCall(u)}
+                topRatio={pos.topRatio}
+                initialX={pos.initialX}
+                duration={pos.duration}
+                size={pos.size}
+                bobRange={pos.bobRange}
+                bobDur={pos.bobDur}
+                delay={pos.delay}
+              />
+            );
+          })
         )}
       </View>
 

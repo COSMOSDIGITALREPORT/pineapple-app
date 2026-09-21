@@ -191,7 +191,7 @@ export default function PremiumPlansScreen({ onBack }) {
           <BenefitRow icon="⚡" text="Unlimited matches & instant minutes" />
           <BenefitRow icon="🎥" text="Voice & video calls with girls" />
           <BenefitRow icon="💬" text="Unlimited chat, no limits" />
-          <BenefitRow icon="🎰" text="Daily Fortune Wheel spins" />
+          <BenefitRow icon="🎡" text="Fortune Wheel Unlocked (1 Spin)" />
           <BenefitRow icon="👑" text="Gold badge & priority profile" />
         </View>
       </View>
@@ -262,10 +262,10 @@ export default function PremiumPlansScreen({ onBack }) {
                     <LinearGradient
                       colors={['rgba(255,215,0,0.15)', 'rgba(255,140,0,0.05)']}
                       style={styles.goldCallout}>
-                      <Text style={{ fontSize: 22 }}>🎰</Text>
+                      <Text style={{ fontSize: 22 }}>🎡</Text>
                       <View style={{ flex: 1 }}>
                         <Text style={styles.goldCalloutTitle}>Fortune Wheel Unlocked!</Text>
-                        <Text style={styles.goldCalloutSub}>Spin daily · Win up to ₹10,000</Text>
+                        <Text style={styles.goldCalloutSub}>1 Spin per recharge · Win up to ₹10,000</Text>
                       </View>
                     </LinearGradient>
                   )}
