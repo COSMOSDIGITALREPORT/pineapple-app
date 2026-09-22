@@ -166,8 +166,36 @@ router.get('/hosts', adminAuth, async (req, res) => {
 // GET /admin/users
 router.get('/users', adminAuth, async (req, res) => {
   try {
-    const [rows] = await pool.query(
-      'SELECT id,phone,name,gender,minutes,is_online,is_blocked,is_premium,is_verified,rating,created_at FROM users ORDER BY created_at DESC LIMIT 200');
+    const [rows] = await pool.query(`
+      SELECT 
+        u.id, u.phone, u.name, u.gender, u.is_online, u.is_blocked, u.is_premium, u.is_verified, u.rating, u.created_at,
+        CASE 
+          WHEN LOWER(COALESCE(u.gender, '')) IN ('girl', 'female', 'f') THEN
+            GREATEST(0, ROUND((GREATEST(COALESCE(e.total_earned_inr, 0), COALESCE(c.call_earned_inr, 0)) - COALESCE(w.total_withdrawn, 0)) * 2))
+          ELSE
+            u.minutes
+        END AS minutes,
+        GREATEST(0, ROUND(GREATEST(COALESCE(e.total_earned_inr, 0), COALESCE(c.call_earned_inr, 0)) - COALESCE(w.total_withdrawn, 0), 2)) AS unpaid_inr
+      FROM users u
+      LEFT JOIN (
+        SELECT girl_id, 
+               SUM(amount_inr) AS total_earned_inr,
+               SUM(COALESCE(mins_received, coins_received, 0)) AS total_earned_coins
+        FROM earnings GROUP BY girl_id
+      ) e ON u.id = e.girl_id
+      LEFT JOIN (
+        SELECT receiver_id, 
+               COUNT(*) AS total_calls, 
+               SUM(duration_seconds) AS total_call_secs, 
+               SUM(girl_coins) AS call_coins,
+               SUM(girl_earnings_inr) AS call_earned_inr
+        FROM calls WHERE status='ended' AND free_trial=0 GROUP BY receiver_id
+      ) c ON u.id = c.receiver_id
+      LEFT JOIN (
+        SELECT girl_id, SUM(amount) AS total_withdrawn FROM withdrawals WHERE status != 'rejected' GROUP BY girl_id
+      ) w ON u.id = w.girl_id
+      ORDER BY u.created_at DESC LIMIT 200
+    `);
     res.json(rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -249,7 +277,23 @@ router.get('/withdrawals', adminAuth, async (req, res) => {
 router.put('/withdrawals/:id', adminAuth, async (req, res) => {
   const { status, note } = req.body;
   try {
+    const [wRows] = await pool.query('SELECT girl_id, amount FROM withdrawals WHERE id=?', [req.params.id]);
     await pool.query('UPDATE withdrawals SET status=?, note=? WHERE id=?', [status, note||null, req.params.id]);
+
+    if (wRows.length > 0) {
+      const girlId = wRows[0].girl_id;
+      const [[earnSummary]] = await pool.query(
+        'SELECT COALESCE(SUM(amount_inr),0) AS total_inr FROM earnings WHERE girl_id=?', [girlId]);
+      const [[callSummary]] = await pool.query(
+        'SELECT COALESCE(SUM(girl_earnings_inr),0) AS call_inr FROM calls WHERE receiver_id=? AND status="ended" AND free_trial=0', [girlId]);
+      const [[wSummary]] = await pool.query(
+        'SELECT COALESCE(SUM(amount),0) AS total_withdrawn FROM withdrawals WHERE girl_id=? AND status != "rejected"', [girlId]);
+      
+      const totalInr = Math.max(parseFloat(earnSummary?.total_inr) || 0, parseFloat(callSummary?.call_inr) || 0);
+      const netAvailableCoins = Math.max(0, Math.round((totalInr - (parseFloat(wSummary?.total_withdrawn) || 0)) * 2));
+      await pool.query('UPDATE users SET minutes=? WHERE id=?', [netAvailableCoins, girlId]);
+    }
+
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });

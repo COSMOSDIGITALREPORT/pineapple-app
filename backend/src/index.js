@@ -141,13 +141,28 @@ async function runMigrations() {
      FROM calls c
      WHERE c.status = 'ended' AND c.free_trial = 0 AND c.mins_deducted > 0 AND c.girl_earnings_inr > 0
        AND c.id NOT IN (SELECT COALESCE(call_id, '') FROM (SELECT call_id FROM earnings WHERE call_id IS NOT NULL) AS e)`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS premium_coins_remaining INT NOT NULL DEFAULT 0`,
     `UPDATE users u
-     JOIN (
-       SELECT girl_id, SUM(COALESCE(mins_received, coins_received, 0)) AS total_earned_coins
-       FROM earnings
-       GROUP BY girl_id
+     LEFT JOIN (
+       SELECT girl_id, 
+              SUM(amount_inr) AS total_earned_inr,
+              SUM(COALESCE(mins_received, coins_received, 0)) AS total_earned_coins
+       FROM earnings GROUP BY girl_id
      ) e ON u.id = e.girl_id
-     SET u.minutes = GREATEST(u.minutes, e.total_earned_coins)`,
+     LEFT JOIN (
+       SELECT receiver_id, 
+              SUM(girl_earnings_inr) AS call_earned_inr,
+              SUM(girl_coins) AS call_coins
+       FROM calls WHERE status='ended' AND free_trial=0 GROUP BY receiver_id
+     ) c ON u.id = c.receiver_id
+     LEFT JOIN (
+       SELECT girl_id, SUM(amount) AS total_withdrawn FROM withdrawals WHERE status != 'rejected' GROUP BY girl_id
+     ) w ON u.id = w.girl_id
+     SET u.minutes = GREATEST(0, ROUND((GREATEST(COALESCE(e.total_earned_inr, 0), COALESCE(c.call_earned_inr, 0)) - COALESCE(w.total_withdrawn, 0)) * 2))
+     WHERE LOWER(COALESCE(u.gender, '')) IN ('girl', 'female', 'f')`,
+    `UPDATE users
+     SET is_premium = 0, plan_id = NULL, premium_coins_remaining = 0
+     WHERE is_premium = 1 AND (minutes <= 0 OR minutes < 500)`,
   ];
   for (const sql of migrations) {
     try { await pool.query(sql); } catch (e) { console.warn('[Migration]', e.message); }

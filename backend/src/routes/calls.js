@@ -91,7 +91,15 @@ router.put('/:id/end', auth, async (req, res) => {
 
     // Free trial calls: don't deduct from caller, girl gets 0 (platform absorbs)
     if (!isFreeTrial && coinsUsed > 0) {
-      await pool.query('UPDATE users SET minutes=GREATEST(0,minutes-?) WHERE id=?', [coinsUsed, call.caller_id]);
+      await pool.query(
+        `UPDATE users SET 
+           minutes = GREATEST(0, minutes - ?),
+           premium_coins_remaining = GREATEST(0, premium_coins_remaining - ?),
+           is_premium = CASE WHEN GREATEST(0, premium_coins_remaining - ?) > 0 AND GREATEST(0, minutes - ?) > 0 THEN 1 ELSE 0 END,
+           plan_id = CASE WHEN GREATEST(0, premium_coins_remaining - ?) > 0 AND GREATEST(0, minutes - ?) > 0 THEN plan_id ELSE NULL END
+         WHERE id = ?`,
+        [coinsUsed, coinsUsed, coinsUsed, coinsUsed, coinsUsed, coinsUsed, call.caller_id]
+      );
       await pool.query(
         'INSERT INTO wallet_transactions (id,user_id,type,amount,description,ref_id) VALUES (?,?,?,?,?,?)',
         [uuidv4(), call.caller_id, 'spend', coinsUsed, `${call.call_type} call (${billableMins}m)`, req.params.id]

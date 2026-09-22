@@ -34,7 +34,15 @@ router.post('/gift', auth, async (req, res) => {
   try {
     const [sender] = await pool.query('SELECT minutes FROM users WHERE id=?', [req.user.userId]);
     if (sender[0].minutes < coinsCost) return res.status(400).json({ error: 'Insufficient coins' });
-    await pool.query('UPDATE users SET minutes=minutes-? WHERE id=?', [coinsCost, req.user.userId]);
+    await pool.query(
+      `UPDATE users SET 
+         minutes = GREATEST(0, minutes - ?),
+         premium_coins_remaining = GREATEST(0, premium_coins_remaining - ?),
+         is_premium = CASE WHEN GREATEST(0, premium_coins_remaining - ?) > 0 AND GREATEST(0, minutes - ?) > 0 THEN 1 ELSE 0 END,
+         plan_id = CASE WHEN GREATEST(0, premium_coins_remaining - ?) > 0 AND GREATEST(0, minutes - ?) > 0 THEN plan_id ELSE NULL END
+       WHERE id = ?`,
+      [coinsCost, coinsCost, coinsCost, coinsCost, coinsCost, coinsCost, req.user.userId]
+    );
     await pool.query('UPDATE users SET minutes=minutes+? WHERE id=?', [coinsCost, receiverId]);
     await pool.query('INSERT INTO gifts (id,sender_id,receiver_id,gift_type,coins_spent) VALUES (?,?,?,?,?)',
       [uuidv4(), req.user.userId, receiverId, giftType, coinsCost]);

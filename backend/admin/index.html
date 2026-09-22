@@ -1780,7 +1780,10 @@ function renderUsers(list) {
         </select>
       </td>
       <td style="color:#aaa;font-size:12px">${u.phone||'–'}</td>
-      <td><b style="color:#FF3870">🪙 ${u.minutes||0}</b></td>
+      <td>
+        <b style="color:#FF3870">🪙 ${u.minutes||0}</b>
+        ${isGirl && u.unpaid_inr !== undefined ? `<span style="font-size:11px;color:#888;font-weight:600;display:block">₹${parseFloat(u.unpaid_inr||0).toFixed(2)}</span>` : ''}
+      </td>
       <td>${u.is_premium?'<span class="badge b-yellow">⭐ Premium</span>':'<span class="badge b-gray">Free</span>'}</td>
       <td style="color:#aaa">${u.rating?'⭐ '+parseFloat(u.rating).toFixed(1):'–'}</td>
       <td style="color:#bbb;font-size:12px">${new Date(u.created_at).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})}</td>

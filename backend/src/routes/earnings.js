@@ -81,6 +81,11 @@ router.post('/withdraw', auth, async (req, res) => {
 
     await pool.query('INSERT INTO withdrawals (id,girl_id,amount,upi_id,same_day,fee_amount) VALUES (?,?,?,?,?,?)',
       [uuidv4(), req.user.userId, withdrawAmt, upi_id, sameDay ? 1 : 0, feeAmount]);
+    
+    // Sync users.minutes with net available coins
+    const newNetAvailableCoins = Math.max(0, Math.round((available - withdrawAmt) * 2));
+    await pool.query('UPDATE users SET minutes=? WHERE id=?', [newNetAvailableCoins, req.user.userId]);
+
     res.json({
       success: true,
       available_inr: Math.max(0, available - withdrawAmt),
