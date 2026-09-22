@@ -29,6 +29,7 @@ import IncomingCallScreen from './IncomingCallScreen';
 import VideoCallScreen from './VideoCallScreen';
 import GirlsEarningsScreen from './GirlsEarningsScreen';
 import GirlsRedeemScreen from './GirlsRedeemScreen';
+import GirlsTransactionsScreen from './GirlsTransactionsScreen';
 import BlockedUsersScreen from './BlockedUsersScreen';
 import PrivacyPolicyScreen from './PrivacyPolicyScreen';
 import TermsOfServiceScreen from './TermsOfServiceScreen';
@@ -167,6 +168,7 @@ export default function GirlsHomeScreen({ onLogout }) {
   if (currentSubScreen === 'audioCall')        return <AudioCallScreen callerUser={selectedUser} onBack={() => { setLastCallType('audio'); handleHangup(callDuration); }} onHangup={(d) => { setLastCallType('audio'); handleHangup(d); }} incomingCallData={acceptedCallData} />;
   if (currentSubScreen === 'callDuration')     return <CallDurationScreen duration={callDuration} callerUser={selectedUser} callType={lastCallType} onRate={() => setCurrentSubScreen('callReview')} onSkip={goHome} />;
   if (currentSubScreen === 'callReview')       return <CallReviewScreen callerName={selectedUser?.name || 'User'} callerAvatar={selectedUser?.avatar_url} callerUserId={selectedUser?.id} callId={acceptedCallData?.callId} onSubmit={goHome} onBack={() => setCurrentSubScreen('callDuration')} />;
+  if (currentSubScreen === 'transactions')     return <GirlsTransactionsScreen onBack={goHome} onRedeem={() => setCurrentSubScreen('redeem')} />;
   if (currentSubScreen === 'redeem')           return <GirlsRedeemScreen onBack={goHome} />;
   if (currentSubScreen === 'settings')         return <SettingsScreen onBack={goHome} onLogout={onLogout} onBlockedUsers={() => setCurrentSubScreen('blockedUsers')} />;
   if (currentSubScreen === 'editProfile')      return <EditProfileScreen onBack={goHome} />;
@@ -202,7 +204,7 @@ export default function GirlsHomeScreen({ onLogout }) {
           <ProfileScreen
             onEditProfile={() => setCurrentSubScreen('editProfile')}
             onPremiumPlans={null}
-            onWallet={() => setCurrentSubScreen('redeem')}
+            onWallet={() => setCurrentSubScreen('transactions')}
             onSettings={() => setCurrentSubScreen('settings')}
             onSafety={() => setCurrentSubScreen('safety')}
             onBlockedUsers={() => setCurrentSubScreen('blockedUsers')}
@@ -223,8 +225,8 @@ export default function GirlsHomeScreen({ onLogout }) {
         visible={showDrawer}
         onClose={() => setShowDrawer(false)}
         isGirl={true}
-        onTransactions={() => setCurrentSubScreen('redeem')}
-        onWallet={() => setCurrentSubScreen('redeem')}
+        onTransactions={() => setCurrentSubScreen('transactions')}
+        onWallet={() => setCurrentSubScreen('transactions')}
         onSettings={() => setCurrentSubScreen('settings')}
         onPrivacyPolicy={() => setCurrentSubScreen('privacyPolicy')}
         onTermsOfService={() => setCurrentSubScreen('termsOfService')}
