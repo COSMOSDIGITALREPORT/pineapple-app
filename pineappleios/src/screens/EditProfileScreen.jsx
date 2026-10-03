@@ -10,6 +10,7 @@ import {
   StatusBar,
   ActivityIndicator,
   Alert,
+  Modal,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -21,6 +22,43 @@ import { Colors } from '../theme/colors';
 import { updateProfile, uploadAvatar } from '../services/api';
 import { setProfile } from '../store/slices/userSlice';
 
+const POPULAR = [
+  { id: 'hi', label: 'Hindi',   native: 'हिंदी',    flag: '🇮🇳' },
+  { id: 'en', label: 'English', native: 'English',   flag: '🇬🇧' },
+  { id: 'bn', label: 'Bengali', native: 'বাংলা',     flag: '🇮🇳' },
+  { id: 'ta', label: 'Tamil',   native: 'தமிழ்',     flag: '🇮🇳' },
+  { id: 'te', label: 'Telugu',  native: 'తెలుగు',    flag: '🇮🇳' },
+  { id: 'mr', label: 'Marathi', native: 'मराठी',     flag: '🇮🇳' },
+];
+
+const REGIONAL = [
+  { id: 'gu',  label: 'Gujarati',      native: 'ગુજરાતી',    flag: '🇮🇳' },
+  { id: 'kn',  label: 'Kannada',       native: 'ಕನ್ನಡ',      flag: '🇮🇳' },
+  { id: 'ml',  label: 'Malayalam',     native: 'മലയാളം',     flag: '🇮🇳' },
+  { id: 'pa',  label: 'Punjabi',       native: 'ਪੰਜਾਬੀ',     flag: '🇮🇳' },
+  { id: 'ur',  label: 'Urdu',          native: 'اردو',        flag: '🇮🇳' },
+  { id: 'bh',  label: 'Bhojpuri',      native: 'भोजपुरी',    flag: '🇮🇳' },
+  { id: 'or',  label: 'Odia',          native: 'ଓଡ଼ିଆ',       flag: '🇮🇳' },
+  { id: 'as',  label: 'Assamese',      native: 'অসমীয়া',    flag: '🇮🇳' },
+  { id: 'raj', label: 'Rajasthani',    native: 'राजस्थानी',   flag: '🇮🇳' },
+  { id: 'har', label: 'Haryanvi',      native: 'हरयाणवी',    flag: '🇮🇳' },
+  { id: 'mai', label: 'Maithili',      native: 'मैथिली',     flag: '🇮🇳' },
+  { id: 'ne',  label: 'Nepali',        native: 'नेपाली',     flag: '🇳🇵' },
+  { id: 'ks',  label: 'Kashmiri',      native: 'کٲشُر',      flag: '🇮🇳' },
+  { id: 'sd',  label: 'Sindhi',        native: 'سنڌي',       flag: '🇮🇳' },
+  { id: 'doi', label: 'Dogri',         native: 'डोगरी',      flag: '🇮🇳' },
+  { id: 'kok', label: 'Konkani',       native: 'कोंकणी',     flag: '🇮🇳' },
+  { id: 'sat', label: 'Santali',       native: 'ᱥᱟᱱᱛᱟᱲᱤ',   flag: '🇮🇳' },
+  { id: 'mni', label: 'Manipuri',      native: 'মৈতৈলোন্',  flag: '🇮🇳' },
+  { id: 'brx', label: 'Bodo',          native: 'बड़ो',        flag: '🇮🇳' },
+  { id: 'cha', label: 'Chhattisgarhi', native: 'छत्तीसगढ़ी', flag: '🇮🇳' },
+  { id: 'awa', label: 'Awadhi',        native: 'अवधी',       flag: '🇮🇳' },
+  { id: 'sa',  label: 'Sanskrit',      native: 'संस्कृत',    flag: '🇮🇳' },
+  { id: 'ar',  label: 'Arabic',        native: 'العربية',    flag: '🇸🇦' },
+];
+
+const ALL_LANGS = [...POPULAR, ...REGIONAL];
+
 export default function EditProfileScreen({ onBack, onPremium }) {
   const insets = useSafeAreaInsets();
   const dispatch = useDispatch();
@@ -28,17 +66,21 @@ export default function EditProfileScreen({ onBack, onPremium }) {
 
   const [displayName, setDisplayName]   = useState(user.name || '');
   const [bio, setBio]                   = useState(user.bio || '');
-  const [language, setLanguage]         = useState(user.language || '');
+  const [language, setLanguage]         = useState(user.language || 'Hindi');
   const [city, setCity]                 = useState(user.city || '');
   const [avatarUri, setAvatarUri]       = useState(user.avatarUrl || null);
   const [loading, setLoading]           = useState(false);
   const [saved, setSaved]               = useState(false);
   const [error, setError]               = useState('');
+  const [showLangModal, setShowLangModal] = useState(false);
+  const [langSearch, setLangSearch]     = useState('');
+
+  const currentLangObj = ALL_LANGS.find(l => l.label.toLowerCase() === (language || 'Hindi').toLowerCase()) || POPULAR[0];
 
   useEffect(() => {
     setDisplayName(user.name || '');
     setBio(user.bio || '');
-    setLanguage(user.language || '');
+    setLanguage(user.language || 'Hindi');
     setCity(user.city || '');
     setAvatarUri(user.avatarUrl || null);
   }, [user.name, user.bio, user.language, user.city, user.avatarUrl]);
@@ -135,7 +177,7 @@ export default function EditProfileScreen({ onBack, onPremium }) {
                   <Icon name="user" size={52} color={Colors.primary} />
                 </View>
               )}
-              {/* Edit badge — View + absoluteFill to avoid LinearGradient-as-container bug */}
+              {/* Edit badge */}
               <View style={styles.editBadge}>
                 <LinearGradient
                   colors={['#FF3870', '#C0004A']}
@@ -185,19 +227,28 @@ export default function EditProfileScreen({ onBack, onPremium }) {
           </FieldGroup>
 
           <FieldGroup label="LANGUAGE">
-            <TextInput
-              style={styles.textInput}
-              value={language}
-              onChangeText={setLanguage}
-              placeholder="e.g. Hindi, English"
-              placeholderTextColor="#aaa"
-            />
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => setShowLangModal(true)}
+              style={styles.langPickerField}>
+              <View style={styles.langFieldLeft}>
+                <Text style={styles.langFlagText}>{currentLangObj.flag}</Text>
+                <View>
+                  <Text style={styles.langLabelText}>{currentLangObj.label}</Text>
+                  <Text style={styles.langNativeText}>{currentLangObj.native}</Text>
+                </View>
+              </View>
+              <View style={styles.langChangePill}>
+                <Text style={styles.langChangeText}>Select</Text>
+                <Icon name="chevron-down" size={14} color={Colors.secondary} />
+              </View>
+            </TouchableOpacity>
           </FieldGroup>
         </View>
 
         {error.length > 0 && <Text style={styles.errorText}>{error}</Text>}
 
-        {/* Save button — View + absoluteFill to fix LinearGradient container bug */}
+        {/* Save button */}
         <TouchableOpacity
           style={styles.saveBtn}
           activeOpacity={0.85}
@@ -215,6 +266,76 @@ export default function EditProfileScreen({ onBack, onPremium }) {
         </TouchableOpacity>
 
       </ScrollView>
+
+      {/* Language Picker Bottom Sheet Modal */}
+      <Modal
+        visible={showLangModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowLangModal(false)}>
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={() => setShowLangModal(false)}
+          />
+          <View style={[styles.modalCard, { paddingBottom: Math.max(insets.bottom, 16) + 12 }]}>
+            <View style={styles.modalHandle} />
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Language</Text>
+              <TouchableOpacity onPress={() => setShowLangModal(false)} style={styles.modalCloseBtn}>
+                <Icon name="x" size={20} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Search box */}
+            <View style={styles.modalSearchBox}>
+              <Icon name="search" size={16} color="#94A3B8" />
+              <TextInput
+                style={styles.modalSearchInput}
+                placeholder="Search language..."
+                placeholderTextColor="#94A3B8"
+                value={langSearch}
+                onChangeText={setLangSearch}
+              />
+              {langSearch.length > 0 ? (
+                <TouchableOpacity onPress={() => setLangSearch('')}>
+                  <Icon name="x" size={16} color="#94A3B8" />
+                </TouchableOpacity>
+              ) : null}
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} style={styles.modalList}>
+              <View style={styles.langGrid}>
+                {ALL_LANGS.filter(l =>
+                  l.label.toLowerCase().includes(langSearch.toLowerCase()) ||
+                  l.native.toLowerCase().includes(langSearch.toLowerCase())
+                ).map((item) => {
+                  const isSel = (language || '').toLowerCase() === item.label.toLowerCase();
+                  return (
+                    <TouchableOpacity
+                      key={item.id}
+                      style={[styles.langGridItem, isSel && styles.langGridItemSel]}
+                      activeOpacity={0.75}
+                      onPress={() => {
+                        setLanguage(item.label);
+                        setShowLangModal(false);
+                        setLangSearch('');
+                      }}>
+                      <Text style={styles.gridFlag}>{item.flag}</Text>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.gridLabel, isSel && styles.gridLabelSel]}>{item.label}</Text>
+                        <Text style={[styles.gridNative, isSel && styles.gridNativeSel]}>{item.native}</Text>
+                      </View>
+                      {isSel ? <Icon name="check" size={16} color={Colors.secondary} /> : null}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -367,4 +488,112 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     includeFontPadding: false,
   },
+
+  langPickerField: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    height: 60,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1.5,
+    borderColor: '#F1F5F9',
+  },
+  langFieldLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  langFlagText: { fontSize: 24 },
+  langLabelText: { fontSize: 16, fontWeight: '700', color: Colors.dark },
+  langNativeText: { fontSize: 12, color: '#94A3B8', fontWeight: '500', marginTop: 1 },
+  langChangePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FFF0F5',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  langChangeText: { fontSize: 12, fontWeight: '800', color: Colors.secondary },
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalCard: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    maxHeight: '80%',
+  },
+  modalHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#E2E8F0',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 14,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  modalTitle: { fontSize: 18, fontWeight: '800', color: Colors.dark },
+  modalCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalSearchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    height: 46,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 14,
+    gap: 8,
+  },
+  modalSearchInput: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.dark,
+    paddingVertical: 0,
+  },
+  modalList: { maxHeight: 380 },
+  langGrid: { gap: 8, paddingBottom: 16 },
+  langGridItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 16,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    gap: 12,
+  },
+  langGridItemSel: {
+    backgroundColor: '#FFF0F5',
+    borderColor: '#FFD1DC',
+  },
+  gridFlag: { fontSize: 22 },
+  gridLabel: { fontSize: 15, fontWeight: '700', color: Colors.dark },
+  gridLabelSel: { color: Colors.secondary },
+  gridNative: { fontSize: 12, color: '#94A3B8', fontWeight: '500', marginTop: 1 },
+  gridNativeSel: { color: '#E11D48' },
 });
