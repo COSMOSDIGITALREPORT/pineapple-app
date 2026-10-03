@@ -211,14 +211,14 @@ export default function PremiumPlansScreen({ onBack }) {
               style={styles.cardOuter}>
 
               <LinearGradient
-                colors={isSelected ? plan.colors : ['rgba(255,255,255,0.08)', 'rgba(255,255,255,0.08)']}
+                colors={isSelected ? plan.colors : ['rgba(255,255,255,0.12)', 'rgba(255,255,255,0.05)']}
                 start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
                 style={[styles.cardBorder, isSelected && styles.cardBorderSelected]}>
 
                 <View style={[styles.card, isGold && isSelected && styles.cardGold]}>
 
-                  {/* Badge + Selected chip — inline inside the card, never clipped by scroll */}
-                  {(plan.badge || isSelected) && (
+                  {/* Header Badge Row */}
+                  {(plan.badge || isSelected) ? (
                     <View style={styles.badgeRow}>
                       {plan.badge ? (
                         <LinearGradient
@@ -227,20 +227,22 @@ export default function PremiumPlansScreen({ onBack }) {
                           style={styles.bestBadge}>
                           <Text style={[styles.bestBadgeText, isGold && { color: '#1a0a00' }]}>{plan.badge}</Text>
                         </LinearGradient>
-                      ) : <View />}
-                      {isSelected && (
-                        <View style={styles.selectedChip}>
+                      ) : <View style={{ flex: 1 }} />}
+                      {isSelected ? (
+                        <View style={[styles.selectedChip, isGold && styles.selectedChipGold]}>
                           <Icon name="check" size={11} color={isGold ? '#1a0a00' : '#fff'} />
                           <Text style={[styles.selectedChipText, isGold && { color: '#1a0a00' }]}>Selected</Text>
                         </View>
-                      )}
+                      ) : null}
                     </View>
-                  )}
+                  ) : null}
 
-                  {/* Top row: emoji + name/mins | price */}
+                  {/* Top row: emoji + name/coins | price */}
                   <View style={styles.cardHead}>
                     <View style={styles.cardLeft}>
-                      <Text style={styles.planEmoji}>{plan.emoji}</Text>
+                      <View style={[styles.planEmojiWrap, isGold && isSelected && styles.planEmojiWrapGold]}>
+                        <Text style={styles.planEmoji}>{plan.emoji}</Text>
+                      </View>
                       <View>
                         <Text style={[styles.planName, isGold && styles.planNameGold]}>{plan.name}</Text>
                         <Text style={styles.planMins}>{plan.mins} Coins</Text>
@@ -258,9 +260,9 @@ export default function PremiumPlansScreen({ onBack }) {
                   </View>
 
                   {/* Gold callout */}
-                  {isGold && isSelected && (
+                  {isGold && isSelected ? (
                     <LinearGradient
-                      colors={['rgba(255,215,0,0.15)', 'rgba(255,140,0,0.05)']}
+                      colors={['rgba(255,215,0,0.18)', 'rgba(255,140,0,0.08)']}
                       style={styles.goldCallout}>
                       <Text style={{ fontSize: 22 }}>🎡</Text>
                       <View style={{ flex: 1 }}>
@@ -268,7 +270,7 @@ export default function PremiumPlansScreen({ onBack }) {
                         <Text style={styles.goldCalloutSub}>1 Spin per recharge · Win up to ₹10,000</Text>
                       </View>
                     </LinearGradient>
-                  )}
+                  ) : null}
 
                   {/* Features */}
                   <View style={styles.featureList}>
@@ -379,33 +381,47 @@ const styles = StyleSheet.create({
 
   badgeRow: {
     flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'space-between', marginBottom: 14,
+    justifyContent: 'space-between', marginBottom: 16,
   },
   bestBadge: {
     alignSelf: 'flex-start',
     borderRadius: 999,
-    paddingHorizontal: 14, paddingVertical: 7,
+    paddingHorizontal: 12, paddingVertical: 5,
   },
-  bestBadgeText: { fontSize: 12, fontWeight: '900', color: '#fff', letterSpacing: 0.4 },
+  bestBadgeText: { fontSize: 11, fontWeight: '900', color: '#fff', letterSpacing: 0.5 },
   selectedChip: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999,
+    backgroundColor: 'rgba(255,46,126,0.3)',
+    borderWidth: 1, borderColor: '#FF2E7E',
+    paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999,
+  },
+  selectedChipGold: {
+    backgroundColor: '#FFD700',
+    borderColor: '#FFA500',
   },
   selectedChipText: { fontSize: 11, fontWeight: '800', color: '#fff' },
 
   cardHead: {
-    flexDirection: 'row', alignItems: 'flex-start',
+    flexDirection: 'row', alignItems: 'center',
     justifyContent: 'space-between', marginBottom: 16,
   },
   cardLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  planEmoji: { fontSize: 28 },
-  planName: { fontSize: 18, fontWeight: '900', color: '#fff', lineHeight: 24 },
+  planEmojiWrap: {
+    width: 46, height: 46, borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  planEmojiWrapGold: {
+    backgroundColor: 'rgba(255,215,0,0.15)',
+    borderWidth: 1, borderColor: 'rgba(255,215,0,0.3)',
+  },
+  planEmoji: { fontSize: 24 },
+  planName: { fontSize: 18, fontWeight: '900', color: '#fff', lineHeight: 22 },
   planNameGold: { color: '#FFD700' },
-  planMins: { fontSize: 12, color: 'rgba(255,255,255,0.72)', marginTop: 2, fontWeight: '600' },
+  planMins: { fontSize: 13, color: 'rgba(255,255,255,0.7)', marginTop: 2, fontWeight: '600' },
   cardRight: { alignItems: 'flex-end' },
-  planPrice: { fontSize: 28, fontWeight: '900', color: 'rgba(255,255,255,0.7)', lineHeight: 34 },
-  planPer: { fontSize: 11, color: 'rgba(255,255,255,0.65)', fontWeight: '500' },
+  planPrice: { fontSize: 28, fontWeight: '900', color: '#fff', lineHeight: 32 },
+  planPer: { fontSize: 11, color: 'rgba(255,255,255,0.6)', fontWeight: '500', marginTop: 2 },
 
   goldCallout: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
