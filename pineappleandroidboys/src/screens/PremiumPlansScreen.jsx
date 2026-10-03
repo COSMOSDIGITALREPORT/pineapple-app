@@ -208,105 +208,92 @@ export default function PremiumPlansScreen({ onBack }) {
               key={plan.id}
               onPress={() => setSelected(plan.id)}
               activeOpacity={0.92}
-              style={styles.cardOuter}>
+              style={[
+                styles.card,
+                isSelected && styles.cardSelected,
+                isGold && isSelected && styles.cardGoldSelected,
+              ]}>
 
-              <LinearGradient
-                colors={isSelected ? plan.colors : ['rgba(255,255,255,0.12)', 'rgba(255,255,255,0.05)']}
-                start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                style={[styles.cardBorder, isSelected && styles.cardBorderSelected]}>
-
-                <View style={[styles.card, isGold && isSelected && styles.cardGold]}>
-
-                  {/* Header Badge Row */}
-                  {(plan.badge || isSelected) ? (
-                    <View style={styles.badgeRow}>
-                      {plan.badge ? (
-                        <LinearGradient
-                          colors={plan.badgeColors || plan.colors}
-                          start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                          style={styles.bestBadge}>
-                          <Text style={[styles.bestBadgeText, isGold && { color: '#1a0a00' }]}>{plan.badge}</Text>
-                        </LinearGradient>
-                      ) : <View style={{ flex: 1 }} />}
-                      {isSelected ? (
-                        <View style={[styles.selectedChip, isGold && styles.selectedChipGold]}>
-                          <Icon name="check" size={11} color={isGold ? '#1a0a00' : '#fff'} />
-                          <Text style={[styles.selectedChipText, isGold && { color: '#1a0a00' }]}>Selected</Text>
-                        </View>
-                      ) : null}
+              {/* Header Badge Row */}
+              {(plan.badge || isSelected) ? (
+                <View style={styles.badgeRow}>
+                  {plan.badge ? (
+                    <View style={[styles.bestBadge, isGold ? styles.bestBadgeGold : styles.bestBadgePink]}>
+                      <Text style={[styles.bestBadgeText, isGold && styles.bestBadgeTextGold]}>{plan.badge}</Text>
+                    </View>
+                  ) : <View style={{ flex: 1 }} />}
+                  {isSelected ? (
+                    <View style={[styles.selectedChip, isGold && styles.selectedChipGold]}>
+                      <Icon name="check" size={11} color={isGold ? '#1a0a00' : '#fff'} />
+                      <Text style={[styles.selectedChipText, isGold && styles.selectedChipTextGold]}>Selected</Text>
                     </View>
                   ) : null}
-
-                  {/* Top row: emoji + name/coins | price */}
-                  <View style={styles.cardHead}>
-                    <View style={styles.cardLeft}>
-                      <View style={[styles.planEmojiWrap, isGold && isSelected && styles.planEmojiWrapGold]}>
-                        <Text style={styles.planEmoji}>{plan.emoji}</Text>
-                      </View>
-                      <View>
-                        <Text style={[styles.planName, isGold && styles.planNameGold]}>{plan.name}</Text>
-                        <Text style={styles.planMins}>{plan.mins} Coins</Text>
-                      </View>
-                    </View>
-                    <View style={styles.cardRight}>
-                      <Text style={[
-                        styles.planPrice,
-                        isSelected && { color: isGold ? '#FFD700' : (plan.id === 'intro' ? '#fff' : '#FF6FA5') },
-                      ]}>
-                        {plan.price}
-                      </Text>
-                      <Text style={[styles.planPer, isSelected && plan.id === 'intro' && { color: 'rgba(255,255,255,0.85)' }]}>one-time</Text>
-                    </View>
-                  </View>
-
-                  {/* Gold callout */}
-                  {isGold && isSelected ? (
-                    <LinearGradient
-                      colors={['rgba(255,215,0,0.18)', 'rgba(255,140,0,0.08)']}
-                      style={styles.goldCallout}>
-                      <Text style={{ fontSize: 22 }}>🎡</Text>
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.goldCalloutTitle}>Fortune Wheel Unlocked!</Text>
-                        <Text style={styles.goldCalloutSub}>1 Spin per recharge · Win up to ₹10,000</Text>
-                      </View>
-                    </LinearGradient>
-                  ) : null}
-
-                  {/* Features */}
-                  <View style={styles.featureList}>
-                    {plan.features.map((f, i) => (
-                      <View key={i} style={styles.featureRow}>
-                        <LinearGradient
-                          colors={isGold ? ['#FFD700', '#FFA500'] : plan.colors}
-                          start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                          style={styles.checkCircle}>
-                          <Text style={{ fontSize: 9, color: isGold ? '#1a0a00' : '#fff', fontWeight: '900' }}>✓</Text>
-                        </LinearGradient>
-                        <Text style={[
-                          styles.featureText,
-                          isGold && isSelected && styles.featureTextGold,
-                        ]}>{f}</Text>
-                      </View>
-                    ))}
-                  </View>
-
-                  {/* Per-card CTA */}
-                  <TouchableOpacity
-                    activeOpacity={0.88}
-                    disabled={paying}
-                    onPress={() => { setSelected(plan.id); handleBuy(plan); }}
-                    style={[styles.cardCta, { shadowColor: isGold ? '#FFA500' : plan.colors[1] }]}>
-                    <LinearGradient
-                      colors={isGold ? ['#FFD700', '#FFA500'] : plan.colors}
-                      start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                      style={styles.cardCtaInner}>
-                      <Text style={[styles.cardCtaText, isGold && { color: '#1a0a00' }]}>
-                        {paying && isSelected ? 'Opening…' : `${plan.cta} · ${plan.price}`}
-                      </Text>
-                    </LinearGradient>
-                  </TouchableOpacity>
                 </View>
-              </LinearGradient>
+              ) : null}
+
+              {/* Top row: emoji + name/coins | price */}
+              <View style={styles.cardHead}>
+                <View style={styles.cardLeft}>
+                  <View style={[styles.planEmojiWrap, isGold && isSelected && styles.planEmojiWrapGold]}>
+                    <Text style={styles.planEmoji}>{plan.emoji}</Text>
+                  </View>
+                  <View>
+                    <Text style={[styles.planName, isGold && styles.planNameGold]}>{plan.name}</Text>
+                    <Text style={styles.planMins}>{plan.mins} Coins</Text>
+                  </View>
+                </View>
+                <View style={styles.cardRight}>
+                  <Text style={[
+                    styles.planPrice,
+                    isSelected && { color: isGold ? '#FFD700' : (plan.id === 'intro' ? '#fff' : '#FF6FA5') },
+                  ]}>
+                    {plan.price}
+                  </Text>
+                  <Text style={[styles.planPer, isSelected && plan.id === 'intro' && { color: 'rgba(255,255,255,0.85)' }]}>one-time</Text>
+                </View>
+              </View>
+
+              {/* Gold callout */}
+              {isGold && isSelected ? (
+                <View style={styles.goldCallout}>
+                  <Text style={{ fontSize: 22, marginRight: 10 }}>🎡</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.goldCalloutTitle}>Fortune Wheel Unlocked!</Text>
+                    <Text style={styles.goldCalloutSub}>1 Spin per recharge · Win up to ₹10,000</Text>
+                  </View>
+                </View>
+              ) : null}
+
+              {/* Features */}
+              <View style={styles.featureList}>
+                {plan.features.map((f, i) => (
+                  <View key={i} style={styles.featureRow}>
+                    <View style={[styles.checkCircle, isGold ? styles.checkCircleGold : styles.checkCirclePink]}>
+                      <Text style={[styles.checkMark, isGold && styles.checkMarkGold]}>✓</Text>
+                    </View>
+                    <Text style={[
+                      styles.featureText,
+                      isGold && isSelected && styles.featureTextGold,
+                    ]}>{f}</Text>
+                  </View>
+                ))}
+              </View>
+
+              {/* Per-card CTA */}
+              <TouchableOpacity
+                activeOpacity={0.88}
+                disabled={paying}
+                onPress={() => { setSelected(plan.id); handleBuy(plan); }}
+                style={[styles.cardCta, { shadowColor: isGold ? '#FFA500' : plan.colors[1] }]}>
+                <LinearGradient
+                  colors={isGold ? ['#FFD700', '#FFA500'] : plan.colors}
+                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                  style={styles.cardCtaInner}>
+                  <Text style={[styles.cardCtaText, isGold && { color: '#1a0a00' }]}>
+                    {paying && isSelected ? 'Opening…' : `${plan.cta} · ${plan.price}`}
+                  </Text>
+                </LinearGradient>
+              </TouchableOpacity>
             </TouchableOpacity>
           );
         })}
@@ -364,46 +351,77 @@ const styles = StyleSheet.create({
 
   scroll: { paddingHorizontal: 20, paddingTop: 12 },
 
-  cardOuter: { marginBottom: 20 },
-  cardBorder: {
-    borderRadius: 22, padding: 1.5,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3, shadowRadius: 14, elevation: 8,
-  },
-  cardBorderSelected: {
-    shadowOpacity: 0.45, shadowRadius: 18, elevation: 12,
-  },
   card: {
-    backgroundColor: 'rgba(255,255,255,0.07)',
-    borderRadius: 21, padding: 20, minHeight: 220,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 24,
+    padding: 20,
+    marginBottom: 20,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.1)',
   },
-  cardGold: { backgroundColor: '#1C0800' },
+  cardSelected: {
+    borderColor: '#FF2E7E',
+    backgroundColor: '#20002E',
+    shadowColor: '#FF2E7E',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  cardGoldSelected: {
+    borderColor: '#FFD700',
+    backgroundColor: '#241200',
+    shadowColor: '#FFA500',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.45,
+    shadowRadius: 18,
+    elevation: 10,
+  },
 
   badgeRow: {
-    flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'space-between', marginBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
   },
   bestBadge: {
     alignSelf: 'flex-start',
     borderRadius: 999,
-    paddingHorizontal: 12, paddingVertical: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+  },
+  bestBadgePink: {
+    backgroundColor: '#FF2E7E',
+  },
+  bestBadgeGold: {
+    backgroundColor: '#FFD700',
   },
   bestBadgeText: { fontSize: 11, fontWeight: '900', color: '#fff', letterSpacing: 0.5 },
+  bestBadgeTextGold: { color: '#1a0a00' },
+
   selectedChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: 'rgba(255,46,126,0.3)',
-    borderWidth: 1, borderColor: '#FF2E7E',
-    paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(255,46,126,0.25)',
+    borderWidth: 1,
+    borderColor: '#FF2E7E',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
   },
   selectedChipGold: {
     backgroundColor: '#FFD700',
     borderColor: '#FFA500',
   },
   selectedChipText: { fontSize: 11, fontWeight: '800', color: '#fff' },
+  selectedChipTextGold: { color: '#1a0a00' },
 
   cardHead: {
-    flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'space-between', marginBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
   },
   cardLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   planEmojiWrap: {
@@ -412,11 +430,11 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   planEmojiWrapGold: {
-    backgroundColor: 'rgba(255,215,0,0.15)',
-    borderWidth: 1, borderColor: 'rgba(255,215,0,0.3)',
+    backgroundColor: 'rgba(255,215,0,0.18)',
+    borderWidth: 1, borderColor: 'rgba(255,215,0,0.4)',
   },
   planEmoji: { fontSize: 24 },
-  planName: { fontSize: 18, fontWeight: '900', color: '#fff', lineHeight: 22 },
+  planName: { fontSize: 19, fontWeight: '900', color: '#fff', lineHeight: 24 },
   planNameGold: { color: '#FFD700' },
   planMins: { fontSize: 13, color: 'rgba(255,255,255,0.7)', marginTop: 2, fontWeight: '600' },
   cardRight: { alignItems: 'flex-end' },
@@ -424,28 +442,53 @@ const styles = StyleSheet.create({
   planPer: { fontSize: 11, color: 'rgba(255,255,255,0.6)', fontWeight: '500', marginTop: 2 },
 
   goldCallout: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    borderRadius: 14, padding: 12, marginBottom: 14,
-    borderWidth: 1, borderColor: 'rgba(255,215,0,0.2)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,215,0,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,215,0,0.3)',
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 16,
   },
   goldCalloutTitle: { fontSize: 13, fontWeight: '900', color: '#FFD700' },
-  goldCalloutSub: { fontSize: 11, color: 'rgba(255,215,0,0.65)', marginTop: 2, fontWeight: '600' },
+  goldCalloutSub: { fontSize: 11, color: 'rgba(255,215,0,0.75)', marginTop: 2, fontWeight: '600' },
 
-  featureList: { gap: 11 },
+  featureList: { gap: 11, marginBottom: 18 },
   featureRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   checkCircle: {
-    width: 20, height: 20, borderRadius: 10,
-    alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  featureText: { fontSize: 13, color: 'rgba(255,255,255,0.75)', fontWeight: '500', flex: 1, lineHeight: 19 },
+  checkCirclePink: {
+    backgroundColor: '#FF2E7E',
+  },
+  checkCircleGold: {
+    backgroundColor: '#FFD700',
+  },
+  checkMark: { fontSize: 10, color: '#fff', fontWeight: '900' },
+  checkMarkGold: { color: '#1a0a00' },
+  featureText: { fontSize: 13, color: 'rgba(255,255,255,0.78)', fontWeight: '500', flex: 1, lineHeight: 19 },
   featureTextGold: { color: '#fff', fontWeight: '600' },
 
   cardCta: {
-    marginTop: 16, borderRadius: 14,
-    shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.4, shadowRadius: 12, elevation: 6,
+    borderRadius: 14,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 6,
   },
-  cardCtaInner: { height: 46, borderRadius: 14, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
-  cardCtaText: { color: '#fff', fontSize: 14, fontWeight: '900', letterSpacing: 0.3 },
+  cardCtaInner: {
+    height: 48,
+    borderRadius: 14,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardCtaText: { color: '#fff', fontSize: 15, fontWeight: '900', letterSpacing: 0.3 },
 
   successBanner: {
     position: 'absolute', bottom: 40, left: 20, right: 20, zIndex: 100,
