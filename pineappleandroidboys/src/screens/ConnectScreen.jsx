@@ -124,8 +124,8 @@ function FloatingBubble({
   const animX = useRef(new Animated.Value(initialX)).current;
   const bobY  = useRef(new Animated.Value(0)).current;
 
-  const hasRating = user?.rating && parseFloat(user.rating) > 0;
-  const isPremium = user?.is_premium;
+  const hasRating = Boolean(user?.rating && parseFloat(user.rating) > 0);
+  const isPremium = Boolean(user?.is_premium === 1 || user?.is_premium === true || user?.is_premium === '1');
 
   useEffect(() => {
     let isMounted = true;
@@ -481,14 +481,14 @@ export default function ConnectScreen({ onVideoCall, onAudioCall, onDrawer, onBu
                           <Text style={styles.topRatedInitial}>{(girl.name||'?')[0].toUpperCase()}</Text>
                         </LinearGradient>
                       )}
-                      {girl.is_online && <View style={styles.topRatedOnline} />}
+                      {!!girl.is_online ? <View style={styles.topRatedOnline} /> : null}
                     </View>
                     <Text style={styles.topRatedName} numberOfLines={1}>{(girl.name||'').split(' ')[0]}</Text>
-                    {girl.rating > 0 && (
+                    {parseFloat(girl.rating) > 0 ? (
                       <View style={styles.ratingPill}>
                         <Text style={styles.topRatedRating}>⭐ {parseFloat(girl.rating).toFixed(1)}</Text>
                       </View>
-                    )}
+                    ) : null}
                   </TouchableOpacity>
                 ))}
               </ScrollView>
@@ -755,7 +755,7 @@ export default function ConnectScreen({ onVideoCall, onAudioCall, onDrawer, onBu
               </View>
 
               {/* Report / Block */}
-              {callPickerUser?.name !== 'Random' && callPickerUser?.id && (
+              {callPickerUser?.name !== 'Random' && !!callPickerUser?.id ? (
                 <View style={pStyles.safetyRow}>
                   <TouchableOpacity style={pStyles.safetyBtn} onPress={() => {
                     const u = callPickerUser;
@@ -790,7 +790,7 @@ export default function ConnectScreen({ onVideoCall, onAudioCall, onDrawer, onBu
                     <Text style={pStyles.blockText}>🚫 Block</Text>
                   </TouchableOpacity>
                 </View>
-              )}
+              ) : null}
             </ScrollView>
           </View>
         </View>
