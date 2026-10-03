@@ -15,6 +15,8 @@ const initialState = {
   planId: null,
   hasSpun: false,
   coins: 0,
+  freeTrialUsed: false,
+  intro9Used: false,
   isLoggedIn: false,
   hasAcceptedWarning: false,
   gifts: []
@@ -36,6 +38,8 @@ const userSlice = createSlice({
       state.coins = u.coins ?? u.minutes ?? state.coins;
       state.isPremium = u.is_premium ?? false;
       state.planId = u.plan_id ?? null;
+      state.freeTrialUsed = !!(u.free_trial_used || u.freeTrialUsed);
+      state.intro9Used = !!(u.intro_9_used || u.intro9Used);
       state.isLoggedIn = true;
     },
     setProfile: (state, action) => {
@@ -52,6 +56,10 @@ const userSlice = createSlice({
       if (action.payload.planId !== undefined) state.planId = action.payload.planId;
       else if (action.payload.plan_id !== undefined) state.planId = action.payload.plan_id;
       if (action.payload.hasSpun !== undefined) state.hasSpun = action.payload.hasSpun;
+      if (action.payload.free_trial_used !== undefined) state.freeTrialUsed = !!action.payload.free_trial_used;
+      else if (action.payload.freeTrialUsed !== undefined) state.freeTrialUsed = !!action.payload.freeTrialUsed;
+      if (action.payload.intro_9_used !== undefined) state.intro9Used = !!action.payload.intro_9_used;
+      else if (action.payload.intro9Used !== undefined) state.intro9Used = !!action.payload.intro9Used;
       if (action.payload.coins !== undefined) state.coins = action.payload.coins;
       else if (action.payload.minutes !== undefined) state.coins = action.payload.minutes;
     },
@@ -82,13 +90,15 @@ const userSlice = createSlice({
       const gift = state.gifts.find((g) => g.id === action.payload.id);
       if (!gift || gift.status !== 'pending') return;
       gift.status = action.payload.action === 'redeem' ? 'redeemed' : 'gifted';
-      if (action.payload.action === 'redeem') {
-        state.coins += Math.floor(gift.value); // ₹1 = 1 min
+      if (action.payload.action === 'redeem' && gift.type === 'coins') {
+        state.coins += gift.value;
       }
     },
+    setFreeTrialUsed: (state) => { state.freeTrialUsed = true; },
+    setIntro9Used: (state) => { state.intro9Used = true; },
     resetUser: () => initialState,
   }
 });
 
-export const { setAuthUser, setProfile, setLoggedIn, acceptWarning, setCoins, addCoins, deductCoins, addGift, redeemGift, resetUser } = userSlice.actions;
+export const { setAuthUser, setProfile, setLoggedIn, acceptWarning, setCoins, addCoins, deductCoins, addGift, redeemGift, setFreeTrialUsed, setIntro9Used, resetUser } = userSlice.actions;
 export default userSlice.reducer;

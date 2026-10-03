@@ -3,8 +3,6 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Provider, useDispatch, useSelector } from 'react-redux';
 import { Modal, View, Text, TextInput, TouchableOpacity, StyleSheet, Platform, StatusBar } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import '@react-native-firebase/app';
-import '@react-native-firebase/auth';
 
 // Prevent Android system font size from breaking layouts
 import LinearGradient from 'react-native-linear-gradient';

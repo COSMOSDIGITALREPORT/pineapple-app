@@ -16,12 +16,43 @@ function isTempNumber(phone) {
   return BLOCKED_PREFIXES.some(p => phone.startsWith(p));
 }
 
+function checkGenderMatch(existingGender, requestedGender) {
+  if (!existingGender || !requestedGender) return null;
+  const eg = existingGender.toLowerCase();
+  const rg = requestedGender.toLowerCase();
+  const isGirl = ['girl', 'female', 'f'].includes(eg);
+  const isBoy = ['boy', 'male', 'm'].includes(eg);
+  const isReqGirl = ['girl', 'female', 'f'].includes(rg);
+  const isReqBoy = ['boy', 'male', 'm'].includes(rg);
+
+  if (isGirl && isReqBoy) {
+    return 'This mobile number is registered as a Female Host on Pineapple Girls. Please use the Pineapple Girls app to login.';
+  }
+  if (isBoy && isReqGirl) {
+    return 'This mobile number is registered as a Male User on Pineapple Boys. Please use the Pineapple Boys app to login.';
+  }
+  return null;
+}
+
 router.post('/send-otp', async (req, res) => {
-  const { phone } = req.body;
+  const { phone, gender, appType } = req.body;
+  const reqGender = appType || gender;
   if (!phone || !isValidIndianMobile(phone))
     return res.status(400).json({ error: 'Enter a valid 10-digit Indian mobile number.' });
   if (isTempNumber(phone))
     return res.status(400).json({ error: 'Temporary or VoIP numbers are not allowed.' });
+
+  try {
+    if (reqGender) {
+      const [existingUsers] = await pool.query('SELECT gender, is_blocked FROM users WHERE phone=?', [phone]);
+      if (existingUsers.length && existingUsers[0].gender) {
+        if (existingUsers[0].is_blocked)
+          return res.status(403).json({ error: 'Your account has been suspended.' });
+        const mismatch = checkGenderMatch(existingUsers[0].gender, reqGender);
+        if (mismatch) return res.status(400).json({ error: mismatch });
+      }
+    }
+  } catch (err) { console.error('gender check error:', err.message); }
 
   try {
     // Rate limit: max 3 OTPs per number in 10 minutes
@@ -53,7 +84,7 @@ router.post('/send-otp', async (req, res) => {
       console.warn('[VOICE] No API key configured. OTP not sent.');
     }
 
-    res.json({ success: true });
+    res.json({ success: true, dev_otp: process.env.NODE_ENV !== 'production' ? otp : undefined });
   } catch (err) { console.error('send-otp:', err.message); res.status(500).json({ error: 'Failed to send OTP' }); }
 });
 
@@ -80,7 +111,8 @@ function validateAge(dob, gender) {
 }
 
 router.post('/verify-otp', async (req, res) => {
-  const { phone, otp, gender, dob } = req.body;
+  const { phone, otp, gender, dob, appType } = req.body;
+  const reqGender = appType || gender;
   if (!phone || !otp) return res.status(400).json({ error: 'Phone and OTP required' });
   if (!isValidIndianMobile(phone))
     return res.status(400).json({ error: 'Invalid phone number.' });
@@ -98,13 +130,20 @@ router.post('/verify-otp', async (req, res) => {
       // existing user — check if blocked
       if (existing[0].is_blocked)
         return res.status(403).json({ error: 'Your account has been suspended.' });
+
+      // check gender mismatch on existing account
+      if (existing[0].gender && reqGender) {
+        const mismatch = checkGenderMatch(existing[0].gender, reqGender);
+        if (mismatch) return res.status(400).json({ error: mismatch });
+      }
+
       // age check if dob provided on re-login
       const userDob = dob || existing[0].dob;
-      const userGender = gender || existing[0].gender;
+      const userGender = existing[0].gender || gender;
       const ageErr = validateAge(userDob, userGender);
       if (ageErr) return res.status(400).json({ error: ageErr });
 
-      await pool.query('UPDATE users SET last_seen=NOW(), is_online=1, gender=COALESCE(NULLIF(?,""),gender) WHERE phone=?', [gender||'', phone]);
+      await pool.query('UPDATE users SET last_seen=NOW(), is_online=1 WHERE phone=?', [phone]);
       const [r] = await pool.query('SELECT * FROM users WHERE phone=?', [phone]);
       user = r[0];
     } else {
@@ -137,7 +176,11 @@ router.post('/firebase-login', async (req, res) => {
     if (existing.length) {
       if (existing[0].is_blocked)
         return res.status(403).json({ error: 'Your account has been suspended.' });
-      await pool.query('UPDATE users SET last_seen=NOW(), is_online=1, gender=COALESCE(NULLIF(?,""),gender) WHERE phone=?', [gender||'', phone]);
+      if (existing[0].gender && gender) {
+        const mismatch = checkGenderMatch(existing[0].gender, gender);
+        if (mismatch) return res.status(400).json({ error: mismatch });
+      }
+      await pool.query('UPDATE users SET last_seen=NOW(), is_online=1 WHERE phone=?', [phone]);
       const [r] = await pool.query('SELECT * FROM users WHERE phone=?', [phone]);
       user = r[0];
     } else {

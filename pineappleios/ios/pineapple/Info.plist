@@ -42,15 +42,15 @@
 		</dict>
 	</dict>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Pineapple needs microphone access for voice calls</string>
+	<string>Pineapple requires microphone access for audio and video calls.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>Pineapple needs camera access for video calls and profile photo</string>
+	<string>Pineapple requires camera access for video calls.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Pineapple needs photo library access to set your profile picture</string>
+	<string>Pineapple requires access to photos to upload profile pictures.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>Pineapple needs permission to save photos</string>
+	<string>Pineapple requires permission to save photos.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string/>
+	<string>Pineapple uses your location to show nearby profiles and relevant matches.</string>
 	<key>RCTNewArchEnabled</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>

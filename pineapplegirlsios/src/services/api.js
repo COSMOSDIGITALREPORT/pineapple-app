@@ -40,10 +40,10 @@ const put  = (path, body)  => request('PUT',    path, body);
 const del  = (path)        => request('DELETE', path);
 
 // ── Auth ─────────────────────────────────────────────────────────────────────
-export const sendOtp = (phone) => post('/auth/send-otp', { phone });
+export const sendOtp = (phone, gender = 'girl') => post('/auth/send-otp', { phone, gender, appType: gender });
 
-export const verifyOtp = async (phone, otp, gender) => {
-  const data = await post("/auth/verify-otp", { phone, otp, gender });
+export const verifyOtp = async (phone, otp, gender = 'girl') => {
+  const data = await post("/auth/verify-otp", { phone, otp, gender, appType: gender });
   await AsyncStorage.setItem('auth_token', data.token);
   return data;
 };

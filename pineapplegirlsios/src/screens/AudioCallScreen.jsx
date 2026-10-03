@@ -1,14 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, Image, TouchableOpacity,
-  StatusBar, Animated, Modal, ScrollView,
+  StatusBar, Animated, Alert, PermissionsAndroid, Platform,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useSelector, useDispatch, shallowEqual } from 'react-redux';
-import { redeemGift } from '../store/slices/userSlice';
+import { useSelector } from 'react-redux';
 import Icon from '../components/Icon';
-import { Colors, Gradients } from '../theme/colors';
+import { Colors } from '../theme/colors';
 import { initiateCall, endCall, getReceiverToken } from '../services/api';
 import { getSocket } from '../services/socket';
 import {
@@ -19,16 +18,12 @@ import {
 
 export default function AudioCallScreen({ onBack, onHangup, callerUser, incomingCallData }) {
   const insets = useSafeAreaInsets();
-  const dispatch = useDispatch();
-  const gifts = useSelector((s) => s.user.gifts.filter((g) => g.status === 'pending'), shallowEqual);
   const myName = useSelector((s) => s.user.name);
   const myAvatar = useSelector((s) => s.user.avatar_url);
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const pulse2Anim = useRef(new Animated.Value(1)).current;
   const [muted, setMuted] = useState(false);
   const [speakerOn, setSpeakerOn] = useState(true);
-  const [showGiftPanel, setShowGiftPanel] = useState(false);
-  const [sentGift, setSentGift] = useState(null);
   const [seconds, setSeconds] = useState(0);
   const [callStatus, setCallStatus] = useState('Connecting…');
   const engineRef = useRef(null);
@@ -51,16 +46,36 @@ export default function AudioCallScreen({ onBack, onHangup, callerUser, incoming
     callRef.current._timer = t;
   };
 
+  const cleanupRef = useRef(false);
   const cleanupCall = async (dur) => {
+    if (cleanupRef.current) return;
+    cleanupRef.current = true;
     clearInterval(callRef.current?._timer);
-    engineRef.current?.leaveChannel();
-    engineRef.current?.release();
+    try {
+      if (engineRef.current) {
+        try { engineRef.current.unregisterEventHandler(); } catch {}
+        try { engineRef.current.leaveChannel(); } catch {}
+        try { engineRef.current.release(); } catch {}
+        engineRef.current = null;
+      }
+    } catch {}
+    let ts = dur;
     if (callRef.current?.id) {
-      try { await endCall(callRef.current.id, callRef.current._secs || 0); } catch {}
+      try {
+        const res = await endCall(callRef.current.id, callRef.current._secs || 0);
+        if (res?.formattedDuration) {
+          ts = res.formattedDuration;
+          getSocket()?.emit('call:ended', { otherUserId, duration: res.duration, formattedDuration: res.formattedDuration, callType: 'audio' });
+        }
+      } catch {}
     }
-    const s = callRef.current?._secs || 0;
-    const ts = dur || `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
-    (onHangup || onBack)(ts);
+    if (!ts) {
+      const s = callRef.current?._secs || 0;
+      ts = `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+      getSocket()?.emit('call:ended', { otherUserId, duration: s, formattedDuration: ts, callType: 'audio' });
+    }
+    if (typeof onHangup === 'function') onHangup(ts);
+    else if (typeof onBack === 'function') onBack(ts);
   };
 
   useEffect(() => {
@@ -86,19 +101,36 @@ export default function AudioCallScreen({ onBack, onHangup, callerUser, incoming
         socket.on('call:accepted', () => startTimer());
       }
       // Both sides: when other person ends call → auto cleanup
-      socket.on('call:ended', () => cleanupCall());
+      socket.on('call:ended', (data) => cleanupCall(data?.formattedDuration));
     }
 
     return () => {
-      engineRef.current?.leaveChannel();
-      engineRef.current?.release();
       clearInterval(callRef.current?._timer);
+      try {
+        if (engineRef.current) {
+          try { engineRef.current.unregisterEventHandler(); } catch {}
+          try { engineRef.current.leaveChannel(); } catch {}
+          try { engineRef.current.release(); } catch {}
+          engineRef.current = null;
+        }
+      } catch {}
       socket?.off('call:accepted');
       socket?.off('call:ended');
     };
   }, []);
 
   const startAgoraCall = async () => {
+    if (Platform.OS === 'android') {
+      const perms = [PermissionsAndroid.PERMISSIONS.RECORD_AUDIO];
+      if (Platform.Version >= 31 && PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT) {
+        perms.push(PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT);
+      }
+      try {
+        await PermissionsAndroid.requestMultiple(perms);
+      } catch (err) {
+        console.warn('Permission request error:', err);
+      }
+    }
     try {
       let token, channelName, appId;
 
@@ -127,16 +159,25 @@ export default function AudioCallScreen({ onBack, onHangup, callerUser, incoming
 
       const engine = createAgoraRtcEngine();
       engineRef.current = engine;
-      engine.registerEventHandler({
-        onJoinChannelSuccess: () => { if (incomingCallData) startTimer(); },
-        onUserJoined: () => { if (!incomingCallData) startTimer(); },
-        onError: (err) => console.warn('[Agora] error:', err),
+
+      engine.initialize({
+        appId,
+        channelProfile: ChannelProfileType.ChannelProfileCommunication,
       });
-      await engine.initialize({ appId });
-      engine.setChannelProfile(ChannelProfileType.ChannelProfileCommunication);
-      engine.enableAudio();
-      engine.setEnableSpeakerphone(true);
-      engine.setAudioProfile(1, 3);
+
+      engine.registerEventHandler({
+        onJoinChannelSuccess: () => {
+          try { engine.setEnableSpeakerphone(true); } catch {}
+          if (incomingCallData) startTimer();
+        },
+        onUserJoined: () => { if (!incomingCallData) startTimer(); },
+        onError: (err) => {
+          console.warn('[Agora] error:', err);
+        },
+      });
+
+      try { engine.enableAudio(); } catch {}
+      try { engine.setEnableSpeakerphone(true); } catch {}
 
       const uid = incomingCallData ? 2 : 1;
       await engine.joinChannel(token, channelName, uid, {
@@ -145,10 +186,22 @@ export default function AudioCallScreen({ onBack, onHangup, callerUser, incoming
         autoSubscribeAudio: true,
       });
 
+      if (incomingCallData) {
+        startTimer();
+      }
+
+      setTimeout(() => {
+        if (callRef.current && !callRef.current._started) {
+          Alert.alert('No Answer', 'Could not connect the call. Please try again.');
+          cleanupCall();
+        }
+      }, 60000);
+
     } catch (e) {
       console.warn('Agora error:', e.message);
       if (!callRef.current) callRef.current = { _secs: 0 };
       if (incomingCallData) startTimer();
+      else (onHangup || onBack)('00:00');
     }
   };
 
@@ -165,16 +218,7 @@ export default function AudioCallScreen({ onBack, onHangup, callerUser, incoming
   };
 
   const handleHangupPress = async () => {
-    // Tell other person call ended
-    getSocket()?.emit('call:ended', { otherUserId });
     cleanupCall();
-  };
-
-  const handleSendGift = (gift) => {
-    dispatch(redeemGift({ id: gift.id, action: 'gift' }));
-    setSentGift(gift);
-    setShowGiftPanel(false);
-    setTimeout(() => setSentGift(null), 3000);
   };
 
   return (
@@ -189,11 +233,11 @@ export default function AudioCallScreen({ onBack, onHangup, callerUser, incoming
 
       {/* Top bar */}
       <View style={[styles.topBar, { paddingTop: insets.top + 10 }]}>
-        <TouchableOpacity onPress={onBack} style={styles.topBtn}>
+        <TouchableOpacity onPress={handleHangupPress} style={styles.topBtn}>
           <Icon name="arrow-left" size={22} color="rgba(255,255,255,0.7)" />
         </TouchableOpacity>
         <View style={styles.topCenter}>
-          <Text style={styles.callerName}>{callerUser?.name || incomingCallData?.callerName || 'Ishani'}</Text>
+          <Text style={styles.callerName}>{callerUser?.name || incomingCallData?.callerName || 'User'}</Text>
           <Text style={styles.timer}>{callStatus === 'Connected' ? timeStr : callStatus}</Text>
         </View>
         <TouchableOpacity style={styles.topBtn}>
@@ -218,12 +262,6 @@ export default function AudioCallScreen({ onBack, onHangup, callerUser, incoming
           )}
         </View>
 
-        {/* Gift toast */}
-        {sentGift && (
-          <View style={styles.giftToast}>
-            <Text style={styles.giftToastText}>{sentGift.emoji} {sentGift.label} sent!</Text>
-          </View>
-        )}
       </View>
 
       {/* Controls */}
@@ -244,22 +282,6 @@ export default function AudioCallScreen({ onBack, onHangup, callerUser, incoming
             activeColor={Colors.primary}
           />
           <CtrlBtn icon="keypad" label="Keypad" />
-          <TouchableOpacity style={styles.ctrlItem} onPress={() => setShowGiftPanel(true)}>
-            <View style={styles.giftBtn}>
-              <LinearGradient
-                colors={['#FF3870', '#C0004A']}
-                start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                style={StyleSheet.absoluteFill}
-              />
-              <Text style={{ fontSize: 22 }}>🎁</Text>
-              {gifts.length > 0 && (
-                <View style={styles.giftBadge}>
-                  <Text style={styles.giftBadgeText}>{gifts.length}</Text>
-                </View>
-              )}
-            </View>
-            <Text style={styles.ctrlLabel}>Gift</Text>
-          </TouchableOpacity>
         </View>
 
         {/* Hangup */}
@@ -268,35 +290,6 @@ export default function AudioCallScreen({ onBack, onHangup, callerUser, incoming
         </TouchableOpacity>
       </View>
 
-      {/* Gift Panel */}
-      <Modal visible={showGiftPanel} transparent animationType="slide">
-        <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setShowGiftPanel(false)} />
-        <View style={[styles.giftPanel, { paddingBottom: insets.bottom + 16 }]}>
-          <View style={styles.panelHandle} />
-          <Text style={styles.panelTitle}>Send a Gift 🎁</Text>
-          <Text style={styles.panelSub}>{callerUser?.name || 'Ishani'} can redeem it for real money</Text>
-          {gifts.length === 0 ? (
-            <View style={styles.noGifts}>
-              <Text style={{ fontSize: 36 }}>🎰</Text>
-              <Text style={styles.noGiftsText}>No gifts yet</Text>
-              <Text style={styles.noGiftsSub}>Spin the Fortune Wheel to win!</Text>
-            </View>
-          ) : (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.giftScroll}>
-              {gifts.map((g) => (
-                <TouchableOpacity key={g.id} style={styles.giftItem} onPress={() => handleSendGift(g)} activeOpacity={0.8}>
-                  <View style={styles.giftItemCircle}>
-                    <LinearGradient colors={Gradients.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
-                    <Text style={{ fontSize: 28 }}>{g.emoji}</Text>
-                  </View>
-                  <Text style={styles.giftItemLabel}>{g.label}</Text>
-                  <Text style={styles.giftItemWorth}>₹{g.value}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          )}
-        </View>
-      </Modal>
     </View>
   );
 }
@@ -347,13 +340,6 @@ const styles = StyleSheet.create({
   },
   avatar: { width: '100%', height: '100%' },
 
-  giftToast: {
-    marginTop: 32,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20,
-  },
-  giftToastText: { color: '#fff', fontSize: 14, fontWeight: '700' },
-
   controls: { paddingHorizontal: 20, paddingTop: 16 },
 
   secRow: {
@@ -368,18 +354,6 @@ const styles = StyleSheet.create({
   },
   ctrlLabel: { fontSize: 12, color: 'rgba(255,255,255,0.55)', fontWeight: '600' },
 
-  giftBtn: {
-    width: 58, height: 58, borderRadius: 29,
-    overflow: 'hidden',
-    alignItems: 'center', justifyContent: 'center', marginBottom: 8,
-  },
-  giftBadge: {
-    position: 'absolute', top: 2, right: 2,
-    backgroundColor: '#fff', width: 17, height: 17,
-    borderRadius: 9, alignItems: 'center', justifyContent: 'center',
-  },
-  giftBadgeText: { fontSize: 9, fontWeight: '900', color: Colors.secondary },
-
   hangup: {
     width: 64, height: 64, borderRadius: 32,
     backgroundColor: '#FF3B30',
@@ -389,23 +363,4 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.5, shadowRadius: 16, elevation: 10,
   },
 
-  overlay: { flex: 1 },
-  giftPanel: {
-    backgroundColor: '#fff', borderTopLeftRadius: 32, borderTopRightRadius: 32,
-    paddingHorizontal: 20, paddingTop: 16, minHeight: 280,
-  },
-  panelHandle: { width: 40, height: 4, backgroundColor: '#E2E8F0', borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
-  panelTitle: { fontSize: 20, fontWeight: '900', color: '#1e293b', textAlign: 'center' },
-  panelSub: { fontSize: 13, color: '#94a3b8', textAlign: 'center', marginTop: 4, marginBottom: 24 },
-  noGifts: { alignItems: 'center', paddingVertical: 32, gap: 8 },
-  noGiftsText: { fontSize: 16, fontWeight: '700', color: '#1e293b' },
-  noGiftsSub: { fontSize: 13, color: '#94a3b8' },
-  giftScroll: { paddingBottom: 8, gap: 14, paddingHorizontal: 4 },
-  giftItem: { alignItems: 'center', width: 80 },
-  giftItemCircle: {
-    width: 64, height: 64, borderRadius: 32,
-    overflow: 'hidden', alignItems: 'center', justifyContent: 'center', marginBottom: 8,
-  },
-  giftItemLabel: { fontSize: 12, fontWeight: '700', color: '#1e293b' },
-  giftItemWorth: { fontSize: 11, fontWeight: '600', color: Colors.secondary },
 });

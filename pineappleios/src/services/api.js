@@ -48,10 +48,10 @@ const put  = (path, body)  => request('PUT',    path, body);
 const del  = (path)        => request('DELETE', path);
 
 // ── Auth ─────────────────────────────────────────────────────────────────────
-export const sendOtp = (phone) => post('/auth/send-otp', { phone });
+export const sendOtp = (phone, gender = 'boy') => post('/auth/send-otp', { phone, gender, appType: gender });
 
-export const verifyOtp = async (phone, otp, gender) => {
-  const data = await post('/auth/verify-otp', { phone, otp, gender });
+export const verifyOtp = async (phone, otp, gender = 'boy') => {
+  const data = await post('/auth/verify-otp', { phone, otp, gender, appType: gender });
   await AsyncStorage.setItem('auth_token', data.token);
   return data;
 };
@@ -92,11 +92,13 @@ export const uploadAvatar = async (fileUri) => {
 export const getLiveUsers = () => get('/users/live');
 export const getTopGirls  = () => get('/users/top');
 
+export const getRandomUser = () => get('/users/random');
+
 export const setOffline = () => put('/users/me/offline');
 
 // ── Calls ────────────────────────────────────────────────────────────────────
-export const initiateCall = (receiverId, type = 'audio') =>
-  post('/calls/initiate', { receiverId, type });
+export const initiateCall = (receiverId, type = 'audio', freeTrialCall = false) =>
+  post('/calls/initiate', { receiverId, type, freeTrialCall });
 
 export const getReceiverToken = (callId) => get(`/calls/${callId}/receiver-token`);
 

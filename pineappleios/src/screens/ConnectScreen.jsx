@@ -847,20 +847,6 @@ export default function ConnectScreen({ onVideoCall, onAudioCall, onDrawer, onBu
 /* ─── Bubble styles ─── */
 const bStyles = StyleSheet.create({
   wrap: { position: 'absolute' },
-  touchWrap: { alignItems: 'center', width: 80 },
-  dot: {
-    position: 'absolute', top: 4, right: 6,
-    width: 12, height: 12, borderRadius: 6,
-    backgroundColor: '#22C55E', borderWidth: 2, borderColor: '#fff', zIndex: 5,
-  },
-  circle: {
-    overflow: 'hidden', backgroundColor: '#C0004A',
-    borderWidth: 2, borderColor: 'rgba(255,255,255,0.5)',
-  },
-  glowRing: {
-/* ─── Bubble styles ─── */
-const bStyles = StyleSheet.create({
-  wrap: { position: 'absolute' },
   touchWrap: { alignItems: 'center', width: 84 },
   dot: {
     position: 'absolute', top: 3, right: 8,

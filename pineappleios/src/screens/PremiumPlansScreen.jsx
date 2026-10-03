@@ -23,8 +23,8 @@ const INTRO_PLAN = {
   emoji: '🎁',
   badge: '🎁 ONE-TIME ONLY',
   cta: 'Buy Now',
-  colors: ['#f0c6da', '#FF2E7E'],
-  badgeColors: ['#f381b8', '#FF2E7E'],
+  colors: ['#FFB6D9', '#FF2E7E'],
+  badgeColors: ['#FFB6D9', '#FF2E7E'],
   features: ['15 Coins (15 audio or 7.5 video mins)', 'One-time only for new users', 'Try voice & video calls'],
 };
 
@@ -38,7 +38,7 @@ const PLANS = [
     mins: 120,
     emoji: '📞',
     cta: 'Buy Now',
-    colors: ['#a24172', '#7707a3'],
+    colors: ['#FF2E7E', '#E91E63'],
     features: ['120 Coins (2 hrs Audio / 1 hr Video)', 'Instant voice & video calling', 'Standard profile'],
   },
   {
@@ -51,8 +51,8 @@ const PLANS = [
     emoji: '⚡',
     badge: '⭐ MOST POPULAR',
     cta: 'Upgrade Now',
-    colors: ['#c25479', '#360848'],
-    badgeColors: ['#dc7eb6', '#e91ed1'],
+    colors: ['#E91E63', '#B0005A'],
+    badgeColors: ['#FF2E7E', '#E91E63'],
     features: ['240 Coins (4 hrs Audio / 2 hrs Video)', 'Verified badge', 'Priority matching', 'Voice & video calls'],
   },
   {
@@ -68,7 +68,7 @@ const PLANS = [
     colors: ['#FFD700', '#FFA500'],
     badgeColors: ['#FFD700', '#FFA500'],
     isGold: true,
-    features: ['700 Coins (11.6 hrs Audio / 5.8 hrs Video)', 'Fortune Wheel Unlocked (1 Spin)', 'Premium VIP crown badge', 'Win gifts up to ₹10,000', 'Top priority matching'],
+    features: ['700 Coins (11.6 hrs Audio / 5.8 hrs Video)', 'Fortune Wheel Unlocked (1 Spin)', 'Premium VIP crown badge', 'Win gifts up to ₹10,000', 'Top priority matching', 'VIP support'],
   },
 ];
 
@@ -85,7 +85,7 @@ export default function PremiumPlansScreen({ onBack }) {
   const insets = useSafeAreaInsets();
   const dispatch = useDispatch();
   const user = useSelector((s) => s.user);
-  const showIntro = !user?.intro_9_used;
+  const showIntro = !user?.intro_9_used && !user?.intro9Used;
   const allPlans = showIntro ? [INTRO_PLAN, ...PLANS] : PLANS;
   const [selected, setSelected] = useState(showIntro ? 'intro' : 'premium');
   const [paying, setPaying] = useState(false);
@@ -132,7 +132,7 @@ export default function PremiumPlansScreen({ onBack }) {
         name: 'Pineapple',
         image: order.logoUrl || '',
         prefill: { contact: '', email: '' },
-        theme: { color: '#FF2E7E', backdrop_color: '#53415c' },
+        theme: { color: '#FF2E7E', backdrop_color: '#0D0014' },
       };
       const data = await RazorpayCheckout.open(options);
       const result = await verifyPayment({
@@ -142,7 +142,16 @@ export default function PremiumPlansScreen({ onBack }) {
         packageId: plan.packId,
       });
       dispatch(addCoins(result.minsAdded));
-      dispatch(setProfile({ isPremium: result.isPremium, planId: result.planId, hasSpun: result.spinReset ? false : undefined }));
+      dispatch(setProfile({
+        isPremium: result.isPremium,
+        planId: result.planId,
+        intro9Used: result.intro9Used ?? (plan.packId === 'pack_9' ? true : undefined),
+        intro_9_used: result.intro_9_used ?? (plan.packId === 'pack_9' ? true : undefined),
+        hasSpun: result.spinReset ? false : undefined,
+      }));
+      if (plan.packId === 'pack_9') {
+        setSelected('premium');
+      }
       setSuccessMsg(`${plan.name} activated! ${result.minsAdded} mins added.`);
     } catch (err) {
       if (err?.code !== 0) { /* cancelled */ }
@@ -156,7 +165,7 @@ export default function PremiumPlansScreen({ onBack }) {
       <StatusBar barStyle="light-content" backgroundColor="#0D0014" />
 
       <LinearGradient
-        colors={['#691439', '#280013', '#000000']}
+        colors={['#0D0014', '#1A0028', '#0A000F']}
         style={StyleSheet.absoluteFill}
       />
 
@@ -179,7 +188,11 @@ export default function PremiumPlansScreen({ onBack }) {
         <Text style={styles.heroTitle}>Go Premium</Text>
         <Text style={styles.heroSub}>Unlock the full Pineapple experience</Text>
         <View style={styles.benefitsList}>
-          
+          <BenefitRow icon="⚡" text="Unlimited matches & instant minutes" />
+          <BenefitRow icon="🎥" text="Voice & video calls with girls" />
+          <BenefitRow icon="💬" text="Unlimited chat, no limits" />
+          <BenefitRow icon="🎡" text="Fortune Wheel Unlocked (1 Spin)" />
+          <BenefitRow icon="👑" text="Gold badge & priority profile" />
         </View>
       </View>
 
@@ -230,7 +243,7 @@ export default function PremiumPlansScreen({ onBack }) {
                       <Text style={styles.planEmoji}>{plan.emoji}</Text>
                       <View>
                         <Text style={[styles.planName, isGold && styles.planNameGold]}>{plan.name}</Text>
-                        <Text style={styles.planMins}>{plan.mins} Minutes</Text>
+                        <Text style={styles.planMins}>{plan.mins} Coins</Text>
                       </View>
                     </View>
                     <View style={styles.cardRight}>
@@ -315,7 +328,7 @@ const styles = StyleSheet.create({
   glowBlob: {
     position: 'absolute', top: -60, left: width / 2 - 150,
     width: 300, height: 300, borderRadius: 150,
-    backgroundColor: 'rgba(255, 46, 126, 0.9)',
+    backgroundColor: 'rgba(255,46,126,0.18)',
     shadowColor: '#FF2E7E', shadowRadius: 80, shadowOpacity: 1,
   },
 
@@ -371,7 +384,7 @@ const styles = StyleSheet.create({
   bestBadge: {
     alignSelf: 'flex-start',
     borderRadius: 999,
-    paddingHorizontal: 14, paddingVertical: 7,height: 40,width: 170,
+    paddingHorizontal: 14, paddingVertical: 7,
   },
   bestBadgeText: { fontSize: 12, fontWeight: '900', color: '#fff', letterSpacing: 0.4 },
   selectedChip: {
