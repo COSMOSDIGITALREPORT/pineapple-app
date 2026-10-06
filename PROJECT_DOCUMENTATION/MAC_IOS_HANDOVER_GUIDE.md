@@ -1,7 +1,7 @@
 # 🍍 Pineapple App — Project Handover & iOS Development Guide
 
 > **Target Audience:** Mac Agent / iOS Developer taking over the project on macOS.  
-> **Last Updated:** October 2, 2026  
+> **Last Updated:** October 6, 2026  
 > **Git Repository:** `https://github.com/COSMOSDIGITALREPORT/pineapple-app.git`  
 > **Active Branch:** `main`
 
@@ -15,10 +15,10 @@ The Pineapple platform consists of **4 Mobile Apps**, a unified **Node.js/Expres
 | :--- | :--- | :--- | :--- |
 | **Backend API + Sockets** | Node.js, Express, Socket.io, TiDB (MySQL) | `backend/` | Live on Render |
 | **Admin Panel** | React, Tailwind, Lucide (served statically) | `backend/admin/` | Live on Render (`/admin`) |
-| **Boys App (Android)** | React Native, Agora RTC, Razorpay | `pineappleandroidboys/` | ✅ Complete (APK ready) |
-| **Girls App (Android)** | React Native, Agora RTC, UPI Withdrawals | `pineappleandroidgirls/` | ✅ Complete (APK ready) |
-| **Boys App (iOS)** | React Native, CocoaPods, Agora RTC iOS | `pineappleios/` | ⏳ Pending Mac Build |
-| **Girls App (iOS)** | React Native, CocoaPods, Agora RTC iOS | `pineapplegirlsios/` | ⏳ Pending Mac Build |
+| **Boys App (Android)** | React Native, Agora RTC, Razorpay | `pineappleandroidboys/` | ✅ Complete (APK ready: Oct 6, 2026) |
+| **Girls App (Android)** | React Native, Agora RTC, UPI Withdrawals | `pineappleandroidgirls/` | ✅ Complete (APK ready: Oct 6, 2026) |
+| **Boys App (iOS)** | React Native, CocoaPods, Agora RTC iOS | `pineappleios/` | ⏳ Ready for Mac Archive / TestFlight |
+| **Girls App (iOS)** | React Native, CocoaPods, Agora RTC iOS | `pineapplegirlsios/` | ⏳ Ready for Mac Archive / TestFlight |
 
 ---
 
@@ -57,41 +57,57 @@ Stored in `backend/.env`:
 
 ---
 
-## 3. 📱 Work Completed on Android & Admin Dashboard
+## 3. 📱 Work Completed & Verified (Android & Backend)
+
+### 🔒 Cross-Gender Authentication Isolation (Tested & Verified on Oct 6, 2026)
+Both Android and iOS apps now enforce strict cross-gender login isolation:
+- **Boys App (`pineappleandroidboys` & `pineappleios`):**
+  - Sends `gender: 'boy', appType: 'boy'` during `sendOtp` (Step 1) and `verifyOtp` (Step 2).
+  - If a Female Host attempts to log in using the Boys App, the backend immediately blocks the request at Step 1 with:
+    > *"This mobile number is registered as a Female Host on Pineapple Girls. Please use the Pineapple Girls app to login."*
+- **Girls App (`pineappleandroidgirls` & `pineapplegirlsios`):**
+  - Sends `gender: 'girl', appType: 'girl'` during `sendOtp` (Step 1) and `verifyOtp` (Step 2).
+  - If a Male User attempts to log in using the Girls App, the backend immediately blocks the request at Step 1 with:
+    > *"This mobile number is registered as a Male User on Pineapple Boys. Please use the Pineapple Boys app to login."*
+- **Live Verification Status:** Tested against live TiDB database and Render production backend; returns HTTP 400 with user-friendly error banners on both applications.
 
 ### A. Boys App (`pineappleandroidboys`)
-1. **Connect Screen & Floating Bubbles:**
+1. **Cross-Gender Protection:** Blocks female hosts at phone submission with redirect instructions.
+2. **Language Picker Modal:** Structured multi-language selector integrated in `EditProfileScreen`.
+3. **Connect Screen & Floating Bubbles:**
    - Fixed profile duplication (each girl profile appears only once at any given time).
    - Compacted call-picker popup so host avatar, block, and report buttons are never cut off.
    - Limited reviews display to top 2 recent reviews + "+N more reviews" expandable pill.
    - Glassmorphic card styling, gradient buttons, and premium typography.
-2. **Fortune Wheel (formerly Lucky Spin):**
+4. **Fortune Wheel (formerly Lucky Spin):**
    - Renamed all occurrences to **"Fortune Wheel"**.
    - Enforced rule: **1 spin per premium plan recharge**.
    - Tapping locked wheel directly routes to **Top-Up / Premium Plans**.
    - Updated perfume prize emoji to perfume bottle (`🧴`).
    - Removed "Send Gift" action from wallet drawer.
-3. **Premium Status Auto-Expiry:**
+5. **Premium Status Auto-Expiry:**
    - Once the 500 bonus premium coins are exhausted, backend automatically revokes boy's `is_premium` status.
-4. **Android APK Output:**
-   - Built with Java 21 JBR.
-   - Location: `APKS/pineapple_boys_app.apk`.
+6. **Fresh Android Release APK Built:**
+   - Timestamp: **October 6, 2026, 13:29**
+   - Location: `APKS/pineapple_boys_app.apk`
 
 ### B. Girls App (`pineappleandroidgirls`)
-1. **New Dedicated Transactions Screen (`GirlsTransactionsScreen.jsx`):**
+1. **Cross-Gender Protection:** Blocks male users at phone submission with redirect instructions.
+2. **Language Picker Modal:** Structured multi-language selector integrated in `EditProfileScreen`.
+3. **Dedicated Transactions Screen (`GirlsTransactionsScreen.jsx`):**
    - Drawer menu **"Transactions"** (and Earnings card) opens a unified financial ledger.
    - **📞 Call Earnings:** Duration, caller name, call type (voice/video), coins credited, INR earnings.
    - **🎁 Gift Earnings:** Gifts received with emojis (`🌹`, `🍫`, `🍰`, `🍍`, `❤️`, `🧴`, `👑`), sender name, coins, INR amount.
    - **💸 Withdrawal History:** Requested amount, UPI ID, fee breakdown, timestamp, status (`Pending`, `Approved`, `Rejected`).
    - **Hero Card:** Real-time Available Balance (₹ and 🪙), Total Earned, Total Withdrawn, direct **Redeem** button.
    - **Filter Pills:** *All*, *📞 Calls*, *🎁 Gifts*, *💸 Withdrawals*.
-2. **Withdrawal Balance Deduction Fix:**
+4. **Withdrawal Balance Deduction Fix:**
    - Pending and approved withdrawals are immediately subtracted from available balance.
-3. **Caller Reviews in Earnings:**
+5. **Caller Reviews in Earnings:**
    - Caller feedback and star ratings visible directly inside host earnings.
-4. **Android APK Output:**
-   - Built with Java 21 JBR.
-   - Location: `APKS/pineapple_girls_app.apk`.
+6. **Fresh Android Release APK Built:**
+   - Timestamp: **October 6, 2026, 13:26**
+   - Location: `APKS/pineapple_girls_app.apk`
 
 ### C. Admin Dashboard (`backend/admin/`)
 1. **Economics & Ledger Cards:**
