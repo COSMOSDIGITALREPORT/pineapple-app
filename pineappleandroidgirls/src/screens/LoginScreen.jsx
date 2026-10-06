@@ -74,7 +74,7 @@ export default function LoginScreen({ onLoginSuccess }) {
         const data = await verifyOtp(phone.trim(), otpCode, 'girl');
         await completeLogin(data);
       } catch (e) {
-        setError('Invalid or expired OTP. Try again.');
+        setError(e?.message || 'Invalid or expired OTP. Try again.');
       } finally {
         setLoading(false);
       }
