@@ -1,0 +1,47 @@
+# ==============================================================================
+# Pineapple App — cPanel Root Configuration (.htaccess)
+# Zero-Terminal, Zero-Config Apache & PHP Routing
+# ==============================================================================
+
+Options -Indexes
+RewriteEngine On
+
+# ── 1. Global CORS Headers (Allows mobile apps & admin panel to connect) ───────
+<IfModule mod_headers.c>
+    Header set Access-Control-Allow-Origin "*"
+    Header set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+    Header set Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With, ngrok-skip-browser-warning"
+    Header set Access-Control-Allow-Credentials "true"
+</IfModule>
+
+# Handle HTTP OPTIONS preflight requests
+RewriteCond %{REQUEST_METHOD} OPTIONS
+RewriteRule ^(.*)$ - [R=204,L]
+
+# ── 2. Security: Strictly block direct access to database & config files ──────
+<FilesMatch "(^\.|\.sqlite$|\.db$|config\.php$|\.env$|\.log$)">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order deny,allow
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# ── 3. Route Uploads ──────────────────────────────────────────────────────────
+RewriteRule ^uploads/(.*)$ uploads/$1 [L]
+
+# ── 4. Route API Endpoints to Modular PHP Router ──────────────────────────────
+# Matches: /api/* -> api/index.php?route=*
+RewriteRule ^api/(.*)$ api/index.php?route=$1 [QSA,L]
+
+# Matches: /admin/login, /admin/users, /admin/stats, etc. to api/index.php
+RewriteCond %{REQUEST_URI} ^/admin/(login|users|hosts|withdrawals|reports|reviews|calls|support|stats|settings|reconcile|economics) [NC]
+RewriteRule ^admin/(.*)$ api/index.php?route=admin/$1 [QSA,L]
+
+# ── 5. Client-Side SPA / Admin Dashboard Routing ──────────────────────────────
+# If not an existing file or directory, forward to index.html
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.html [L]
