@@ -36,8 +36,8 @@ RewriteRule ^uploads/(.*)$ uploads/$1 [L]
 # Matches: /api/* -> api/index.php?route=*
 RewriteRule ^api/(.*)$ api/index.php?route=$1 [QSA,L]
 
-# Matches: /admin/login, /admin/users, /admin/stats, etc. to api/index.php
-RewriteCond %{REQUEST_URI} ^/admin/(login|users|hosts|withdrawals|reports|reviews|calls|support|stats|settings|reconcile|economics) [NC]
+# Matches: /admin/login, /admin/send-otp, etc. to api/index.php
+RewriteCond %{REQUEST_URI} ^/admin/(login|send-otp|verify-otp|reset-password|financials|users|hosts|withdrawals|reports|reviews|calls|support|stats|settings|reconcile|economics) [NC]
 RewriteRule ^admin/(.*)$ api/index.php?route=admin/$1 [QSA,L]
 
 # ── 5. Client-Side SPA / Admin Dashboard Routing ──────────────────────────────
