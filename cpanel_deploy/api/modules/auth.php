@@ -155,9 +155,37 @@ function handleAuthRoute(string $subRoute, string $method, array $body, ?array $
             $userData = $stmt->fetch();
         } else {
             $userId = uniqid('u_', true);
-            $initialCoins = ($gender === 'girl') ? 0.0 : 500.0;
+
+            // Dynamic Welcome Coins Check (configured in Admin Panel)
+            $isBoy = in_array(strtolower($gender), ['boy', 'male', 'm']);
+            $initialCoins = 0.0;
+            if ($isBoy) {
+                try {
+                    $setStmt = $db->prepare("SELECT value FROM admin_settings WHERE key = 'new_user_free_coins_enabled'");
+                    $setStmt->execute();
+                    $isEnabled = ($setStmt->fetchColumn() === '1');
+
+                    if ($isEnabled) {
+                        $amtStmt = $db->prepare("SELECT value FROM admin_settings WHERE key = 'new_user_free_coins_amount'");
+                        $amtStmt->execute();
+                        $amtVal = $amtStmt->fetchColumn();
+                        $initialCoins = ($amtVal !== false && $amtVal !== null && is_numeric($amtVal)) ? max(0.0, (float)$amtVal) : 100.0;
+                    }
+                } catch (\Throwable $e) {
+                    $initialCoins = 0.0;
+                }
+            }
+
             $insert = $db->prepare('INSERT INTO users (id, phone, gender, dob, coins, minutes, is_online, is_verified) VALUES (?, ?, ?, ?, ?, ?, 1, 1)');
             $insert->execute([$userId, $phone, $gender, $dob ?: null, $initialCoins, $initialCoins]);
+
+            // If welcome coins granted, create transaction record for Boys App and Admin Panel ledger
+            if ($initialCoins > 0) {
+                $txnId = uniqid('tx_', true);
+                $txnNote = "Welcome bonus: " . (int)$initialCoins . " free trial coins";
+                $db->prepare('INSERT INTO wallet_transactions (id, user_id, type, amount, note, created_at) VALUES (?, ?, "free_trial", ?, ?, datetime("now"))')
+                   ->execute([$txnId, $userId, $initialCoins, $txnNote]);
+            }
             
             $stmt = $db->prepare('SELECT * FROM users WHERE id = ?');
             $stmt->execute([$userId]);

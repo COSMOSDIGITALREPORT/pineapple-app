@@ -944,6 +944,45 @@ td b{color:var(--text);font-weight:600;}
         </div>
       </div>
 
+      <!-- Free Welcome Coins Configuration Banner -->
+      <div class="welcome-coins-card" style="background:#fff;border:1.5px solid #e2e8f0;border-radius:18px;padding:16px 20px;margin-bottom:18px;box-shadow:0 2px 10px rgba(0,0,0,0.02);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;">
+        <div style="display:flex;align-items:center;gap:14px;max-width:550px;">
+          <div style="width:44px;height:44px;border-radius:12px;background:#FFF0F4;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;">
+            🎁
+          </div>
+          <div>
+            <div style="font-size:14.5px;font-weight:800;color:#1e293b;display:flex;align-items:center;gap:8px;">
+              Free Welcome Coins for New Users
+              <span id="welcome-coins-badge" style="font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px;background:#fee2e2;color:#ef4444;border:1px solid #fca5a5;">
+                ● Disabled (0 Coins)
+              </span>
+            </div>
+            <div style="font-size:12px;color:#64748b;margin-top:2px;">
+              Give new boy registrations free calling coins on signup. Every grant creates an official trial transaction in both the Boys App &amp; Admin Ledger.
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+          <!-- Amount Input -->
+          <div style="display:flex;align-items:center;gap:6px;background:#f8fafc;border:1.5px solid #cbd5e1;padding:6px 12px;border-radius:12px;">
+            <span style="font-size:12px;font-weight:700;color:#475569;">🪙 Coins:</span>
+            <input type="number" id="welcome-coins-amount" min="0" step="10" placeholder="100" style="width:80px;padding:4px 6px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;font-weight:800;color:#1e293b;text-align:center;background:#fff;outline:none;" />
+          </div>
+
+          <!-- Toggle Switch -->
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:0;user-select:none;">
+            <input type="checkbox" id="welcome-coins-toggle" onchange="onWelcomeCoinsToggleChange()" style="width:20px;height:20px;cursor:pointer;accent-color:#16a34a;" />
+            <span id="welcome-coins-toggle-text" style="font-size:13px;font-weight:700;color:#334155;">Toggle ON</span>
+          </label>
+
+          <!-- Save Button -->
+          <button class="btn btn-green" id="btn-save-welcome-coins" onclick="saveWelcomeCoins()" style="padding:9px 18px;font-weight:700;font-size:13px;border-radius:12px;box-shadow:0 2px 8px rgba(22,163,74,0.2);">
+            💾 Save Setting
+          </button>
+        </div>
+      </div>
+
       <!-- Filter Tabs -->
       <div class="filter-tabs">
         <button class="ft-btn active" id="uf-all" onclick="setUserTab('all')">👥 All Users <span class="ft-pill" id="uc-all">0</span></button>
@@ -1929,7 +1968,77 @@ async function loadUsers(isAuto=false) {
     allUsers = await api('/admin/users');
     updateUserCountPills();
     filterUsers();
+    if (!isAuto) loadWelcomeCoinsSettings();
   } catch(e) { if (!isAuto) showToast(e.message, false); }
+}
+
+async function loadWelcomeCoinsSettings() {
+  try {
+    const res = await api('/admin/settings/welcome-coins');
+    const toggleEl = document.getElementById('welcome-coins-toggle');
+    const amountEl = document.getElementById('welcome-coins-amount');
+
+    if (toggleEl && amountEl) {
+      toggleEl.checked = !!res.enabled;
+      amountEl.value = res.amount ?? 100;
+      updateWelcomeCoinsUI(res.enabled, res.amount ?? 100);
+    }
+  } catch(e) {
+    console.warn('Could not load welcome coins settings:', e);
+  }
+}
+
+function updateWelcomeCoinsUI(enabled, amount) {
+  const badgeEl = document.getElementById('welcome-coins-badge');
+  const labelEl = document.getElementById('welcome-coins-toggle-text');
+  if (!badgeEl || !labelEl) return;
+
+  if (enabled) {
+    badgeEl.style.background = '#f0fdf4';
+    badgeEl.style.color = '#16a34a';
+    badgeEl.style.borderColor = '#86efac';
+    badgeEl.innerHTML = `● Active (${amount} Coins)`;
+    labelEl.textContent = 'Toggle ON';
+    labelEl.style.color = '#16a34a';
+  } else {
+    badgeEl.style.background = '#fee2e2';
+    badgeEl.style.color = '#ef4444';
+    badgeEl.style.borderColor = '#fca5a5';
+    badgeEl.innerHTML = '● Disabled (0 Coins)';
+    labelEl.textContent = 'Toggle OFF';
+    labelEl.style.color = '#64748b';
+  }
+}
+
+function onWelcomeCoinsToggleChange() {
+  const isChecked = document.getElementById('welcome-coins-toggle')?.checked;
+  const amount = parseFloat(document.getElementById('welcome-coins-amount')?.value || '100');
+  updateWelcomeCoinsUI(isChecked, amount);
+}
+
+async function saveWelcomeCoins() {
+  const btn = document.getElementById('btn-save-welcome-coins');
+  const isChecked = document.getElementById('welcome-coins-toggle')?.checked;
+  const amount = parseFloat(document.getElementById('welcome-coins-amount')?.value || '0');
+
+  if (amount < 0 || isNaN(amount)) {
+    showToast('Please enter a valid coin amount (>= 0)', false);
+    return;
+  }
+
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
+  try {
+    const res = await api('/admin/settings/welcome-coins', {
+      method: 'POST',
+      body: JSON.stringify({ enabled: isChecked, amount: amount })
+    });
+    updateWelcomeCoinsUI(res.enabled, res.amount);
+    showToast(`✓ Welcome coins ${res.enabled ? `enabled with ${res.amount} free coins!` : 'disabled (0 coins on signup).'}`);
+  } catch (e) {
+    showToast('Failed to save welcome coins: ' + e.message, false);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '💾 Save Setting'; }
+  }
 }
 
 function updateUserCountPills() {

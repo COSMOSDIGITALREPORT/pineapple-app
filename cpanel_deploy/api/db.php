@@ -53,8 +53,8 @@ class Database {
             language TEXT DEFAULT 'Hindi',
             bio TEXT,
             avatar_url TEXT,
-            coins REAL DEFAULT 500.0,
-            minutes REAL DEFAULT 500.0,
+            coins REAL DEFAULT 0.0,
+            minutes REAL DEFAULT 0.0,
             is_premium INTEGER DEFAULT 0,
             is_verified INTEGER DEFAULT 1,
             is_online INTEGER DEFAULT 0,
@@ -194,7 +194,9 @@ class Database {
         );
         INSERT OR IGNORE INTO admin_settings (key, value) VALUES 
             ('admin_password', 'Pineapple@2024'),
-            ('admin_phone', '7020768849');
+            ('admin_phone', '7020768849'),
+            ('new_user_free_coins_enabled', '0'),
+            ('new_user_free_coins_amount', '100');
 SQL;
 
         $pdo->exec($schema);

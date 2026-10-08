@@ -303,6 +303,33 @@ function handleAdminRoute(string $subRoute, string $method, array $body, ?array 
         jsonResponse($stmt->fetchAll());
     }
 
+    // ── GET /admin/settings/welcome-coins ─────────────────────────────────────
+    if ($subRoute === 'settings/welcome-coins' && $method === 'GET') {
+        $enabled = ($getSetting('new_user_free_coins_enabled', '0') === '1');
+        $amount  = (float)$getSetting('new_user_free_coins_amount', '100');
+        jsonResponse([
+            'enabled' => $enabled,
+            'amount'  => $amount
+        ]);
+    }
+
+    // ── POST /admin/settings/welcome-coins ────────────────────────────────────
+    if ($subRoute === 'settings/welcome-coins' && $method === 'POST') {
+        $enabled = !empty($body['enabled']) ? '1' : '0';
+        $amount  = isset($body['amount']) ? max(0.0, (float)$body['amount']) : 100.0;
+
+        $stmt = $db->prepare('INSERT INTO admin_settings (key, value, updated_at) VALUES (?, ?, datetime("now")) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at');
+        $stmt->execute(['new_user_free_coins_enabled', $enabled]);
+        $stmt->execute(['new_user_free_coins_amount', (string)$amount]);
+
+        jsonResponse([
+            'success' => true,
+            'enabled' => ($enabled === '1'),
+            'amount'  => $amount,
+            'message' => 'Welcome coins settings saved successfully!'
+        ]);
+    }
+
     // ── GET /admin/users/pending (Unverified Host Profiles) ────────────────────
     if ($subRoute === 'users/pending' && $method === 'GET') {
         $stmt = $db->query("SELECT * FROM users WHERE gender IN ('girl','female') AND is_verified = 0 ORDER BY created_at DESC");

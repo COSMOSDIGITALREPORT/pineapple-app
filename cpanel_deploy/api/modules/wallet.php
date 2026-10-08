@@ -33,6 +33,14 @@ function handleWalletRoute(string $subRoute, string $method, array $body, ?array
         ]);
     }
 
+    // ── GET /wallet/transactions (Transaction Ledger for App) ─────────────────
+    if ($subRoute === 'transactions' && $method === 'GET') {
+        $stmt = $db->prepare('SELECT * FROM wallet_transactions WHERE user_id = ? ORDER BY created_at DESC LIMIT 50');
+        $stmt->execute([$user['id']]);
+        $txns = $stmt->fetchAll();
+        jsonResponse($txns);
+    }
+
     // ── POST /wallet/send-gift ────────────────────────────────────────────────
     if ($subRoute === 'send-gift' && $method === 'POST') {
         $receiverId = trim($body['receiverId'] ?? '');
