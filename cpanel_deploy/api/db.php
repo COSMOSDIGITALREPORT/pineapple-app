@@ -81,8 +81,8 @@ class Database {
         -- 3. Calls table
         CREATE TABLE IF NOT EXISTS calls (
             id TEXT PRIMARY KEY,
-            caller_id TEXT NOT NULL,
-            receiver_id TEXT NOT NULL,
+            caller_id TEXT,
+            receiver_id TEXT,
             call_type TEXT DEFAULT 'audio',
             status TEXT DEFAULT 'initiated',
             started_at DATETIME,
