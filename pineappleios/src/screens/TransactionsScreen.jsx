@@ -15,7 +15,7 @@ import Icon from '../components/Icon';
 import { Colors, Gradients } from '../theme/colors';
 import { getTransactions, getWallet } from '../services/api';
 
-const FILTERS = ['All', 'Purchases', 'Spin Gifts', 'Sent Gifts'];
+const FILTERS = ['All', 'Purchases', 'Free Trial', 'Spin Gifts', 'Sent Gifts'];
 
 function formatDate(dateStr) {
   if (!dateStr) return '';
@@ -73,6 +73,7 @@ export default function TransactionsScreen({ onBack, onBuyCoins }) {
   const filteredTxns = transactions.filter((t) => {
     if (activeFilter === 'All') return true;
     if (activeFilter === 'Purchases') return t.type === 'purchase';
+    if (activeFilter === 'Free Trial') return t.type === 'free_trial' || t.type === 'admin_grant';
     if (activeFilter === 'Spin Gifts') return t.type === 'spin_gift' || t.type === 'earn';
     if (activeFilter === 'Sent Gifts') return t.type === 'spend';
     return true;
@@ -141,11 +142,12 @@ export default function TransactionsScreen({ onBack, onBuyCoins }) {
         ) : (
           filteredTxns.map((t) => {
             const isPurchase = t.type === 'purchase';
+            const isFreeTrial = t.type === 'free_trial' || t.type === 'admin_grant';
             const isSpin = t.type === 'spin_gift' || t.type === 'earn';
             const isSpend = t.type === 'spend';
 
-            const iconEmoji = isPurchase ? '🪙' : isSpin ? '🎰' : isSpend ? '🎁' : '💳';
-            const badgeBg = isPurchase ? '#ECFDF5' : isSpin ? '#FEF3C7' : '#FFF1F2';
+            const iconEmoji = isPurchase ? '🪙' : isFreeTrial ? '🎁' : isSpin ? '🎰' : isSpend ? '🎁' : '💳';
+            const badgeBg = isPurchase ? '#ECFDF5' : isFreeTrial ? '#EFF6FF' : isSpin ? '#FEF3C7' : '#FFF1F2';
             const amountPrefix = isSpend ? '-' : '+';
             const amountColor = isSpend ? '#E11D48' : '#059669';
 
@@ -158,14 +160,14 @@ export default function TransactionsScreen({ onBack, onBuyCoins }) {
                 <View style={styles.infoWrap}>
                   <View style={styles.titleRow}>
                     <Text style={styles.titleText} numberOfLines={1}>
-                      {isPurchase ? 'Coin Purchase' : isSpin ? 'Spin Reward' : isSpend ? 'Gift Sent' : 'Transaction'}
+                      {isPurchase ? 'Coin Purchase' : isFreeTrial ? 'Free Trial Coins' : isSpin ? 'Spin Reward' : isSpend ? 'Gift Sent' : 'Transaction'}
                     </Text>
                     <Text style={[styles.amountText, { color: amountColor }]}>
-                      {amountPrefix}{Math.abs(t.amount || 0)} {isPurchase || isSpend || isSpin ? 'Coins' : ''}
+                      {amountPrefix}{Math.abs(t.amount || 0)} {isPurchase || isSpend || isSpin || isFreeTrial ? 'Coins' : ''}
                     </Text>
                   </View>
 
-                  <Text style={styles.descText} numberOfLines={2}>{t.description || 'Wallet transaction'}</Text>
+                  <Text style={styles.descText} numberOfLines={2}>{t.description || t.note || 'Wallet transaction'}</Text>
                   <Text style={styles.dateText}>{formatDate(t.created_at)}</Text>
                 </View>
               </View>

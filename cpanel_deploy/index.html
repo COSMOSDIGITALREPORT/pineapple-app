@@ -1789,6 +1789,7 @@ function renderUsers(list) {
       <td style="color:#bbb;font-size:12px">${new Date(u.created_at).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})}</td>
       <td>
         <div class="actions">
+          ${!isGirl ? `<button class="btn btn-green btn-sm" style="font-weight:800;padding:5px 9px;font-size:11px;" onclick="openAddCoinsModal('${u.id}','${(u.name||'Boy').replace(/'/g,"\\'")}',${u.minutes||0})" title="Grant Free Trial Coins to this Boy">🎁 +Coins</button>` : ''}
           <button class="btn ${u.is_blocked?'btn-green':'btn-yellow'}" onclick="toggleBlock('${u.id}',${u.is_blocked?0:1})">${u.is_blocked?'Unblock':'Suspend'}</button>
           <button class="btn btn-red" onclick="delUser('${u.id}','${(u.name||'User').replace(/'/g,"\\'")}')">Delete</button>
         </div>
@@ -1797,15 +1798,72 @@ function renderUsers(list) {
   }).join('');
 }
 
-async function addCoins(id) {
-  const coins = parseInt(document.getElementById('ci-'+id)?.value);
-  if (!coins || coins < 1) { showToast('Enter valid coins amount', false); return; }
+function openAddCoinsModal(userId, userName, currentCoins) {
+  const modalHtml = `
+    <div class="modal-overlay" id="add-coins-modal" onclick="if(event.target===this) closeAddCoinsModal()">
+      <div class="modal-card" style="max-width:440px;">
+        <div class="modal-header">
+          <div style="font-size:17px;font-weight:800;color:#1E293B;display:flex;align-items:center;gap:8px;">
+            <span>🎁</span> Grant Free Trial Coins
+          </div>
+          <button class="modal-close-btn" onclick="closeAddCoinsModal()">✕</button>
+        </div>
+        <div class="modal-body" style="padding:22px;">
+          <div style="background:#EFF6FF;border:1px solid #DBEAFE;padding:12px 14px;border-radius:12px;margin-bottom:16px;">
+            <div style="font-size:13px;color:#1E40AF;font-weight:700;">Recipient: 👦 ${userName}</div>
+            <div style="font-size:12px;color:#3B82F6;margin-top:2px;">Current Balance: <b style="color:#FF3870;">🪙 ${currentCoins} coins</b></div>
+          </div>
+          
+          <label style="font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:.05em;">Quick Presets</label>
+          <div style="display:flex;gap:8px;margin:8px 0 16px;flex-wrap:wrap;">
+            <button type="button" class="btn btn-sm" style="background:#F1F5F9;color:#334155;font-weight:700;border:1px solid #E2E8F0;" onclick="document.getElementById('ac-amount').value=30">+30 (30m audio)</button>
+            <button type="button" class="btn btn-sm" style="background:#F1F5F9;color:#334155;font-weight:700;border:1px solid #E2E8F0;" onclick="document.getElementById('ac-amount').value=50">+50 coins</button>
+            <button type="button" class="btn btn-sm" style="background:#F1F5F9;color:#334155;font-weight:700;border:1px solid #E2E8F0;" onclick="document.getElementById('ac-amount').value=100">+100 coins</button>
+            <button type="button" class="btn btn-sm" style="background:#F1F5F9;color:#334155;font-weight:700;border:1px solid #E2E8F0;" onclick="document.getElementById('ac-amount').value=200">+200 coins</button>
+          </div>
+
+          <label style="font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:.05em;">Number of Coins to Add</label>
+          <input type="number" id="ac-amount" value="50" min="1" style="width:100%;padding:12px;border:1.5px solid #CBD5E1;border-radius:12px;font-size:18px;font-weight:800;color:#1E293B;margin:6px 0 14px;outline:none;" />
+
+          <label style="font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:.05em;">Transaction Note / Label</label>
+          <input type="text" id="ac-note" value="Received free trial coins" style="width:100%;padding:11px;border:1.5px solid #CBD5E1;border-radius:12px;font-size:13px;color:#334155;margin:6px 0 20px;outline:none;" />
+
+          <button class="btn btn-green" id="ac-btn" style="width:100%;padding:14px;font-weight:800;font-size:14.5px;box-shadow:0 4px 14px rgba(22,163,74,0.3);" onclick="submitAddCoins('${userId}')">✓ Grant Free Coins to Boy</button>
+        </div>
+      </div>
+    </div>
+  `;
+  let existing = document.getElementById('add-coins-modal');
+  if (existing) existing.remove();
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+  setTimeout(() => document.getElementById('ac-amount')?.focus(), 80);
+}
+
+function closeAddCoinsModal() {
+  const el = document.getElementById('add-coins-modal');
+  if (el) el.remove();
+}
+
+async function submitAddCoins(userId) {
+  const coins = parseInt(document.getElementById('ac-amount')?.value, 10);
+  const note = document.getElementById('ac-note')?.value;
+  if (!coins || coins < 1) { showToast('Enter a valid coin amount', false); return; }
+  const btn = document.getElementById('ac-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Granting...'; }
   try {
-    await api('/admin/users/'+id+'/coins', { method:'PUT', body:JSON.stringify({coins}) });
-    showToast(`✓ ${coins} coins added!`);
-    document.getElementById('ci-'+id).value = '';
+    const res = await api('/admin/users/' + userId + '/coins', {
+      method: 'PUT',
+      body: JSON.stringify({ coins, note })
+    });
+    showToast('✓ ' + (res.message || `${coins} free trial coins granted!`));
+    closeAddCoinsModal();
     loadUsers();
-  } catch(e) { showToast(e.message, false); }
+    loadFinancials();
+    loadDash();
+  } catch (e) {
+    showToast(e.message, false);
+    if (btn) { btn.disabled = false; btn.textContent = '✓ Grant Free Coins to Boy'; }
+  }
 }
 
 async function toggleBlock(id, block) {
@@ -2510,16 +2568,17 @@ function renderLedger() {
   }
 
   tb.innerHTML = list.map(t => {
-    const isPurchase = t.type === 'purchase';
-    const isSpend = t.type === 'spend';
-    const isEarn = t.type === 'earn';
+    const isPurchase  = t.type === 'purchase';
+    const isSpend     = t.type === 'spend';
+    const isEarn      = t.type === 'earn';
+    const isFreeTrial = t.type === 'free_trial' || t.type === 'admin_grant';
 
-    const grossInr = isPurchase ? (t.description?.match(/₹(\d+)/)?.[0] || '₹'+Math.round(t.amount * 0.83)) : '₹'+(t.amount * 0.5).toFixed(2);
-    const hostCut = isSpend ? '₹'+(t.amount * 0.5 * 0.7).toFixed(2) : isEarn ? '₹'+(t.amount * 0.5).toFixed(2) : '–';
-    const platCut = isSpend ? '₹'+(t.amount * 0.5 * 0.3).toFixed(2) : isPurchase ? grossInr : '–';
+    const grossInr = isPurchase ? (t.description?.match(/₹(\d+)/)?.[0] || '₹'+Math.round(t.amount * 0.83)) : isFreeTrial ? '₹0.00 (Trial)' : '₹'+(t.amount * 0.5).toFixed(2);
+    const hostCut  = isSpend ? '₹'+(t.amount * 0.5 * 0.7).toFixed(2) : isEarn ? '₹'+(t.amount * 0.5).toFixed(2) : '–';
+    const platCut  = isSpend ? '₹'+(t.amount * 0.5 * 0.3).toFixed(2) : isPurchase ? grossInr : '–';
 
-    const badgeClass = isPurchase ? 'b-green' : isSpend ? 'b-red' : 'b-purple';
-    const badgeText = isPurchase ? '💰 Purchase' : isSpend ? '📞 Spent' : '👧 Earned';
+    const badgeClass = isPurchase ? 'b-green' : isSpend ? 'b-red' : isFreeTrial ? 'b-blue' : 'b-purple';
+    const badgeText  = isPurchase ? '💰 Purchase' : isSpend ? '📞 Spent' : isFreeTrial ? '🎁 Free Trial' : '👧 Earned';
 
     // Party label
     let partyHtml = `<b>${t.user_name||'User'}</b>`;
@@ -2527,13 +2586,15 @@ function renderLedger() {
       partyHtml = `<b>${t.user_name||'Boy'}</b> <span style="color:#aaa;font-size:11px;">➔</span> <b style="color:#7C3AED;">👧 ${t.receiver_name}</b>`;
     } else if (isEarn) {
       partyHtml = `<b style="color:#7C3AED;">👧 ${t.user_name||'Host'}</b>`;
+    } else if (isFreeTrial) {
+      partyHtml = `<b style="color:#2563EB;">👦 ${t.user_name||'Boy'}</b> <span style="color:#10B981;font-size:11px;font-weight:700;">(Admin Trial)</span>`;
     }
 
     return `<tr>
       <td style="color:#bbb;font-size:12px">${new Date(t.created_at).toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</td>
       <td><span class="badge ${badgeClass}">${badgeText}</span></td>
       <td>${partyHtml}</td>
-      <td style="color:#555;max-width:240px">${t.description||'Transaction'}</td>
+      <td style="color:#555;max-width:240px;font-weight:${isFreeTrial?'700':'400'};color:${isFreeTrial?'#1E40AF':'#555'}">${t.description||'Transaction'}</td>
       <td><b style="color:${isSpend?'#DC2626':'#16a34a'}">${isSpend?'-':'+'}${t.amount}</b></td>
       <td style="font-weight:700">${grossInr}</td>
       <td style="color:#7C3AED;font-weight:700">${hostCut}</td>

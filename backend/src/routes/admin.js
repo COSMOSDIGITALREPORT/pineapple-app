@@ -238,14 +238,66 @@ router.post('/fix-genders', adminAuth, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// PUT /admin/users/:id/coins — add coins
+// PUT /admin/users/:id/coins — add free trial coins (boys only)
 router.put('/users/:id/coins', adminAuth, async (req, res) => {
-  const { coins } = req.body;
-  if (!coins || isNaN(coins)) return res.status(400).json({ error: 'coins required' });
+  const { coins, note } = req.body;
+  const numCoins = parseInt(coins, 10);
+  if (!numCoins || isNaN(numCoins) || numCoins <= 0) {
+    return res.status(400).json({ error: 'Valid positive coin amount required' });
+  }
+
   try {
-    await pool.query('UPDATE users SET minutes=minutes+? WHERE id=?', [parseInt(coins), req.params.id]);
-    res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+    const [users] = await pool.query('SELECT id, name, gender, minutes FROM users WHERE id=?', [req.params.id]);
+    if (!users.length) return res.status(404).json({ error: 'User not found' });
+
+    const user = users[0];
+    const userGender = (user.gender || '').toLowerCase();
+    const isBoy = ['boy', 'male', 'm'].includes(userGender);
+
+    if (!isBoy) {
+      return res.status(400).json({
+        error: 'Free trial coins can only be granted to Boy accounts. Female hosts earn coins from incoming calls.'
+      });
+    }
+
+    const description = (note && note.trim()) ? note.trim() : 'Received free trial coins';
+
+    // Update user's minutes & coins balance
+    await pool.query('UPDATE users SET minutes = minutes + ? WHERE id = ?', [numCoins, user.id]);
+    try {
+      await pool.query('UPDATE users SET coins = coins + ? WHERE id = ?', [numCoins, user.id]);
+    } catch (_) {}
+
+    // Record in wallet_transactions ledger
+    const txnId = uuidv4();
+    await pool.query(
+      'INSERT INTO wallet_transactions (id, user_id, type, amount, description) VALUES (?, ?, ?, ?, ?)',
+      [txnId, user.id, 'free_trial', numCoins, description]
+    );
+
+    // Notify user via Socket.IO if connected
+    try {
+      const io = req.app.get('io');
+      if (io) {
+        io.to(user.id).emit('wallet:update', {
+          coinsAdded: numCoins,
+          totalCoins: (user.minutes || 0) + numCoins,
+          type: 'free_trial',
+          description
+        });
+      }
+    } catch (_) {}
+
+    res.json({
+      success: true,
+      coinsAdded: numCoins,
+      totalCoins: (user.minutes || 0) + numCoins,
+      message: `${numCoins} free trial coins granted to ${user.name || 'user'}!`
+    });
+  } catch (err) {
+    console.error('admin add coins:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // PUT /admin/users/:id/block — suspend/unsuspend

@@ -9,11 +9,12 @@ import {
   BackHandler,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from '../components/Icon';
 import { Colors } from '../theme/colors';
-import { getRandomUser, getBlockedUsers } from '../services/api';
+import { getRandomUser, getBlockedUsers, getMe } from '../services/api';
+import { setCoins, addCoins, setProfile } from '../store/slices/userSlice';
 import { connectSocket, getSocket, disconnectSocket } from '../services/socket';
 import LinearGradient from 'react-native-linear-gradient';
 import DrawerMenu from './DrawerMenu';
@@ -61,6 +62,7 @@ function TabItem({ active, icon, label, onPress }) {
 
 export default function HomeScreen({ onLogout }) {
   const insets = useSafeAreaInsets();
+  const dispatch = useDispatch();
   const user = useSelector((s) => s.user);
   const isGirl = ['girl', 'female'].includes((user.gender || '').toLowerCase());
   const [activeTab, setActiveTab] = useState('matches');
@@ -73,8 +75,15 @@ export default function HomeScreen({ onLogout }) {
   const [acceptedCallData, setAcceptedCallData] = useState(null);
   const incomingCallRef = useRef(null);
 
-  // Connect socket when HomeScreen mounts
+  // Connect socket and fetch latest profile when HomeScreen mounts
   useEffect(() => {
+    // Refresh user profile/coins from server
+    getMe()
+      .then((me) => {
+        if (me) dispatch(setProfile(me));
+      })
+      .catch(() => {});
+
     const initSocket = async () => {
       const userId = await AsyncStorage.getItem('user_id');
       if (!userId) return;
@@ -99,11 +108,27 @@ export default function HomeScreen({ onLogout }) {
         setIncomingCall(null);
         incomingCallRef.current = null;
       });
+
+      // Real-time wallet update when admin grants coins or trial
+      socket.on('wallet:update', (data) => {
+        if (data?.totalCoins !== undefined) {
+          dispatch(setCoins(data.totalCoins));
+        } else if (data?.coinsAdded) {
+          dispatch(addCoins(data.coinsAdded));
+        }
+        if (data?.coinsAdded) {
+          Alert.alert(
+            '🎁 Free Trial Coins Added!',
+            `Admin granted you ${data.coinsAdded} free trial coins!\n${data.description || 'Enjoy your calls!'}`,
+            [{ text: 'Start Calling' }]
+          );
+        }
+      });
     };
 
     initSocket();
     return () => disconnectSocket();
-  }, []);
+  }, [dispatch]);
 
   // Back button handler:
   // 1. Close drawer if open

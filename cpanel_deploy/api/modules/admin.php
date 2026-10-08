@@ -61,6 +61,43 @@ function handleAdminRoute(string $subRoute, string $method, array $body, ?array 
         jsonResponse($stmt->fetchAll());
     }
 
+    // ── PUT /admin/users/:id/coins (Add Free Trial Coins to Boy) ──────────────
+    if (preg_match('#^users/([^/]+)/coins$#', $subRoute, $m) && $method === 'PUT') {
+        $userId   = $m[1];
+        $numCoins = (int)($body['coins'] ?? 0);
+        $note     = trim($body['note'] ?? 'Received free trial coins');
+
+        if ($numCoins <= 0) {
+            jsonResponse(['error' => 'Valid positive coin amount required'], 400);
+        }
+
+        $stmt = $db->prepare('SELECT id, name, gender, coins, minutes FROM users WHERE id = ?');
+        $stmt->execute([$userId]);
+        $u = $stmt->fetch();
+
+        if (!$u) jsonResponse(['error' => 'User not found'], 404);
+
+        $g = strtolower($u['gender'] ?? '');
+        if (!in_array($g, ['boy', 'male', 'm'])) {
+            jsonResponse(['error' => 'Free trial coins can only be granted to Boy accounts. Female hosts earn coins from incoming calls.'], 400);
+        }
+
+        $newCoins = ($u['coins'] ?? 0) + $numCoins;
+        $db->prepare('UPDATE users SET coins = coins + ?, minutes = minutes + ? WHERE id = ?')->execute([$numCoins, $numCoins, $userId]);
+
+        // Insert into wallet_transactions
+        $txnId = uniqid('tx_', true);
+        $db->prepare('INSERT INTO wallet_transactions (id, user_id, type, amount, note) VALUES (?, ?, "free_trial", ?, ?)')
+           ->execute([$txnId, $userId, $numCoins, $note]);
+
+        jsonResponse([
+            'success'    => true,
+            'coinsAdded' => $numCoins,
+            'totalCoins' => $newCoins,
+            'message'    => "{$numCoins} free trial coins granted to " . ($u['name'] ?: 'user') . "!"
+        ]);
+    }
+
     // ── GET /admin/hosts (Host Earnings List) ─────────────────────────────────
     if ($subRoute === 'hosts' && $method === 'GET') {
         $stmt = $db->query("
