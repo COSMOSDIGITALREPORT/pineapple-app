@@ -553,10 +553,15 @@ function handleAdminRoute(string $subRoute, string $method, array $body, ?array 
             ORDER BY t.created_at DESC LIMIT 250
         ")->fetchAll();
 
-        // 7. Spin Gifts Summary
+        // 7. Spin Gifts & Free Trial Summaries
         $spinSummary = $db->query("SELECT COUNT(*) AS total_spins, COALESCE(SUM(amount), 0) AS total_spin_coins FROM wallet_transactions WHERE type='spin_gift'")->fetch();
         $spinCoins = (float)($spinSummary['total_spin_coins'] ?? 0);
         $spinCount = (int)($spinSummary['total_spins'] ?? 0);
+
+        $trialSummary = $db->query("SELECT COUNT(*) AS total_trials, COALESCE(SUM(amount), 0) AS total_trial_coins FROM wallet_transactions WHERE type='free_trial'")->fetch();
+        $trialCoins = (float)($trialSummary['total_trial_coins'] ?? 0);
+        $trialCount = (int)($trialSummary['total_trials'] ?? 0);
+        $trialHostLiabilityInr = round($trialCoins * 0.5 * 0.7, 2);
 
         jsonResponse([
             'inflow' => [
@@ -589,6 +594,11 @@ function handleAdminRoute(string $subRoute, string $method, array $body, ?array 
             'spinGifts' => [
                 'totalCoins' => $spinCoins,
                 'count'      => $spinCount
+            ],
+            'freeTrial' => [
+                'totalCoins'       => $trialCoins,
+                'count'            => $trialCount,
+                'hostLiabilityInr' => $trialHostLiabilityInr
             ],
             'economics' => [
                 'platformRevenue'    => $totalPlatformRev,
