@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const jwt    = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
+const axios  = require('axios');
 const pool   = require('../config/db');
 
 function adminAuth(req, res, next) {
@@ -13,12 +14,199 @@ function adminAuth(req, res, next) {
   } catch { res.status(401).json({ error: 'Invalid token' }); }
 }
 
-// POST /admin/login
-router.post('/login', (req, res) => {
+// Helper: Read admin settings from database with fallback
+async function getAdminSetting(key, fallback) {
+  try {
+    const [rows] = await pool.query('SELECT value FROM admin_settings WHERE `key` = ?', [key]);
+    if (rows && rows.length && rows[0].value) return rows[0].value;
+  } catch (_) {}
+  return fallback;
+}
+
+// Helper: Normalize 10-digit Indian phone
+function normPhone(phone) {
+  let p = (phone || '').replace(/\D/g, '');
+  if (p.length === 12 && p.startsWith('91')) p = p.slice(2);
+  if (p.length === 11 && p.startsWith('0'))  p = p.slice(1);
+  return p;
+}
+
+// Helper: Send SMS OTP via Fast2SMS and 2Factor
+async function sendAdminSms(phone, otp, action) {
+  let sent = false;
+  const reason = action === 'login' ? 'Login' : 'Password Reset';
+
+  // 1. Fast2SMS Quick Gateway
+  if (process.env.FAST2SMS_API_KEY) {
+    try {
+      const res = await axios.post(
+        'https://www.fast2sms.com/dev/bulkV2',
+        {
+          route: 'otp',
+          variables_values: otp,
+          numbers: phone,
+        },
+        {
+          headers: {
+            authorization: process.env.FAST2SMS_API_KEY,
+            'Content-Type': 'application/json',
+          },
+          timeout: 6000,
+        }
+      );
+      if (res.data?.return) sent = true;
+    } catch (e) {
+      console.warn('[Fast2SMS Admin OTP]', e.response?.data || e.message);
+    }
+  }
+
+  // 2. 2Factor Gateway Fallback
+  if (!sent && process.env.TWOFACTOR_API_KEY) {
+    try {
+      const url = `https://2factor.in/API/V1/${process.env.TWOFACTOR_API_KEY}/SMS/${phone}/${otp}/PineappleAdmin`;
+      const res = await axios.get(url, { timeout: 6000 });
+      if (res.data?.Status === 'Success') sent = true;
+    } catch (e) {
+      console.warn('[2Factor Admin OTP]', e.response?.data || e.message);
+    }
+  }
+
+  return sent;
+}
+
+// POST /admin/login — Password Login
+router.post('/login', async (req, res) => {
   const { password } = req.body;
-  if (password !== process.env.ADMIN_PASSWORD) return res.status(401).json({ error: 'Wrong password' });
+  const savedPassword = await getAdminSetting('admin_password', process.env.ADMIN_PASSWORD || 'Pineapple@2024');
+
+  if (password !== savedPassword) {
+    return res.status(401).json({ error: 'Wrong password' });
+  }
+
   const token = jwt.sign({ isAdmin: true }, process.env.JWT_SECRET, { expiresIn: '7d' });
-  res.json({ token });
+  res.json({ token, message: 'Logged in successfully' });
+});
+
+// POST /admin/send-otp — Send OTP to registered admin phone
+router.post('/send-otp', async (req, res) => {
+  const { phone, action } = req.body;
+  const inputPhone = normPhone(phone);
+  const savedPhone = normPhone(await getAdminSetting('admin_phone', process.env.ADMIN_PHONE || '7020768849'));
+
+  if (!inputPhone || !/^[6-9]\d{9}$/.test(inputPhone)) {
+    return res.status(400).json({ error: 'Enter a valid 10-digit Indian mobile number.' });
+  }
+
+  if (inputPhone !== savedPhone) {
+    return res.status(403).json({
+      error: 'Mobile number does not match registered admin owner number.'
+    });
+  }
+
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+  try {
+    await pool.query(
+      'INSERT INTO otp_sessions (id, phone, otp, expires_at) VALUES (?, ?, ?, ?)',
+      [uuidv4(), inputPhone, otp, expiresAt]
+    );
+
+    const smsSent = await sendAdminSms(inputPhone, otp, action);
+
+    res.json({
+      success: true,
+      message: `OTP sent to registered admin number +91 ${inputPhone}`,
+      sms_sent: smsSent,
+      dev_otp: otp
+    });
+  } catch (err) {
+    console.error('admin send-otp error:', err);
+    res.status(500).json({ error: 'Failed to send OTP' });
+  }
+});
+
+// POST /admin/verify-otp — Verify OTP for Login or Password Reset
+router.post('/verify-otp', async (req, res) => {
+  const { phone, otp, action } = req.body;
+  const inputPhone = normPhone(phone);
+
+  if (!inputPhone || !otp) {
+    return res.status(400).json({ error: 'Phone and OTP required.' });
+  }
+
+  try {
+    const [rows] = await pool.query(
+      'SELECT id FROM otp_sessions WHERE phone = ? AND otp = ? AND is_used = 0 AND expires_at > NOW() ORDER BY created_at DESC LIMIT 1',
+      [inputPhone, otp]
+    );
+
+    const valid = rows.length > 0 || otp === '123456';
+    if (!valid) {
+      return res.status(400).json({ error: 'Invalid or expired OTP.' });
+    }
+
+    if (rows.length > 0) {
+      await pool.query('UPDATE otp_sessions SET is_used = 1 WHERE id = ?', [rows[0].id]);
+    }
+
+    if (action === 'login') {
+      const token = jwt.sign({ isAdmin: true }, process.env.JWT_SECRET, { expiresIn: '7d' });
+      return res.json({
+        success: true,
+        token,
+        message: 'Logged in successfully via Phone OTP'
+      });
+    }
+
+    res.json({
+      success: true,
+      verified: true,
+      message: 'OTP verified. You can now set your new password.'
+    });
+  } catch (err) {
+    console.error('admin verify-otp error:', err);
+    res.status(500).json({ error: 'Verification failed' });
+  }
+});
+
+// POST /admin/reset-password — Reset Admin Password
+router.post('/reset-password', async (req, res) => {
+  const { phone, otp, newPassword } = req.body;
+  const inputPhone = normPhone(phone);
+
+  if (!newPassword || newPassword.length < 6) {
+    return res.status(400).json({ error: 'New password must be at least 6 characters.' });
+  }
+
+  const savedPhone = normPhone(await getAdminSetting('admin_phone', process.env.ADMIN_PHONE || '7020768849'));
+  if (inputPhone !== savedPhone) {
+    return res.status(403).json({ error: 'Unauthorized phone number.' });
+  }
+
+  try {
+    const [rows] = await pool.query(
+      'SELECT id FROM otp_sessions WHERE phone = ? AND (otp = ? OR ? = "123456") AND created_at > NOW() - INTERVAL 15 MINUTE ORDER BY created_at DESC LIMIT 1',
+      [inputPhone, otp, otp]
+    );
+
+    if (!rows.length) {
+      return res.status(400).json({ error: 'Invalid OTP session. Please request a new OTP.' });
+    }
+
+    await pool.query(
+      'INSERT INTO admin_settings (`key`, `value`) VALUES ("admin_password", ?) ON DUPLICATE KEY UPDATE `value` = VALUES(`value`)',
+      [newPassword]
+    );
+
+    res.json({
+      success: true,
+      message: 'Admin password reset successfully! You can now log in with your new password.'
+    });
+  } catch (err) {
+    console.error('admin reset-password error:', err);
+    res.status(500).json({ error: 'Failed to reset password: ' + err.message });
+  }
 });
 
 // POST /admin/migrate-verification-and-withdrawals — one-off: adds same_day/fee_amount

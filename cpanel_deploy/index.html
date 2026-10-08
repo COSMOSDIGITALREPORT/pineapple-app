@@ -42,7 +42,12 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
   box-shadow:0 8px 24px rgba(255,56,112,.35);
 }
 .login-btn:hover{opacity:.9;}
-.login-err{color:#dc2626;font-size:13px;text-align:center;margin-top:14px;min-height:18px;font-weight:500;}
+.login-err{color:#dc2626;font-size:13px;text-align:center;margin-top:14px;min-height:18px;font-weight:600;}
+.login-tabs{display:flex;gap:6px;background:#F1F5F9;padding:4px;border-radius:12px;margin-bottom:20px;}
+.login-tab{flex:1;padding:8px;font-size:12.5px;font-weight:700;color:#64748B;background:transparent;border:none;border-radius:9px;cursor:pointer;transition:all .15s;}
+.login-tab.active{background:#fff;color:var(--crimson);box-shadow:0 2px 6px rgba(0,0,0,0.06);}
+.login-link{color:var(--pink);font-size:12.5px;font-weight:600;text-decoration:none;cursor:pointer;transition:color .15s;}
+.login-link:hover{text-decoration:underline;color:var(--crimson);}
 
 /* ── LAYOUT ── */
 #app{display:none;}
@@ -629,7 +634,7 @@ td b{color:var(--text);font-weight:600;}
 
 <!-- LOGIN -->
 <div id="login-screen">
-  <div class="login-box">
+  <div class="login-box" style="width:420px;max-width:92vw;">
     <div class="login-logo-wrap">
       <span style="font-size:32px">🍍</span>
       <div>
@@ -637,13 +642,100 @@ td b{color:var(--text);font-weight:600;}
         <div style="font-size:11px;color:#9CA3AF;font-weight:600;margin-top:1px;">ADMIN CONSOLE</div>
       </div>
     </div>
-    <div class="login-title">Welcome back 👋</div>
-    <div class="login-sub">Authorised access only</div>
-    <label class="login-label">Admin Password</label>
-    <input class="login-input" type="password" id="pass" placeholder="••••••••••••"
-           onkeypress="if(event.key==='Enter')login()" autofocus />
-    <button class="login-btn" onclick="login()">Sign In →</button>
-    <div class="login-err" id="lerr"></div>
+
+    <!-- Mode 1: Password Login -->
+    <div id="view-login-pass">
+      <div class="login-title">Admin Sign In 👋</div>
+      <div class="login-sub">Authorised access for Pineapple administrators</div>
+
+      <div class="login-tabs">
+        <button type="button" class="login-tab active" onclick="switchLoginMode('pass')">🔑 Password</button>
+        <button type="button" class="login-tab" onclick="switchLoginMode('otp')">📱 Phone OTP</button>
+      </div>
+
+      <label class="login-label">Admin Password</label>
+      <input class="login-input" type="password" id="pass" placeholder="••••••••••••"
+             onkeypress="if(event.key==='Enter')login()" autofocus />
+      <button class="login-btn" id="btn-login-pass" onclick="login()">Sign In →</button>
+
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:16px;">
+        <span class="login-link" onclick="switchLoginMode('forgot')">Forgot Password?</span>
+        <span class="login-link" onclick="switchLoginMode('otp')">Login with OTP →</span>
+      </div>
+      <div class="login-err" id="lerr"></div>
+    </div>
+
+    <!-- Mode 2: Phone OTP Login -->
+    <div id="view-login-otp" style="display:none;">
+      <div class="login-title">Phone OTP Login 📱</div>
+      <div class="login-sub">Login with registered admin mobile number</div>
+
+      <div class="login-tabs">
+        <button type="button" class="login-tab" onclick="switchLoginMode('pass')">🔑 Password</button>
+        <button type="button" class="login-tab active" onclick="switchLoginMode('otp')">📱 Phone OTP</button>
+      </div>
+
+      <label class="login-label">Registered Admin Phone</label>
+      <div style="display:flex;align-items:center;background:#F9FAFB;border:1.5px solid var(--border);border-radius:14px;padding:0 14px;margin-bottom:12px;">
+        <span style="font-weight:700;color:#64748B;font-size:14px;margin-right:6px;">🇮🇳 +91</span>
+        <input class="login-input" type="tel" id="otp-phone" value="7020768849" placeholder="10-digit number" style="border:none;background:transparent;padding:14px 4px;" />
+      </div>
+
+      <div id="otp-input-section" style="display:none;">
+        <label class="login-label">6-Digit Verification Code</label>
+        <input class="login-input" type="text" id="otp-code" placeholder="Enter 6-digit OTP" maxlength="6"
+               style="font-size:20px;letter-spacing:6px;text-align:center;font-weight:800;margin-bottom:12px;"
+               onkeypress="if(event.key==='Enter')verifyLoginOtp()" />
+        <button class="login-btn" id="btn-verify-otp" onclick="verifyLoginOtp()">Verify & Sign In →</button>
+      </div>
+
+      <button class="login-btn" id="btn-send-login-otp" onclick="sendLoginOtp()">Send Login OTP →</button>
+
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:16px;">
+        <span class="login-link" onclick="switchLoginMode('pass')">← Back to Password</span>
+        <span class="login-link" onclick="switchLoginMode('forgot')">Forgot Password?</span>
+      </div>
+      <div class="login-err" id="otp-err"></div>
+    </div>
+
+    <!-- Mode 3: Forgot Password / OTP Reset -->
+    <div id="view-forgot-pass" style="display:none;">
+      <div class="login-title">Reset Password 🔄</div>
+      <div class="login-sub">Verify your registered admin phone (+91 7020768849) to choose a new password</div>
+
+      <div id="forgot-step-1">
+        <label class="login-label">Registered Admin Mobile Number</label>
+        <div style="display:flex;align-items:center;background:#F9FAFB;border:1.5px solid var(--border);border-radius:14px;padding:0 14px;margin-bottom:14px;">
+          <span style="font-weight:700;color:#64748B;font-size:14px;margin-right:6px;">🇮🇳 +91</span>
+          <input class="login-input" type="tel" id="forgot-phone" value="7020768849" placeholder="10-digit number" style="border:none;background:transparent;padding:14px 4px;" />
+        </div>
+        <button class="login-btn" id="btn-forgot-send" onclick="sendForgotOtp()">Send Verification Code →</button>
+      </div>
+
+      <div id="forgot-step-2" style="display:none;">
+        <div style="background:#EFF6FF;border:1px solid #DBEAFE;padding:10px 14px;border-radius:12px;margin-bottom:14px;font-size:12.5px;color:#1E40AF;font-weight:600;">
+          ✓ OTP sent to registered admin phone (+91 7020768849)
+        </div>
+
+        <label class="login-label">6-Digit Verification Code</label>
+        <input class="login-input" type="text" id="forgot-otp" placeholder="Enter 6-digit OTP" maxlength="6"
+               style="font-size:18px;letter-spacing:4px;text-align:center;font-weight:800;margin-bottom:12px;" />
+
+        <label class="login-label">New Admin Password</label>
+        <input class="login-input" type="password" id="forgot-new-pass" placeholder="At least 6 characters" style="margin-bottom:12px;" />
+
+        <label class="login-label">Confirm New Password</label>
+        <input class="login-input" type="password" id="forgot-confirm-pass" placeholder="Re-enter password" style="margin-bottom:16px;" />
+
+        <button class="login-btn" id="btn-forgot-reset" onclick="submitResetPassword()">Set New Password & Login →</button>
+      </div>
+
+      <div style="text-align:center;margin-top:18px;">
+        <span class="login-link" onclick="switchLoginMode('pass')">← Back to Password Login</span>
+      </div>
+      <div class="login-err" id="forgot-err"></div>
+    </div>
+
   </div>
 </div>
 
@@ -1472,8 +1564,22 @@ async function api(path, opts={}) {
   return r.json();
 }
 
+function switchLoginMode(mode) {
+  document.getElementById('view-login-pass').style.display = mode === 'pass' ? 'block' : 'none';
+  document.getElementById('view-login-otp').style.display = mode === 'otp' ? 'block' : 'none';
+  document.getElementById('view-forgot-pass').style.display = mode === 'forgot' ? 'block' : 'none';
+  document.getElementById('lerr').textContent = '';
+  document.getElementById('otp-err').textContent = '';
+  document.getElementById('forgot-err').textContent = '';
+  if (mode === 'pass') setTimeout(() => document.getElementById('pass')?.focus(), 50);
+  if (mode === 'otp') setTimeout(() => document.getElementById('otp-phone')?.focus(), 50);
+  if (mode === 'forgot') setTimeout(() => document.getElementById('forgot-phone')?.focus(), 50);
+}
+
 async function login() {
   document.getElementById('lerr').textContent = '';
+  const btn = document.getElementById('btn-login-pass');
+  if (btn) { btn.disabled = true; btn.textContent = 'Signing in...'; }
   try {
     const d = await api('/admin/login', { method:'POST', body:JSON.stringify({password: document.getElementById('pass').value}) });
     token = d.token; localStorage.setItem('adm_tok', token);
@@ -1481,7 +1587,111 @@ async function login() {
     document.getElementById('app').style.display = 'block';
     loadDash();
     startAutoRefresh();
-  } catch { document.getElementById('lerr').textContent = '✕  Wrong password'; }
+  } catch (e) {
+    document.getElementById('lerr').textContent = '✕  ' + (e.message || 'Wrong password');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Sign In →'; }
+  }
+}
+
+async function sendLoginOtp() {
+  const phone = document.getElementById('otp-phone').value.trim();
+  const errEl = document.getElementById('otp-err');
+  const btn = document.getElementById('btn-send-login-otp');
+  errEl.textContent = '';
+  if (!phone || phone.length < 10) { errEl.textContent = 'Enter valid 10-digit number'; return; }
+  btn.disabled = true; btn.textContent = 'Sending OTP...';
+  try {
+    const res = await api('/admin/send-otp', {
+      method: 'POST',
+      body: JSON.stringify({ phone, action: 'login' })
+    });
+    btn.style.display = 'none';
+    document.getElementById('otp-input-section').style.display = 'block';
+    showToast('✓ OTP sent to +91 ' + phone + (res.dev_otp ? ` (${res.dev_otp})` : ''));
+    setTimeout(() => document.getElementById('otp-code')?.focus(), 80);
+  } catch (e) {
+    errEl.textContent = '✕ ' + (e.message || 'Failed to send OTP');
+    btn.disabled = false; btn.textContent = 'Send Login OTP →';
+  }
+}
+
+async function verifyLoginOtp() {
+  const phone = document.getElementById('otp-phone').value.trim();
+  const otp = document.getElementById('otp-code').value.trim();
+  const errEl = document.getElementById('otp-err');
+  const btn = document.getElementById('btn-verify-otp');
+  errEl.textContent = '';
+  if (!otp || otp.length < 4) { errEl.textContent = 'Enter 6-digit verification code'; return; }
+  btn.disabled = true; btn.textContent = 'Verifying...';
+  try {
+    const res = await api('/admin/verify-otp', {
+      method: 'POST',
+      body: JSON.stringify({ phone, otp, action: 'login' })
+    });
+    token = res.token;
+    localStorage.setItem('adm_tok', token);
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    loadDash();
+    startAutoRefresh();
+    showToast('✓ Logged in via Phone OTP!');
+  } catch (e) {
+    errEl.textContent = '✕ ' + (e.message || 'Invalid verification code');
+    btn.disabled = false; btn.textContent = 'Verify & Sign In →';
+  }
+}
+
+async function sendForgotOtp() {
+  const phone = document.getElementById('forgot-phone').value.trim();
+  const errEl = document.getElementById('forgot-err');
+  const btn = document.getElementById('btn-forgot-send');
+  errEl.textContent = '';
+  if (!phone || phone.length < 10) { errEl.textContent = 'Enter valid 10-digit number'; return; }
+  btn.disabled = true; btn.textContent = 'Sending Code...';
+  try {
+    const res = await api('/admin/send-otp', {
+      method: 'POST',
+      body: JSON.stringify({ phone, action: 'forgot_password' })
+    });
+    document.getElementById('forgot-step-1').style.display = 'none';
+    document.getElementById('forgot-step-2').style.display = 'block';
+    showToast('✓ Verification code sent to +91 ' + phone + (res.dev_otp ? ` (${res.dev_otp})` : ''));
+    setTimeout(() => document.getElementById('forgot-otp')?.focus(), 80);
+  } catch (e) {
+    errEl.textContent = '✕ ' + (e.message || 'Failed to send verification code');
+    btn.disabled = false; btn.textContent = 'Send Verification Code →';
+  }
+}
+
+async function submitResetPassword() {
+  const phone = document.getElementById('forgot-phone').value.trim();
+  const otp = document.getElementById('forgot-otp').value.trim();
+  const newPass = document.getElementById('forgot-new-pass').value;
+  const confirmPass = document.getElementById('forgot-confirm-pass').value;
+  const errEl = document.getElementById('forgot-err');
+  const btn = document.getElementById('btn-forgot-reset');
+  errEl.textContent = '';
+
+  if (!otp || otp.length < 4) { errEl.textContent = 'Enter valid 6-digit OTP'; return; }
+  if (!newPass || newPass.length < 6) { errEl.textContent = 'New password must be at least 6 characters'; return; }
+  if (newPass !== confirmPass) { errEl.textContent = 'Passwords do not match'; return; }
+
+  btn.disabled = true; btn.textContent = 'Resetting Password...';
+  try {
+    const res = await api('/admin/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ phone, otp, newPassword: newPass })
+    });
+    showToast('✓ ' + (res.message || 'Password reset successfully!'));
+    // Auto sign in with the new password
+    document.getElementById('pass').value = newPass;
+    switchLoginMode('pass');
+    await login();
+  } catch (e) {
+    errEl.textContent = '✕ ' + (e.message || 'Failed to reset password');
+    btn.disabled = false; btn.textContent = 'Set New Password & Login →';
+  }
 }
 
 function logout() {

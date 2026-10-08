@@ -11,6 +11,7 @@ return [
     // Security & Auth
     'jwt_secret'     => 'pineapple-super-secret-jwt-2024',
     'admin_password' => 'Pineapple@2024',
+    'admin_phone'    => '7020768849',
 
     // Firebase Realtime Database (for instant Call Ringing & Signaling)
     'firebase_project_id' => 'pineapple-8376c',

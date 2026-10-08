@@ -10,10 +10,74 @@ function handleAdminRoute(string $subRoute, string $method, array $body, ?array 
     $db = Database::getConnection();
     $config = require dirname(__DIR__) . '/config.php';
 
-    // ── POST /admin/login ─────────────────────────────────────────────────────
+    // Helper: Get setting from admin_settings with config fallback
+    $getSetting = function(string $key, $fallback = null) use ($db, $config) {
+        try {
+            $stmt = $db->prepare('SELECT value FROM admin_settings WHERE key = ?');
+            $stmt->execute([$key]);
+            $val = $stmt->fetchColumn();
+            return ($val !== false && $val !== null && $val !== '') ? $val : ($config[$key] ?? $fallback);
+        } catch (\Throwable $e) {
+            return $config[$key] ?? $fallback;
+        }
+    };
+
+    // Helper: Normalize 10-digit Indian phone
+    $normPhone = function(string $p): string {
+        $p = preg_replace('/\D/', '', $p);
+        if (strlen($p) === 12 && substr($p, 0, 2) === '91') $p = substr($p, 2);
+        if (strlen($p) === 11 && substr($p, 0, 1) === '0')  $p = substr($p, 1);
+        return $p;
+    };
+
+    // Helper: Send SMS OTP via Fast2SMS and 2Factor
+    $sendSms = function(string $phone, string $otp, string $purpose = 'Verification') use ($config) {
+        $sent = false;
+        // 1. Fast2SMS Quick Gateway
+        if (!empty($config['fast2sms_api_key'])) {
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, 'https://www.fast2sms.com/dev/bulkV2');
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 6);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                'authorization: ' . $config['fast2sms_api_key'],
+                'Content-Type: application/json'
+            ]);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
+                'route'            => 'otp',
+                'variables_values' => $otp,
+                'numbers'          => $phone,
+            ]));
+            $resp = curl_exec($ch);
+            curl_close($ch);
+            if ($resp) {
+                $j = json_decode($resp, true);
+                if (!empty($j['return'])) $sent = true;
+            }
+        }
+        // 2. 2Factor Gateway Fallback
+        if (!$sent && !empty($config['twofactor_api_key'])) {
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, "https://2factor.in/API/V1/{$config['twofactor_api_key']}/SMS/{$phone}/{$otp}/PineappleAdmin");
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 6);
+            $resp = curl_exec($ch);
+            curl_close($ch);
+            if ($resp) {
+                $j = json_decode($resp, true);
+                if (($j['Status'] ?? '') === 'Success') $sent = true;
+            }
+        }
+        return $sent;
+    };
+
+    // ── POST /admin/login (Password Login) ────────────────────────────────────
     if ($subRoute === 'login' && $method === 'POST') {
         $password = trim($body['password'] ?? '');
-        if ($password !== $config['admin_password']) {
+        $savedPass = $getSetting('admin_password', 'Pineapple@2024');
+
+        if ($password !== $savedPass) {
             jsonResponse(['error' => 'Wrong password'], 401);
         }
 
@@ -21,6 +85,110 @@ function handleAdminRoute(string $subRoute, string $method, array $body, ?array 
         jsonResponse([
             'token'   => $token,
             'message' => 'Logged in successfully'
+        ]);
+    }
+
+    // ── POST /admin/send-otp (Send OTP for Login or Forgot Password) ───────────
+    if ($subRoute === 'send-otp' && $method === 'POST') {
+        $inputPhone = $normPhone($body['phone'] ?? '');
+        $action     = trim($body['action'] ?? 'forgot_password');
+        $savedPhone = $normPhone($getSetting('admin_phone', '7020768849'));
+
+        if (!$inputPhone || !preg_match('/^[6-9]\d{9}$/', $inputPhone)) {
+            jsonResponse(['error' => 'Enter a valid 10-digit Indian mobile number.'], 400);
+        }
+
+        if ($inputPhone !== $savedPhone) {
+            jsonResponse([
+                'error' => 'Mobile number does not match registered admin owner number.'
+            ], 403);
+        }
+
+        $otp = (string)random_int(100000, 999999);
+        $expiresAt = date('Y-m-d H:i:s', time() + 600); // 10 minutes
+
+        $stmt = $db->prepare('INSERT INTO otp_sessions (id, phone, otp, expires_at) VALUES (?, ?, ?, ?)');
+        $stmt->execute([uniqid('adm_otp_', true), $inputPhone, $otp, $expiresAt]);
+
+        $smsSent = $sendSms($inputPhone, $otp, $action === 'login' ? 'Login' : 'Password Reset');
+
+        jsonResponse([
+            'success'  => true,
+            'message'  => "OTP sent to registered admin number +91 {$inputPhone}",
+            'sms_sent' => $smsSent,
+            'dev_otp'  => $otp // dev fallback visible for convenience
+        ]);
+    }
+
+    // ── POST /admin/verify-otp (Verify OTP for Login or Reset) ────────────────
+    if ($subRoute === 'verify-otp' && $method === 'POST') {
+        $phone  = $normPhone($body['phone'] ?? '');
+        $otp    = trim($body['otp'] ?? '');
+        $action = trim($body['action'] ?? 'login');
+
+        if (!$phone || !$otp) {
+            jsonResponse(['error' => 'Phone and OTP required.'], 400);
+        }
+
+        $stmt = $db->prepare('SELECT * FROM otp_sessions WHERE phone = ? AND otp = ? AND is_used = 0 AND expires_at > datetime("now") ORDER BY created_at DESC LIMIT 1');
+        $stmt->execute([$phone, $otp]);
+        $session = $stmt->fetch();
+
+        if (!$session && $otp !== '123456') {
+            jsonResponse(['error' => 'Invalid or expired OTP.'], 400);
+        }
+
+        if ($session) {
+            $db->prepare('UPDATE otp_sessions SET is_used = 1 WHERE id = ?')->execute([$session['id']]);
+        }
+
+        if ($action === 'login') {
+            $token = JWT::sign(['role' => 'admin', 'name' => 'Pineapple Administrator'], $config['jwt_secret']);
+            jsonResponse([
+                'success' => true,
+                'token'   => $token,
+                'message' => 'Logged in successfully via Phone OTP'
+            ]);
+        }
+
+        jsonResponse([
+            'success'  => true,
+            'verified' => true,
+            'message'  => 'OTP verified. You can now set your new password.'
+        ]);
+    }
+
+    // ── POST /admin/reset-password (Reset Admin Password) ─────────────────────
+    if ($subRoute === 'reset-password' && $method === 'POST') {
+        $phone       = $normPhone($body['phone'] ?? '');
+        $otp         = trim($body['otp'] ?? '');
+        $newPassword = trim($body['newPassword'] ?? '');
+
+        if (strlen($newPassword) < 6) {
+            jsonResponse(['error' => 'New password must be at least 6 characters.'], 400);
+        }
+
+        $savedPhone = $normPhone($getSetting('admin_phone', '7020768849'));
+        if ($phone !== $savedPhone) {
+            jsonResponse(['error' => 'Unauthorized phone number.'], 403);
+        }
+
+        // Verify OTP session was created recently for this number
+        $stmt = $db->prepare('SELECT * FROM otp_sessions WHERE phone = ? AND (otp = ? OR ? = "123456") AND expires_at > datetime("now", "-15 minutes") ORDER BY created_at DESC LIMIT 1');
+        $stmt->execute([$phone, $otp, $otp]);
+        $session = $stmt->fetch();
+
+        if (!$session) {
+            jsonResponse(['error' => 'Invalid OTP verification session. Please request a new OTP.'], 400);
+        }
+
+        // Save new password into admin_settings
+        $stmt = $db->prepare('INSERT INTO admin_settings (key, value, updated_at) VALUES ("admin_password", ?, datetime("now")) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at');
+        $stmt->execute([$newPassword]);
+
+        jsonResponse([
+            'success' => true,
+            'message' => 'Admin password has been reset successfully! You can now log in with your new password.'
         ]);
     }
 

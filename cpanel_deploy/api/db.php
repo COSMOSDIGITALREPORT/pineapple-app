@@ -184,6 +184,16 @@ class Database {
             coins_won REAL DEFAULT 0,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
+
+        -- 12. Admin Security & Settings
+        CREATE TABLE IF NOT EXISTS admin_settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+        INSERT OR IGNORE INTO admin_settings (key, value) VALUES 
+            ('admin_password', 'Pineapple@2024'),
+            ('admin_phone', '7020768849');
 SQL;
 
         $pdo->exec($schema);

@@ -163,6 +163,14 @@ async function runMigrations() {
     `UPDATE users
      SET is_premium = 0, plan_id = NULL, premium_coins_remaining = 0
      WHERE is_premium = 1 AND (minutes <= 0 OR minutes < 500)`,
+    `CREATE TABLE IF NOT EXISTS admin_settings (
+      \`key\` VARCHAR(50) PRIMARY KEY,
+      \`value\` TEXT NOT NULL,
+      \`updated_at\` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )`,
+    `INSERT IGNORE INTO admin_settings (\`key\`, \`value\`) VALUES
+      ('admin_password', 'Pineapple@2024'),
+      ('admin_phone', '7020768849')`,
   ];
   for (const sql of migrations) {
     try { await pool.query(sql); } catch (e) { console.warn('[Migration]', e.message); }
