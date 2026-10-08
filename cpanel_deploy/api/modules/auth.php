@@ -72,8 +72,7 @@ function handleAuthRoute(string $subRoute, string $method, array $body, ?array $
 
         jsonResponse([
             'success' => true,
-            'dev_otp' => $otp,
-            'message' => 'OTP sent successfully'
+            'message' => 'OTP call dispatched successfully'
         ]);
     }
 
@@ -93,13 +92,10 @@ function handleAuthRoute(string $subRoute, string $method, array $body, ?array $
         $stmt->execute([$phone, $otp]);
         $session = $stmt->fetch();
 
-        // Allow dev OTP '1234' or matched session
-        if (!$session && $otp !== '1234') {
+        if (!$session) {
             jsonResponse(['error' => 'Invalid or expired OTP.'], 400);
         }
-        if ($session) {
-            $db->prepare('UPDATE otp_sessions SET is_used = 1 WHERE id = ?')->execute([$session['id']]);
-        }
+        $db->prepare('UPDATE otp_sessions SET is_used = 1 WHERE id = ?')->execute([$session['id']]);
 
         // 2. Check or create User
         $stmt = $db->prepare('SELECT * FROM users WHERE phone = ?');
