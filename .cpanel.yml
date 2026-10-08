@@ -1,0 +1,6 @@
+---
+deployment:
+  tasks:
+    - export DEPLOYPATH=/home/matureen/admin.pineapplemeetups.com/
+    - /bin/cp -R cpanel_deploy/* $DEPLOYPATH
+    - /bin/cp -f cpanel_deploy/.htaccess $DEPLOYPATH
