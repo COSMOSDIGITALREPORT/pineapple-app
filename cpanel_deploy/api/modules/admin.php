@@ -203,30 +203,147 @@ function handleAdminRoute(string $subRoute, string $method, array $body, ?array 
         $totalBoys  = (int)$db->query("SELECT COUNT(*) FROM users WHERE gender IN ('boy','male')")->fetchColumn();
         $totalGirls = (int)$db->query("SELECT COUNT(*) FROM users WHERE gender IN ('girl','female')")->fetchColumn();
         $online     = (int)$db->query('SELECT COUNT(*) FROM users WHERE is_online = 1')->fetchColumn();
-        $totalCalls = (int)$db->query('SELECT COUNT(*) FROM calls WHERE status = "ended"')->fetchColumn();
         
-        $revenue = (float)$db->query('SELECT COALESCE(SUM(platform_revenue_inr), 0) FROM calls')->fetchColumn();
-        $hostEarned = (float)$db->query('SELECT COALESCE(SUM(girl_earnings_inr), 0) FROM calls')->fetchColumn();
-        $paidOut = (float)$db->query('SELECT COALESCE(SUM(amount), 0) FROM withdrawals WHERE status = "approved"')->fetchColumn();
-        $pendingWd = (int)$db->query('SELECT COUNT(*) FROM withdrawals WHERE status = "pending"')->fetchColumn();
+        $calls = $db->query("
+            SELECT COUNT(*) AS total,
+                   COALESCE(SUM(coins_deducted),0) AS total_coins,
+                   COALESCE(SUM(duration_seconds),0) AS total_secs,
+                   COALESCE(SUM(platform_revenue_inr),0) AS call_platform_rev,
+                   COALESCE(SUM(girl_earnings_inr),0) AS call_girl_earnings
+            FROM calls WHERE status='ended'
+        ")->fetch();
+
+        $giftsSummary = $db->query("SELECT COUNT(*) AS total_gifts, COALESCE(SUM(coins_spent),0) AS total_gift_coins FROM gifts")->fetch();
+        $giftsCoins = (float)($giftsSummary['total_gift_coins'] ?? 0);
+        $totalCoinsSpent = ((float)($calls['total_coins'] ?? 0)) + $giftsCoins;
+
+        $callPlatformRev = (float)($calls['call_platform_rev'] ?? 0);
+        $giftPlatformRev = round($giftsCoins * 0.33, 2);
+        $totalPlatformRev = round($callPlatformRev + $giftPlatformRev, 2);
+
+        $recordedCallGirlEarnings = (float)($calls['call_girl_earnings'] ?? 0);
+        $giftGirlEarningsInr = round($giftsCoins * 0.50, 2);
+        $totalEarningsTable = (float)$db->query('SELECT COALESCE(SUM(amount_inr),0) FROM earnings')->fetchColumn();
+        $totalGirlEarnings = max($totalEarningsTable, round($recordedCallGirlEarnings + $giftGirlEarningsInr, 2));
+
+        $paidOut = (float)$db->query("SELECT COALESCE(SUM(amount),0) FROM withdrawals WHERE status='approved'")->fetchColumn();
+        $unpaidHostBalance = max(0.0, round($totalGirlEarnings - $paidOut, 2));
+
+        $pending = $db->query("SELECT COUNT(*) AS total, COALESCE(SUM(amount),0) AS total_amount FROM withdrawals WHERE status='pending'")->fetch();
+        $reports = (int)$db->query("SELECT COUNT(*) FROM reports WHERE status='pending'")->fetchColumn();
+        $unverified = (int)$db->query("SELECT COUNT(*) FROM users WHERE gender IN ('girl','female') AND is_verified=0")->fetchColumn();
+        $pendingSupport = (int)$db->query("SELECT COUNT(DISTINCT user_id) FROM support_messages WHERE sender_type='user' AND status='pending'")->fetchColumn();
+
+        $totalCalls = (int)($calls['total'] ?? 0);
+        $totalMinsTalked = (int)round(((float)($calls['total_secs'] ?? 0)) / 60);
 
         jsonResponse([
-            'total_users'     => $totalUsers,
-            'total_boys'      => $totalBoys,
-            'total_girls'     => $totalGirls,
-            'online_users'    => $online,
-            'total_calls'     => $totalCalls,
-            'platform_revenue'=> $revenue,
-            'host_earnings'   => $hostEarned,
-            'unpaid_balance'  => max(0.0, $hostEarned - $paidOut),
-            'pending_payouts' => $pendingWd
+            // Frontend camelCase properties
+            'users'                 => $totalUsers,
+            'boys'                  => $totalBoys,
+            'girls'                 => $totalGirls,
+            'online'                => $online,
+            'totalCalls'            => $totalCalls,
+            'totalMins'             => $totalMinsTalked,
+            'totalCoins'            => $totalCoinsSpent,
+            'platformRevenue'       => $totalPlatformRev,
+            'girlEarnings'          => $totalGirlEarnings,
+            'unpaidHostBalance'     => $unpaidHostBalance,
+            'pendingWithdrawalAmount'=> (float)($pending['total_amount'] ?? 0),
+            'pendingWithdrawals'    => (int)($pending['total'] ?? 0),
+            'pendingReports'        => $reports,
+            'pendingVerifications'  => $unverified,
+            'pendingSupportQueries' => $pendingSupport,
+
+            // Also keep snake_case aliases for API parity
+            'total_users'           => $totalUsers,
+            'total_boys'            => $totalBoys,
+            'total_girls'           => $totalGirls,
+            'online_users'          => $online,
+            'total_calls'           => $totalCalls,
+            'platform_revenue'      => $totalPlatformRev,
+            'host_earnings'         => $totalGirlEarnings,
+            'unpaid_balance'        => $unpaidHostBalance,
+            'pending_payouts'       => (int)($pending['total'] ?? 0),
         ]);
     }
 
     // ── GET /admin/users ──────────────────────────────────────────────────────
     if ($subRoute === 'users' && $method === 'GET') {
-        $stmt = $db->query('SELECT * FROM users ORDER BY created_at DESC LIMIT 200');
+        $stmt = $db->query("
+            SELECT 
+                u.id, u.phone, u.name, u.gender, u.avatar_url, u.city, u.is_online, u.is_blocked, u.is_premium, u.is_verified, u.rating, u.created_at,
+                CASE 
+                  WHEN LOWER(COALESCE(u.gender, '')) IN ('girl', 'female', 'f') THEN
+                    MAX(0.0, ROUND((MAX(COALESCE(e.total_earned_inr, 0), COALESCE(c.call_earned_inr, 0)) - COALESCE(w.total_withdrawn, 0)) * 2, 0))
+                  ELSE
+                    COALESCE(u.minutes, u.coins, 0)
+                END AS minutes,
+                MAX(0.0, ROUND(MAX(COALESCE(e.total_earned_inr, 0), COALESCE(c.call_earned_inr, 0)) - COALESCE(w.total_withdrawn, 0), 2)) AS unpaid_inr
+            FROM users u
+            LEFT JOIN (
+                SELECT girl_id, 
+                       SUM(amount_inr) AS total_earned_inr,
+                       SUM(COALESCE(mins_received, coins_received, 0)) AS total_earned_coins
+                FROM earnings GROUP BY girl_id
+            ) e ON u.id = e.girl_id
+            LEFT JOIN (
+                SELECT receiver_id, 
+                       COUNT(*) AS total_calls, 
+                       SUM(duration_seconds) AS total_call_secs, 
+                       SUM(girl_coins) AS call_coins,
+                       SUM(girl_earnings_inr) AS call_earned_inr
+                FROM calls WHERE status='ended' AND free_trial=0 GROUP BY receiver_id
+            ) c ON u.id = c.receiver_id
+            LEFT JOIN (
+                SELECT girl_id, SUM(amount) AS total_withdrawn FROM withdrawals WHERE status='approved' GROUP BY girl_id
+            ) w ON u.id = w.girl_id
+            ORDER BY u.created_at DESC
+        ");
         jsonResponse($stmt->fetchAll());
+    }
+
+    // ── GET /admin/users/pending (Unverified Host Profiles) ────────────────────
+    if ($subRoute === 'users/pending' && $method === 'GET') {
+        $stmt = $db->query("SELECT * FROM users WHERE gender IN ('girl','female') AND is_verified = 0 ORDER BY created_at DESC");
+        jsonResponse($stmt->fetchAll());
+    }
+
+    // ── PUT /admin/users/:id/verify (Verify/Unverify Host) ─────────────────────
+    if (preg_match('#^users/([^/]+)/verify$#', $subRoute, $m) && $method === 'PUT') {
+        $uid = $m[1];
+        $verify = !empty($body['verify']) ? 1 : 0;
+        $db->prepare('UPDATE users SET is_verified = ? WHERE id = ?')->execute([$verify, $uid]);
+        jsonResponse(['success' => true, 'verified' => $verify]);
+    }
+
+    // ── PUT /admin/users/:id/gender ───────────────────────────────────────────
+    if (preg_match('#^users/([^/]+)/gender$#', $subRoute, $m) && $method === 'PUT') {
+        $uid = $m[1];
+        $gender = strtolower(trim($body['gender'] ?? 'boy'));
+        $db->prepare('UPDATE users SET gender = ? WHERE id = ?')->execute([$gender, $uid]);
+        jsonResponse(['success' => true, 'gender' => $gender]);
+    }
+
+    // ── PUT /admin/users/:id/block ────────────────────────────────────────────
+    if (preg_match('#^users/([^/]+)/block$#', $subRoute, $m) && $method === 'PUT') {
+        $uid = $m[1];
+        $block = !empty($body['block']) ? 1 : 0;
+        $db->prepare('UPDATE users SET is_blocked = ? WHERE id = ?')->execute([$block, $uid]);
+        jsonResponse(['success' => true, 'blocked' => $block]);
+    }
+
+    // ── DELETE /admin/users/:id ───────────────────────────────────────────────
+    if (preg_match('#^users/([^/]+)$#', $subRoute, $m) && $method === 'DELETE') {
+        $uid = $m[1];
+        $db->prepare('DELETE FROM users WHERE id = ?')->execute([$uid]);
+        jsonResponse(['success' => true]);
+    }
+
+    // ── POST /admin/fix-genders ───────────────────────────────────────────────
+    if ($subRoute === 'fix-genders' && $method === 'POST') {
+        $db->exec("UPDATE users SET gender = 'boy' WHERE gender IS NULL OR gender = '' OR gender NOT IN ('boy','male','girl','female')");
+        jsonResponse(['success' => true, 'message' => 'Genders fixed']);
     }
 
     // ── PUT /admin/users/:id/coins (Add Free Trial Coins to Boy) ──────────────
@@ -269,18 +386,228 @@ function handleAdminRoute(string $subRoute, string $method, array $body, ?array 
     // ── GET /admin/hosts (Host Earnings List) ─────────────────────────────────
     if ($subRoute === 'hosts' && $method === 'GET') {
         $stmt = $db->query("
-            SELECT u.*,
-                   COALESCE(SUM(e.amount_inr), 0) as total_earned_inr,
-                   COALESCE(SUM(e.coins_received), 0) as total_earned_coins,
-                   COALESCE((SELECT SUM(amount) FROM withdrawals w WHERE w.girl_id = u.id AND w.status = 'approved'), 0) as total_paid_out,
-                   (COALESCE(SUM(e.amount_inr), 0) - COALESCE((SELECT SUM(amount) FROM withdrawals w WHERE w.girl_id = u.id AND w.status != 'rejected'), 0)) as unpaid_balance
+            SELECT 
+                u.id, u.name, u.phone, u.avatar_url, u.city, u.is_online, u.is_verified, u.is_blocked, u.rating,
+                u.minutes AS wallet_coins, u.created_at,
+                COALESCE(e.total_earned_inr, 0) AS total_earned_inr,
+                COALESCE(e.total_earned_coins, 0) AS total_earned_coins,
+                COALESCE(c.total_calls, 0) AS total_calls,
+                COALESCE(c.total_call_secs, 0) AS total_call_secs,
+                COALESCE(c.call_earned_inr, 0) AS call_earned_inr,
+                COALESCE(w_app.paid_out, 0) AS total_paid_out,
+                COALESCE(w_pen.pending_payout, 0) AS pending_payout,
+                MAX(0.0, (MAX(COALESCE(e.total_earned_inr, 0), COALESCE(c.call_earned_inr, 0)) - COALESCE(w_app.paid_out, 0))) AS unpaid_balance
             FROM users u
-            LEFT JOIN earnings e ON u.id = e.girl_id
+            LEFT JOIN (
+                SELECT girl_id, 
+                       SUM(amount_inr) AS total_earned_inr, 
+                       SUM(COALESCE(mins_received, coins_received, 0)) AS total_earned_coins 
+                FROM earnings GROUP BY girl_id
+            ) e ON u.id = e.girl_id
+            LEFT JOIN (
+                SELECT receiver_id, 
+                       COUNT(*) AS total_calls, 
+                       SUM(duration_seconds) AS total_call_secs, 
+                       SUM(girl_earnings_inr) AS call_earned_inr 
+                FROM calls WHERE status='ended' GROUP BY receiver_id
+            ) c ON u.id = c.receiver_id
+            LEFT JOIN (
+                SELECT girl_id, SUM(amount) AS paid_out FROM withdrawals WHERE status='approved' GROUP BY girl_id
+            ) w_app ON u.id = w_app.girl_id
+            LEFT JOIN (
+                SELECT girl_id, SUM(amount) AS pending_payout FROM withdrawals WHERE status='pending' GROUP BY girl_id
+            ) w_pen ON u.id = w_pen.girl_id
             WHERE u.gender IN ('girl', 'female')
-            GROUP BY u.id
-            ORDER BY unpaid_balance DESC
+            ORDER BY unpaid_balance DESC, total_earned_inr DESC, u.created_at DESC
         ");
         jsonResponse($stmt->fetchAll());
+    }
+
+    // ── POST /admin/reconcile-earnings ────────────────────────────────────────
+    if ($subRoute === 'reconcile-earnings' && $method === 'POST') {
+        $db->exec("
+            UPDATE users SET minutes = (
+                SELECT COALESCE(SUM(amount_inr), 0) * 2 FROM earnings WHERE earnings.girl_id = users.id
+            ) WHERE gender IN ('girl','female')
+        ");
+        jsonResponse(['success' => true, 'message' => 'Earnings reconciled']);
+    }
+
+    // ── GET /admin/financials (Full Economics & Ledger Data) ───────────────────
+    if ($subRoute === 'financials' && $method === 'GET') {
+        // 1. Coin Purchases & Inflow
+        $purchases = $db->query("SELECT COUNT(*) AS total_purchases, COALESCE(SUM(amount), 0) AS total_coins_purchased FROM wallet_transactions WHERE type='purchase'")->fetch();
+        $purchaseRows = $db->query("SELECT note, amount, created_at FROM wallet_transactions WHERE type='purchase'")->fetchAll();
+
+        $estimatedGrossInflowInr = 0;
+        $packCounts = ['pack_9' => 0, 'pack_100' => 0, 'pack_200' => 0, 'pack_500' => 0, 'custom' => 0];
+        foreach ($purchaseRows as $p) {
+            $desc = $p['note'] ?? '';
+            $amt = (float)($p['amount'] ?? 0);
+            if (strpos($desc, '₹9') !== false || $amt == 15) { $estimatedGrossInflowInr += 9; $packCounts['pack_9']++; }
+            elseif (strpos($desc, '₹100') !== false || $amt == 120) { $estimatedGrossInflowInr += 100; $packCounts['pack_100']++; }
+            elseif (strpos($desc, '₹200') !== false || $amt == 240) { $estimatedGrossInflowInr += 200; $packCounts['pack_200']++; }
+            elseif (strpos($desc, '₹500') !== false || $amt == 700) { $estimatedGrossInflowInr += 500; $packCounts['pack_500']++; }
+            else {
+                $inr = round($amt * 0.83);
+                $estimatedGrossInflowInr += $inr;
+                $packCounts['custom']++;
+            }
+        }
+
+        // 2. Call Consumption & Revenue
+        $callsStats = $db->query("
+            SELECT COUNT(*) AS total_ended_calls,
+                   COALESCE(SUM(coins_deducted), 0) AS total_call_coins,
+                   COALESCE(SUM(duration_seconds), 0) AS total_call_secs,
+                   COALESCE(SUM(platform_revenue_inr), 0) AS call_platform_rev,
+                   COALESCE(SUM(girl_earnings_inr), 0) AS call_girl_earnings
+            FROM calls WHERE status='ended'
+        ")->fetch();
+
+        $audioCalls = $db->query("SELECT COUNT(*) AS count, COALESCE(SUM(coins_deducted), 0) AS coins, COALESCE(SUM(girl_earnings_inr), 0) AS girl_inr, COALESCE(SUM(platform_revenue_inr), 0) AS plat_inr FROM calls WHERE status='ended' AND call_type='audio'")->fetch();
+        $videoCalls = $db->query("SELECT COUNT(*) AS count, COALESCE(SUM(coins_deducted), 0) AS coins, COALESCE(SUM(girl_earnings_inr), 0) AS girl_inr, COALESCE(SUM(platform_revenue_inr), 0) AS plat_inr FROM calls WHERE status='ended' AND call_type='video'")->fetch();
+
+        // 3. Gift Consumption
+        $giftsSummary = $db->query("SELECT COUNT(*) AS total_gifts, COALESCE(SUM(coins_spent), 0) AS total_gift_coins FROM gifts")->fetch();
+        $giftsCount = (int)($giftsSummary['total_gifts'] ?? 0);
+        $giftsCoins = (float)($giftsSummary['total_gift_coins'] ?? 0);
+
+        $giftTypes = $db->query("SELECT gift_type, COUNT(*) AS count, COALESCE(SUM(coins_spent),0) AS coins FROM gifts GROUP BY gift_type ORDER BY coins DESC")->fetchAll();
+
+        $recentGifts = $db->query("
+            SELECT g.id, g.gift_type, g.coins_spent, g.created_at,
+                   COALESCE(u1.name, 'Him') AS sender_name, u1.gender AS sender_gender,
+                   COALESCE(u2.name, 'Kiara') AS receiver_name
+            FROM gifts g
+            LEFT JOIN users u1 ON g.sender_id=u1.id
+            LEFT JOIN users u2 ON g.receiver_id=u2.id
+            ORDER BY g.created_at DESC LIMIT 50
+        ")->fetchAll();
+
+        // 4. Totals & Economics
+        $totalCoinsConsumed = (float)($callsStats['total_call_coins'] ?? 0) + $giftsCoins;
+        $giftPlatformRevInr = round($giftsCoins * 0.33, 2);
+        $giftGirlEarningsInr = round($giftsCoins * 0.50, 2);
+        $totalPlatformRev = round(((float)($callsStats['call_platform_rev'] ?? 0)) + $giftPlatformRevInr, 2);
+        
+        $totalEarningsTable = (float)$db->query("SELECT COALESCE(SUM(amount_inr), 0) FROM earnings")->fetchColumn();
+        $recordedCallGirlEarnings = (float)($callsStats['call_girl_earnings'] ?? 0);
+        $totalGirlEarnings = max($totalEarningsTable, round($recordedCallGirlEarnings + $giftGirlEarningsInr, 2));
+
+        $totalPaidOut = (float)$db->query("SELECT COALESCE(SUM(amount), 0) FROM withdrawals WHERE status='approved'")->fetchColumn();
+        $totalPendingPayout = (float)$db->query("SELECT COALESCE(SUM(amount), 0) FROM withdrawals WHERE status='pending'")->fetchColumn();
+        $unpaidHostBalance = max(0.0, round($totalGirlEarnings - $totalPaidOut, 2));
+
+        $boysWalletCoins = (float)$db->query("SELECT COALESCE(SUM(minutes), 0) FROM users WHERE gender IN ('boy','male')")->fetchColumn();
+        $girlsWalletCoins = (float)$db->query("SELECT COALESCE(SUM(minutes), 0) FROM users WHERE gender IN ('girl','female')")->fetchColumn();
+
+        // 5. Host Breakdown
+        $hostBreakdown = $db->query("
+            SELECT 
+                u.id, u.name, u.phone, u.avatar_url, u.city, u.is_online, u.is_verified, u.is_blocked, u.rating,
+                u.minutes AS wallet_coins, u.created_at,
+                COALESCE(e.total_earned_inr, 0) AS total_earned_inr,
+                COALESCE(e.total_earned_coins, 0) AS total_earned_coins,
+                COALESCE(c.total_calls, 0) AS total_calls,
+                COALESCE(c.total_call_secs, 0) AS total_call_secs,
+                COALESCE(c.call_earned_inr, 0) AS call_earned_inr,
+                COALESCE(w_app.paid_out, 0) AS total_paid_out,
+                COALESCE(w_pen.pending_payout, 0) AS pending_payout,
+                MAX(0.0, (MAX(COALESCE(e.total_earned_inr, 0), COALESCE(c.call_earned_inr, 0)) - COALESCE(w_app.paid_out, 0))) AS unpaid_balance
+            FROM users u
+            LEFT JOIN (
+                SELECT girl_id, 
+                       SUM(amount_inr) AS total_earned_inr, 
+                       SUM(COALESCE(mins_received, coins_received, 0)) AS total_earned_coins 
+                FROM earnings GROUP BY girl_id
+            ) e ON u.id = e.girl_id
+            LEFT JOIN (
+                SELECT receiver_id, 
+                       COUNT(*) AS total_calls, 
+                       SUM(duration_seconds) AS total_call_secs, 
+                       SUM(girl_earnings_inr) AS call_earned_inr 
+                FROM calls WHERE status='ended' GROUP BY receiver_id
+            ) c ON u.id = c.receiver_id
+            LEFT JOIN (
+                SELECT girl_id, SUM(amount) AS paid_out FROM withdrawals WHERE status='approved' GROUP BY girl_id
+            ) w_app ON u.id = w_app.girl_id
+            LEFT JOIN (
+                SELECT girl_id, SUM(amount) AS pending_payout FROM withdrawals WHERE status='pending' GROUP BY girl_id
+            ) w_pen ON u.id = w_pen.girl_id
+            WHERE u.gender IN ('girl', 'female')
+            ORDER BY unpaid_balance DESC, total_earned_inr DESC, u.created_at DESC
+        ")->fetchAll();
+
+        // 6. Recent Transaction Ledger Feed
+        $recentTxns = $db->query("
+            SELECT t.id, t.user_id, t.type, t.amount, t.note AS description, t.created_at, t.ref_id,
+                   COALESCE(u.name, 'Him') AS user_name, u.gender AS user_gender, u.phone AS user_phone,
+                   c.receiver_id AS call_receiver_id,
+                   COALESCE(u_rec.name, 'Kiara') AS receiver_name,
+                   u_rec.phone AS receiver_phone
+            FROM wallet_transactions t
+            LEFT JOIN users u ON t.user_id = u.id
+            LEFT JOIN calls c ON t.ref_id = c.id
+            LEFT JOIN users u_rec ON c.receiver_id = u_rec.id
+            ORDER BY t.created_at DESC LIMIT 250
+        ")->fetchAll();
+
+        // 7. Spin Gifts Summary
+        $spinSummary = $db->query("SELECT COUNT(*) AS total_spins, COALESCE(SUM(amount), 0) AS total_spin_coins FROM wallet_transactions WHERE type='spin_gift'")->fetch();
+        $spinCoins = (float)($spinSummary['total_spin_coins'] ?? 0);
+        $spinCount = (int)($spinSummary['total_spins'] ?? 0);
+
+        jsonResponse([
+            'inflow' => [
+                'totalPurchases'          => (int)($purchases['total_purchases'] ?? 0),
+                'totalCoinsPurchased'     => (float)($purchases['total_coins_purchased'] ?? 0),
+                'estimatedGrossInflowInr' => $estimatedGrossInflowInr,
+                'unspentInflowInr'        => max(0.0, round($estimatedGrossInflowInr - ($totalGirlEarnings + $totalPlatformRev), 2)),
+                'packCounts'              => $packCounts
+            ],
+            'consumption' => [
+                'totalCoinsConsumed' => $totalCoinsConsumed,
+                'callCoins'          => (float)($callsStats['total_call_coins'] ?? 0),
+                'totalCallSecs'      => (int)($callsStats['total_call_secs'] ?? 0),
+                'audioCalls'         => [
+                    'count'   => (int)($audioCalls['count'] ?? 0),
+                    'coins'   => (float)($audioCalls['coins'] ?? 0),
+                    'girlInr' => (float)($audioCalls['girl_inr'] ?? 0),
+                    'platInr' => (float)($audioCalls['plat_inr'] ?? 0)
+                ],
+                'videoCalls'         => [
+                    'count'   => (int)($videoCalls['count'] ?? 0),
+                    'coins'   => (float)($videoCalls['coins'] ?? 0),
+                    'girlInr' => (float)($videoCalls['girl_inr'] ?? 0),
+                    'platInr' => (float)($videoCalls['plat_inr'] ?? 0)
+                ],
+                'giftCoins'          => $giftsCoins,
+                'giftsCount'         => $giftsCount,
+                'giftTypes'          => $giftTypes
+            ],
+            'spinGifts' => [
+                'totalCoins' => $spinCoins,
+                'count'      => $spinCount
+            ],
+            'economics' => [
+                'platformRevenue'    => $totalPlatformRev,
+                'girlEarnings'       => $totalGirlEarnings,
+                'callPlatformRev'    => (float)($callsStats['call_platform_rev'] ?? 0),
+                'callGirlEarnings'   => (float)($callsStats['call_girl_earnings'] ?? 0),
+                'giftPlatformRev'    => $giftPlatformRevInr,
+                'giftGirlEarnings'   => $giftGirlEarningsInr,
+                'totalPaidOut'       => $totalPaidOut,
+                'totalPendingPayout' => $totalPendingPayout,
+                'unpaidHostBalance'  => $unpaidHostBalance,
+                'boysWalletCoins'    => $boysWalletCoins,
+                'girlsWalletCoins'   => $girlsWalletCoins,
+                'netPlatformProfit'  => max(0.0, $estimatedGrossInflowInr - $totalPaidOut)
+            ],
+            'hosts'      => $hostBreakdown,
+            'recentGifts'=> $recentGifts,
+            'recentTxns' => $recentTxns
+        ]);
     }
 
     // ── GET /admin/withdrawals ────────────────────────────────────────────────
@@ -319,6 +646,12 @@ function handleAdminRoute(string $subRoute, string $method, array $body, ?array 
         jsonResponse($stmt->fetchAll());
     }
 
+    // ── POST /admin/reports/resolve-all ───────────────────────────────────────
+    if ($subRoute === 'reports/resolve-all' && $method === 'POST') {
+        $db->exec("UPDATE reports SET status = 'resolved' WHERE status = 'pending'");
+        jsonResponse(['success' => true]);
+    }
+
     // ── PUT /admin/reports/:id (Resolve or Suspend) ────────────────────────────
     if (strpos($subRoute, 'reports/') === 0 && $method === 'PUT') {
         $id = str_replace('reports/', '', $subRoute);
@@ -350,8 +683,8 @@ function handleAdminRoute(string $subRoute, string $method, array $body, ?array 
     if ($subRoute === 'reviews' && $method === 'GET') {
         $stmt = $db->query('
             SELECT r.*,
-                   u1.name as rater_name, u1.gender as rater_gender,
-                   u2.name as rated_name, u2.gender as rated_gender
+                   COALESCE(u1.name, "Him") as rater_name, u1.gender as rater_gender,
+                   COALESCE(u2.name, "Kiara") as rated_name, u2.gender as rated_gender
             FROM user_ratings r
             LEFT JOIN users u1 ON r.rater_id = u1.id
             LEFT JOIN users u2 ON r.rated_id = u2.id
@@ -371,17 +704,84 @@ function handleAdminRoute(string $subRoute, string $method, array $body, ?array 
     if ($subRoute === 'calls' && $method === 'GET') {
         $stmt = $db->query('
             SELECT c.*,
-                   u1.name as caller_name,
-                   u2.name as receiver_name
+                   COALESCE(c.coins_deducted, 0) AS mins_deducted,
+                   COALESCE(u1.name, "Him") AS caller,
+                   COALESCE(u2.name, "Kiara") AS receiver
             FROM calls c
             LEFT JOIN users u1 ON c.caller_id = u1.id
             LEFT JOIN users u2 ON c.receiver_id = u2.id
-            ORDER BY c.created_at DESC LIMIT 100
+            ORDER BY c.created_at DESC LIMIT 200
         ');
         jsonResponse($stmt->fetchAll());
     }
 
-    // ── GET /admin/support ────────────────────────────────────────────────────
+    // ── GET /admin/support/conversations (Chatbot Conversations List) ──────────
+    if ($subRoute === 'support/conversations' && $method === 'GET') {
+        $stmt = $db->query("
+            SELECT 
+                u.id AS user_id,
+                u.name,
+                u.phone,
+                u.avatar_url,
+                u.gender,
+                u.minutes AS coins,
+                u.is_online,
+                u.created_at AS joined_at,
+                MAX(sm.created_at) AS last_message_at,
+                (SELECT message FROM support_messages WHERE user_id = u.id ORDER BY created_at DESC LIMIT 1) AS last_message,
+                (SELECT COALESCE(sender_type, 'user') FROM support_messages WHERE user_id = u.id ORDER BY created_at DESC LIMIT 1) AS last_sender,
+                (SELECT status FROM support_messages WHERE user_id = u.id ORDER BY created_at DESC LIMIT 1) AS last_status,
+                SUM(CASE WHEN sm.status = 'pending' THEN 1 ELSE 0 END) AS pending_count,
+                COUNT(sm.id) AS total_messages
+            FROM users u
+            JOIN support_messages sm ON u.id = sm.user_id
+            GROUP BY u.id
+            ORDER BY pending_count DESC, last_message_at DESC
+        ");
+        jsonResponse($stmt->fetchAll());
+    }
+
+    // ── GET /admin/support/conversations/:userId ──────────────────────────────
+    if (preg_match('#^support/conversations/([^/]+)$#', $subRoute, $m) && $method === 'GET') {
+        $uid = $m[1];
+        $stmtUser = $db->prepare('SELECT id, name, phone, avatar_url, gender, minutes AS coins, is_online, is_verified, is_blocked, created_at FROM users WHERE id = ?');
+        $stmtUser->execute([$uid]);
+        $u = $stmtUser->fetch();
+        if (!$u) jsonResponse(['error' => 'User not found'], 404);
+
+        $stmtMsgs = $db->prepare('SELECT id, user_id, sender_type, message, status, created_at FROM support_messages WHERE user_id = ? ORDER BY created_at ASC');
+        $stmtMsgs->execute([$uid]);
+        $msgs = $stmtMsgs->fetchAll();
+
+        jsonResponse([
+            'user'     => $u,
+            'messages' => $msgs
+        ]);
+    }
+
+    // ── POST /admin/support/reply ─────────────────────────────────────────────
+    if ($subRoute === 'support/reply' && $method === 'POST') {
+        $uid = $body['userId'] ?? '';
+        $msg = trim($body['message'] ?? '');
+        if (!$uid || !$msg) jsonResponse(['error' => 'User ID and message required'], 400);
+
+        $msgId = uniqid('sup_rep_', true);
+        $stmt = $db->prepare('INSERT INTO support_messages (id, user_id, message, sender_type, status, created_at, replied_at) VALUES (?, ?, ?, "admin", "replied", datetime("now"), datetime("now"))');
+        $stmt->execute([$msgId, $uid, $msg]);
+
+        $db->prepare('UPDATE support_messages SET status = "replied" WHERE user_id = ? AND status = "pending"')->execute([$uid]);
+
+        jsonResponse(['success' => true]);
+    }
+
+    // ── DELETE /admin/support/conversations/:userId ───────────────────────────
+    if (preg_match('#^support/conversations/([^/]+)$#', $subRoute, $m) && $method === 'DELETE') {
+        $uid = $m[1];
+        $db->prepare('DELETE FROM support_messages WHERE user_id = ?')->execute([$uid]);
+        jsonResponse(['success' => true]);
+    }
+
+    // ── GET /admin/support (Fallback) ─────────────────────────────────────────
     if ($subRoute === 'support' && $method === 'GET') {
         $stmt = $db->query('
             SELECT s.*, u.name as user_name, u.phone as user_phone, u.gender as user_gender, u.coins as user_coins, u.created_at as user_joined
@@ -390,36 +790,6 @@ function handleAdminRoute(string $subRoute, string $method, array $body, ?array 
             ORDER BY s.created_at DESC
         ');
         jsonResponse($stmt->fetchAll());
-    }
-
-    // ── POST /admin/support/reply ─────────────────────────────────────────────
-    if ($subRoute === 'support/reply' && $method === 'POST') {
-        $msgId = $body['messageId'] ?? '';
-        $reply = trim($body['reply'] ?? '');
-
-        if (!$msgId || !$reply) jsonResponse(['error' => 'Message ID and reply text required'], 400);
-
-        $db->prepare('UPDATE support_messages SET reply = ?, status = "replied", replied_at = datetime("now") WHERE id = ?')
-           ->execute([$reply, $msgId]);
-
-        jsonResponse(['success' => true]);
-    }
-
-    // ── GET /admin/economics ──────────────────────────────────────────────────
-    if ($subRoute === 'economics' && $method === 'GET') {
-        $spinCoinsWon = (float)$db->query('SELECT COALESCE(SUM(coins_won), 0) FROM spin_history')->fetchColumn();
-        $virtualGifts = (int)$db->query('SELECT COUNT(*) FROM gifts')->fetchColumn();
-        $userFloat    = (float)$db->query("SELECT COALESCE(SUM(coins), 0) FROM users WHERE gender IN ('boy','male')")->fetchColumn();
-        $revCalls     = (float)$db->query('SELECT COALESCE(SUM(platform_revenue_inr), 0) FROM calls')->fetchColumn();
-        $hostTotal    = (float)$db->query('SELECT COALESCE(SUM(girl_earnings_inr), 0) FROM calls')->fetchColumn();
-
-        jsonResponse([
-            'spin_gifts_won'        => $spinCoinsWon,
-            'virtual_gifts_sent'    => $virtualGifts,
-            'unconsumed_bank_float' => $userFloat,
-            'platform_revenue'      => $revCalls,
-            'host_earnings'         => $hostTotal
-        ]);
     }
 
     jsonResponse(['error' => 'Admin route not found: ' . $subRoute], 404);

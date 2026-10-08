@@ -169,6 +169,7 @@ class Database {
         CREATE TABLE IF NOT EXISTS support_messages (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
+            sender_type TEXT DEFAULT 'user',
             message TEXT NOT NULL,
             reply TEXT,
             status TEXT DEFAULT 'pending',
@@ -198,11 +199,8 @@ SQL;
 
         $pdo->exec($schema);
 
-        // Seed initial verified host profiles if users table is empty
-        $stmt = $pdo->query("SELECT COUNT(*) FROM users");
-        if ($stmt->fetchColumn() == 0) {
-            self::seedInitialHosts($pdo);
-        }
+        // Do not auto-seed dummy users — only real database accounts are loaded
+        // self::seedInitialHosts($pdo);
     }
 
     private static function seedInitialHosts(PDO $pdo): void {
