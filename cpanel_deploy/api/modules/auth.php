@@ -55,12 +55,20 @@ function handleAuthRoute(string $subRoute, string $method, array $body, ?array $
             }
         }
 
-        // 2. Generate OTP (Fixed for dev or Fast2SMS)
-        $otp = '1234'; // Default fallback OTP for instant testing
+        // 2. Generate OTP
+        $otp = (string)rand(1000, 9999);
         $expiresAt = date('Y-m-d H:i:s', time() + 600); // 10 minutes
 
         $stmt = $db->prepare('INSERT INTO otp_sessions (id, phone, otp, expires_at) VALUES (?, ?, ?, ?)');
         $stmt->execute([uniqid('otp_', true), $phone, $otp, $expiresAt]);
+
+        // 3. Dispatch Voice Call OTP via 2Factor
+        if (!empty($config['twofactor_api_key'])) {
+            $apiKey = urlencode($config['twofactor_api_key']);
+            $vUrl = "https://2factor.in/API/V1/{$apiKey}/VOICE/{$phone}/{$otp}";
+            $ctx = stream_context_create(['http' => ['timeout' => 5]]);
+            @file_get_contents($vUrl, false, $ctx);
+        }
 
         jsonResponse([
             'success' => true,
