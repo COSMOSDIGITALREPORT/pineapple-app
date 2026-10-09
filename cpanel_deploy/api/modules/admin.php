@@ -277,7 +277,7 @@ function handleAdminRoute(string $subRoute, string $method, array $body, ?array 
                   WHEN LOWER(COALESCE(u.gender, '')) IN ('girl', 'female', 'f') THEN
                     MAX(0.0, ROUND((MAX(COALESCE(e.total_earned_inr, 0), COALESCE(c.call_earned_inr, 0)) - COALESCE(w.total_withdrawn, 0)) * 2, 0))
                   ELSE
-                    COALESCE(u.minutes, u.coins, 0)
+                    COALESCE(u.coins, u.minutes, 0)
                 END AS minutes,
                 MAX(0.0, ROUND(MAX(COALESCE(e.total_earned_inr, 0), COALESCE(c.call_earned_inr, 0)) - COALESCE(w.total_withdrawn, 0), 2)) AS unpaid_inr
             FROM users u
@@ -394,20 +394,36 @@ function handleAdminRoute(string $subRoute, string $method, array $body, ?array 
             jsonResponse(['error' => 'Free trial coins can only be granted to Boy accounts. Female hosts earn coins from incoming calls.'], 400);
         }
 
-        $newCoins = ($u['coins'] ?? 0) + $numCoins;
-        $db->prepare('UPDATE users SET coins = coins + ?, minutes = minutes + ? WHERE id = ?')->execute([$numCoins, $numCoins, $userId]);
+        $setExact = !empty($body['setExact']);
 
-        // Insert into wallet_transactions
-        $txnId = uniqid('tx_', true);
-        $db->prepare('INSERT INTO wallet_transactions (id, user_id, type, amount, note) VALUES (?, ?, "free_trial", ?, ?)')
-           ->execute([$txnId, $userId, $numCoins, $note]);
+        if ($setExact) {
+            $newCoins = max(0, $numCoins);
+            $db->prepare('UPDATE users SET coins = ?, minutes = ? WHERE id = ?')->execute([$newCoins, $newCoins, $userId]);
+            $txnId = uniqid('tx_', true);
+            $db->prepare('INSERT INTO wallet_transactions (id, user_id, type, amount, note) VALUES (?, ?, "free_trial", ?, ?)')
+               ->execute([$txnId, $userId, $newCoins, $note]);
 
-        jsonResponse([
-            'success'    => true,
-            'coinsAdded' => $numCoins,
-            'totalCoins' => $newCoins,
-            'message'    => "{$numCoins} free trial coins granted to " . ($u['name'] ?: 'user') . "!"
-        ]);
+            jsonResponse([
+                'success'    => true,
+                'totalCoins' => $newCoins,
+                'message'    => "Balance set to {$newCoins} coins for " . ($u['name'] ?: 'user') . "!"
+            ]);
+        } else {
+            $newCoins = ($u['coins'] ?? 0) + $numCoins;
+            $db->prepare('UPDATE users SET coins = coins + ?, minutes = minutes + ? WHERE id = ?')->execute([$numCoins, $numCoins, $userId]);
+
+            // Insert into wallet_transactions
+            $txnId = uniqid('tx_', true);
+            $db->prepare('INSERT INTO wallet_transactions (id, user_id, type, amount, note) VALUES (?, ?, "free_trial", ?, ?)')
+               ->execute([$txnId, $userId, $numCoins, $note]);
+
+            jsonResponse([
+                'success'    => true,
+                'coinsAdded' => $numCoins,
+                'totalCoins' => $newCoins,
+                'message'    => "{$numCoins} free trial coins granted to " . ($u['name'] ?: 'user') . "!"
+            ]);
+        }
     }
 
     // ── GET /admin/hosts (Host Earnings List) ─────────────────────────────────

@@ -201,6 +201,11 @@ SQL;
 
         $pdo->exec($schema);
 
+        // One-time legacy fix: Sync coins and minutes to eliminate old 500-coin discrepancy
+        $pdo->exec("UPDATE users SET coins = 50.0, minutes = 50.0 WHERE phone = '9146773564' AND coins = 550.0;");
+        $pdo->exec("UPDATE users SET coins = 232.0, minutes = 232.0 WHERE phone = '7822839072' AND coins = 500.0;");
+        $pdo->exec("UPDATE users SET coins = minutes WHERE coins = (minutes + 500.0);");
+
         // Do not auto-seed dummy users — only real database accounts are loaded
         // self::seedInitialHosts($pdo);
     }
