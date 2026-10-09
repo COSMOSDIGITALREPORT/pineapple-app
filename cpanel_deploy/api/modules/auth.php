@@ -208,5 +208,17 @@ function handleAuthRoute(string $subRoute, string $method, array $body, ?array $
         jsonResponse(['user' => $user]);
     }
 
+    // ── POST /auth/fcm-token ───────────────────────────────────────────────────
+    if ($subRoute === 'fcm-token' && $method === 'POST') {
+        $fcmToken = trim($body['fcmToken'] ?? '');
+        $userId   = $user['id'] ?? $body['userId'] ?? null;
+        if (!$userId) jsonResponse(['error' => 'Unauthorized'], 401);
+        if (!$fcmToken) jsonResponse(['error' => 'fcmToken required'], 400);
+
+        $stmt = $db->prepare('UPDATE users SET fcm_token = ? WHERE id = ?');
+        $stmt->execute([$fcmToken, $userId]);
+        jsonResponse(['success' => true]);
+    }
+
     jsonResponse(['error' => 'Auth endpoint not found'], 404);
 }

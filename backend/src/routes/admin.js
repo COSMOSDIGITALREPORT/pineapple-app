@@ -3,6 +3,7 @@ const jwt    = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
 const axios  = require('axios');
 const pool   = require('../config/db');
+const { sendPushToUser } = require('../config/fcm');
 
 function adminAuth(req, res, next) {
   const token = req.headers.authorization?.split(' ')[1];
@@ -1059,6 +1060,13 @@ router.post('/support/reply', adminAuth, async (req, res) => {
       io.emit(`support:reply:${userId}`, replyData);
       io.emit('support:message', replyData);
     }
+
+    // Realtime Push Notification via FCM
+    sendPushToUser(userId, {
+      title: '🤖 Support Reply',
+      body: trimmed,
+      data: { type: 'support_reply', userId }
+    });
 
     res.json({ success: true, message: replyData });
   } catch (err) { res.status(500).json({ error: err.message }); }

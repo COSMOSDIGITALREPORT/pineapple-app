@@ -4,6 +4,7 @@ const crypto   = require('crypto');
 const { v4: uuidv4 } = require('uuid');
 const auth     = require('../middleware/auth');
 const pool     = require('../config/db');
+const { sendPushToUser } = require('../config/fcm');
 
 let razorpay;
 if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
@@ -69,6 +70,13 @@ router.post('/verify', auth, async (req, res) => {
     }
     await pool.query('INSERT INTO wallet_transactions (id,user_id,type,amount,description) VALUES (?,?,?,?,?)',
       [uuidv4(), req.user.userId, 'purchase', pkg.coins, `Bought ${pkg.coins} coins for ₹${pkg.price}`]);
+
+    // Send push notification for wallet recharge
+    sendPushToUser(req.user.userId, {
+      title: '💳 Wallet Recharged!',
+      body: `Successfully added ${pkg.coins} coins to your wallet.`,
+      data: { type: 'wallet_recharge', coins: pkg.coins }
+    });
 
     const [rows] = await pool.query('SELECT minutes, is_premium, plan_id, intro_9_used FROM users WHERE id=?', [req.user.userId]);
     res.json({

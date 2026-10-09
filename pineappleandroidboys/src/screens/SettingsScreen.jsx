@@ -32,8 +32,6 @@ const SECTIONS = [
     title: 'Notifications',
     items: [
       { label: 'Push Notifications', type: 'toggle', key: 'push' },
-      { label: 'Call Alerts', type: 'toggle', key: 'callAlerts' },
-      { label: 'New Messages', type: 'toggle', key: 'messages' },
       { label: 'Promotions & Offers', type: 'toggle', key: 'promos' },
     ],
   },
@@ -82,8 +80,6 @@ export default function SettingsScreen({ onBack, onLogout, onBlockedUsers, onPri
   const [showBlocked, setShowBlocked] = useState(false);
   const [toggles, setToggles] = useState({
     push: true,
-    callAlerts: true,
-    messages: true,
     promos: false,
   });
 

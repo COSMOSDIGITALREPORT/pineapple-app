@@ -3,7 +3,7 @@ const { v4: uuidv4 } = require('uuid');
 const auth   = require('../middleware/auth');
 const pool   = require('../config/db');
 const { generateAgoraToken } = require('../config/agora');
-const { sendPush } = require('../config/fcm');
+const { sendPush, sendPushToUser } = require('../config/fcm');
 
 const MINS_PER_MIN_AUDIO = 1;   // 1 coin deducted per minute of audio call
 const MINS_PER_MIN_VIDEO = 2;   // 2 coins deducted per minute of video call
@@ -126,6 +126,15 @@ router.put('/:id/end', auth, async (req, res) => {
           'INSERT INTO wallet_transactions (id,user_id,type,amount,description,ref_id) VALUES (?,?,?,?,?,?)',
           [uuidv4(), call.receiver_id, 'earn', girlCoins, `${call.call_type} call earnings (₹${girlInr})`, req.params.id]
         );
+
+        // Push notification to host girl
+        if (girlCoins > 0) {
+          sendPushToUser(call.receiver_id, {
+            title: '💰 Coins Earned!',
+            body: `You earned ${girlCoins} coins (₹${girlInr}) from your call!`,
+            data: { type: 'call_earnings', coins: girlCoins, amountInr: girlInr }
+          });
+        }
       }
     }
 

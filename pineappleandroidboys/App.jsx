@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Provider, useDispatch, useSelector } from 'react-redux';
 import { Modal, View, Text, TextInput, TouchableOpacity, StyleSheet, Platform, StatusBar } from 'react-native';
@@ -17,6 +17,7 @@ import SafetyScreen from './src/screens/SafetyScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import ProfileSetupScreen from './src/screens/ProfileSetupScreen';
 import HomeScreen from './src/screens/HomeScreen';
+import { syncFcmToken, setupNotificationListeners } from './src/services/notifications';
 
 const WELCOME_PLANS = [
   { id: 'starter', packId: 'pack_100', mins: 120, price: '₹100', priceNum: 100, emoji: '📞', colors: ['#FF3870','#C0004A'] },
@@ -98,10 +99,17 @@ function MainApp() {
   const [screen, setScreen] = useState('splash');
   const [showWelcome, setShowWelcome] = useState(false);
 
+  useEffect(() => {
+    syncFcmToken();
+    const unsub = setupNotificationListeners();
+    return () => unsub?.();
+  }, []);
+
   const handleLoginSuccess = (userData) => {
     dispatch(setLoggedIn(true));
     dispatch(setProfile({ gender: 'boy' }));
     AsyncStorage.setItem('gender', 'boy').catch(() => {});
+    syncFcmToken();
     const isNewUser = !userData?.name || userData.name.trim() === '';
     if (isNewUser) {
       setScreen('profileSetup');

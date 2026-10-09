@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Provider, useDispatch } from 'react-redux';
 import { Modal, View, Text, TextInput, TouchableOpacity, StyleSheet, Platform, StatusBar } from 'react-native';
@@ -15,15 +15,23 @@ import OnboardingScreen1 from './src/screens/OnboardingScreen1';
 import LoginScreen from './src/screens/LoginScreen';
 import ProfileSetupScreen from './src/screens/ProfileSetupScreen';
 import HomeScreen from './src/screens/GirlsHomeScreen';
+import { syncFcmToken, setupNotificationListeners } from './src/services/notifications';
 
 function MainApp() {
   const dispatch = useDispatch();
   const [screen, setScreen] = useState('splash');
 
+  useEffect(() => {
+    syncFcmToken();
+    const unsub = setupNotificationListeners();
+    return () => unsub?.();
+  }, []);
+
   const handleLoginSuccess = (userData) => {
     dispatch(setLoggedIn(true));
     dispatch(setProfile({ gender: 'girl' }));
     AsyncStorage.setItem('gender', 'girl').catch(() => {});
+    syncFcmToken();
     const isNewUser = !userData?.name || userData.name.trim() === '';
     setScreen(isNewUser ? 'profileSetup' : 'home');
   };

@@ -192,3 +192,4 @@ export const getUserReviews = (userId) => get(`/users/${userId}/reviews`);
 
 export const getSupportMessages = () => get('/support/messages');
 export const sendSupportMessage = (message, is_quick_faq = false) => post('/support/messages', { message, is_quick_faq });
+export const saveFcmToken = (fcmToken) => post('/auth/fcm-token', { fcmToken });

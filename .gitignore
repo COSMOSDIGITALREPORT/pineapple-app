@@ -55,6 +55,7 @@ backend/uploads/
 google-services.json
 node_modules/
 pineapple-8376c-firebase-adminsdk-fbsvc-a742b2a08a.json
+*firebase_credentials.json
 tmp/
 
 pineapple-transfer/

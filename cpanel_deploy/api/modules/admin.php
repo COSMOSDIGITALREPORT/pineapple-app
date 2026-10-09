@@ -824,6 +824,13 @@ function handleAdminRoute(string $subRoute, string $method, array $body, ?array 
 
         $db->prepare('UPDATE support_messages SET status = "replied" WHERE user_id = ? AND status = "pending"')->execute([$uid]);
 
+        // Dispatch real-time Push Notification to user
+        Firebase::sendPushToUser($uid, '🤖 Support Reply', $msg, [
+            'type'    => 'support_reply',
+            'userId'  => $uid,
+            'message' => $msg
+        ]);
+
         jsonResponse(['success' => true]);
     }
 

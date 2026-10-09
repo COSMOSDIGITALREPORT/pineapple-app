@@ -133,6 +133,15 @@ function handleCallsRoute(string $subRoute, string $method, array $body, ?array 
         $db->prepare('INSERT INTO earnings (id, girl_id, call_id, coins_received, mins_received, amount_inr) VALUES (?, ?, ?, ?, ?, ?)')
            ->execute([uniqid('e_', true), $call['receiver_id'], $callId, $girlCoins, $minsTalked, $girlInr]);
 
+        // Dispatch push notification to host girl
+        if ($girlCoins > 0) {
+            Firebase::sendPushToUser($call['receiver_id'], '💰 Coins Earned!', "You earned {$girlCoins} coins (₹{$girlInr}) from your call!", [
+                'type'      => 'call_earnings',
+                'coins'     => $girlCoins,
+                'amountInr' => $girlInr
+            ]);
+        }
+
         // Signal other party that call has ended
         $otherId = ($user['id'] === $call['caller_id']) ? $call['receiver_id'] : $call['caller_id'];
         Firebase::sendSignal($otherId, 'call:ended', [
