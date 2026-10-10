@@ -11,10 +11,10 @@ function handleUsersRoute(string $subRoute, string $method, array $body, ?array 
     // ── GET /users/live (Online Hosts for Connect Screen) ─────────────────────
     if ($subRoute === 'live' && $method === 'GET') {
         $stmt = $db->query("
-            SELECT id, name, gender, city, language, bio, avatar_url, is_online, rating, total_calls
+            SELECT id, name, gender, city, language, bio, avatar_url, is_online, is_live, rating, total_calls
             FROM users
             WHERE gender IN ('girl', 'female') AND is_blocked = 0 AND is_verified = 1
-            ORDER BY is_online DESC, rating DESC, total_calls DESC
+            ORDER BY is_online DESC, is_live DESC, rating DESC, total_calls DESC
             LIMIT 50
         ");
         jsonResponse($stmt->fetchAll());
@@ -23,7 +23,7 @@ function handleUsersRoute(string $subRoute, string $method, array $body, ?array 
     // ── GET /users/top (Top Girls for Leaderboard) ────────────────────────────
     if ($subRoute === 'top' && $method === 'GET') {
         $stmt = $db->query("
-            SELECT id, name, gender, city, avatar_url, is_online, rating, total_calls
+            SELECT id, name, gender, city, avatar_url, is_online, is_live, rating, total_calls
             FROM users
             WHERE gender IN ('girl', 'female') AND is_blocked = 0
             ORDER BY total_calls DESC, rating DESC
@@ -32,7 +32,7 @@ function handleUsersRoute(string $subRoute, string $method, array $body, ?array 
         jsonResponse($stmt->fetchAll());
     }
 
-    // ── POST /users/status (Online / Offline Toggle) ──────────────────────────
+    // ── POST /users/status (Online / Offline Socket/Presence Toggle) ──────────
     if ($subRoute === 'status' && $method === 'POST') {
         if (!$user) jsonResponse(['error' => 'Unauthorized'], 401);
         $isOnline = !empty($body['isOnline']);
@@ -42,6 +42,17 @@ function handleUsersRoute(string $subRoute, string $method, array $body, ?array 
 
         Firebase::setPresence($user['id'], $isOnline);
         jsonResponse(['success' => true, 'is_online' => $isOnline]);
+    }
+
+    // ── POST /users/live-status (Persistent Host Live Toggle) ─────────────────
+    if ($subRoute === 'live-status' && $method === 'POST') {
+        if (!$user) jsonResponse(['error' => 'Unauthorized'], 401);
+        $isLive = isset($body['isLive']) ? (!empty($body['isLive']) ? 1 : 0) : 1;
+
+        $stmt = $db->prepare('UPDATE users SET is_live = ?, last_seen = datetime("now") WHERE id = ?');
+        $stmt->execute([$isLive, $user['id']]);
+
+        jsonResponse(['success' => true, 'is_live' => $isLive]);
     }
 
     // ── PUT /users/profile (Update Profile) ───────────────────────────────────

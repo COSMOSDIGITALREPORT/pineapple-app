@@ -4,7 +4,7 @@ const auth   = require('../middleware/auth');
 const pool   = require('../config/db');
 
 // Fields safe to expose to other users (no phone, no fcm_token)
-const PUBLIC_FIELDS = 'id,name,dob,city,language,bio,avatar_url,is_online,is_premium,plan_id,rating,rating_count,content_prefs';
+const PUBLIC_FIELDS = 'id,name,dob,city,language,bio,avatar_url,is_online,is_live,is_premium,plan_id,rating,rating_count,content_prefs';
 // Fields for own profile (includes phone for self account view)
 const ME_FIELDS     = `${PUBLIC_FIELDS},phone,minutes,is_verified,spin_available,gender,created_at,free_trial_used,intro_9_used`;
 
@@ -385,6 +385,17 @@ router.get('/:id/reviews', auth, async (req, res) => {
       [targetId]);
     res.json(rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// POST /users/live-status — persistent host live toggle
+router.post('/live-status', auth, async (req, res) => {
+  try {
+    const isLive = req.body.isLive === false || req.body.isLive === 0 ? 0 : 1;
+    await pool.query('UPDATE users SET is_live=?, last_seen=NOW() WHERE id=?', [isLive, req.user.userId]);
+    res.json({ success: true, is_live: isLive });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 module.exports = router;

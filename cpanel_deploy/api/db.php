@@ -58,6 +58,7 @@ class Database {
             is_premium INTEGER DEFAULT 0,
             is_verified INTEGER DEFAULT 1,
             is_online INTEGER DEFAULT 0,
+            is_live INTEGER DEFAULT 1,
             is_blocked INTEGER DEFAULT 0,
             fcm_token TEXT,
             rating REAL DEFAULT 5.0,
@@ -200,6 +201,11 @@ class Database {
 SQL;
 
         $pdo->exec($schema);
+
+        // Auto-migration: ensure is_live column exists
+        try {
+            $pdo->exec("ALTER TABLE users ADD COLUMN is_live INTEGER DEFAULT 1;");
+        } catch (\Throwable $ignored) {}
 
         // One-time legacy fix: Sync coins and minutes to eliminate old 500-coin discrepancy
         $pdo->exec("UPDATE users SET coins = 50.0, minutes = 50.0 WHERE phone = '9146773564' AND coins = 550.0;");

@@ -38,24 +38,55 @@ module.exports = (io) => {
         }
       } catch (_) {}
 
+      // Check if receiver host has explicitly toggled offline (is_live = 0)
+      try {
+        const [userRows] = await pool.query('SELECT is_live, fcm_token FROM users WHERE id=?', [receiverId]);
+        const receiverUser = userRows[0];
+        if (receiverUser && (receiverUser.is_live === 0 || receiverUser.is_live === false)) {
+          console.log(`[CALL] 🚫 Host ${receiverId} is offline (is_live = 0)`);
+          socket.emit('call:unavailable', { receiverId, error: 'Host is currently offline' });
+          return;
+        }
+      } catch (_) {}
+
       const dest = online.get(receiverId);
       console.log(`[CALL] dest socket: ${dest}`);
       if (dest) {
         io.to(dest).emit('call:incoming', { callId, callerName, callerAvatar, channelName, type, callerId: userId });
         console.log(`[CALL] ✅ call:incoming sent to ${receiverId}`);
       } else {
-        // Receiver offline — send FCM push notification
+        // Receiver app process is closed/swiped, but host is Live:
+        // Send high-priority FCM call push so receiver gets incoming call alert!
         try {
           const [rows] = await pool.query('SELECT fcm_token FROM users WHERE id=?', [receiverId]);
           if (rows[0]?.fcm_token) {
             await sendPush(rows[0].fcm_token, {
               title: `📞 ${callerName} is calling`,
               body: `Incoming ${type} call`,
-              data: { type: 'incoming_call', callId, callerId: userId, callerName, callerAvatar, channelName, callType: type },
+              data: {
+                type: 'incoming_call',
+                callId: String(callId || ''),
+                callerId: String(userId || ''),
+                callerName: String(callerName || ''),
+                callerAvatar: String(callerAvatar || ''),
+                channelName: String(channelName || ''),
+                callType: String(type || 'video'),
+              },
             });
+            console.log(`[CALL] 📲 FCM incoming call push dispatched to ${receiverId}`);
           }
         } catch (e) { console.error('[FCM] push failed:', e.message); }
-        socket.emit('call:unavailable', { receiverId });
+
+        // Keep caller ringing for up to 35 seconds to allow host to open push and answer
+        const ringTimer = setTimeout(() => {
+          if (!online.get(receiverId)) {
+            console.log(`[CALL] ⏱️ Call ${callId} timed out (no answer)`);
+            socket.emit('call:unavailable', { receiverId, error: 'No answer' });
+          }
+        }, 35000);
+
+        socket.once('call:ended', () => clearTimeout(ringTimer));
+        socket.once('disconnect', () => clearTimeout(ringTimer));
       }
     });
 

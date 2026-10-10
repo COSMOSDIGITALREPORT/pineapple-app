@@ -17,6 +17,19 @@ function handleCallsRoute(string $subRoute, string $method, array $body, ?array 
 
         if (!$receiverId) jsonResponse(['error' => 'Receiver ID required'], 400);
 
+        // Check receiver host exists and is live
+        $rStmt = $db->prepare('SELECT id, name, is_online, is_live, fcm_token FROM users WHERE id = ?');
+        $rStmt->execute([$receiverId]);
+        $receiver = $rStmt->fetch();
+
+        if (!$receiver) {
+            jsonResponse(['error' => 'Host not found'], 404);
+        }
+
+        if (isset($receiver['is_live']) && (int)$receiver['is_live'] === 0) {
+            jsonResponse(['error' => 'Host is currently offline'], 400);
+        }
+
         // Check caller balance
         $callerCoins = (float)($user['coins'] ?? $user['minutes'] ?? 0);
         $minCoinsNeeded = ($callType === 'video') ? 2.0 : 1.0;
@@ -38,11 +51,32 @@ function handleCallsRoute(string $subRoute, string $method, array $body, ?array 
             'callerName'   => $user['name'] ?: 'Caller',
             'callerAvatar' => $user['avatar_url'] ?: '',
             'callType'     => $callType,
+            'channelName'  => $agoraChannel,
             'agoraChannel' => $agoraChannel,
             'agoraAppId'   => $config['agora_app_id'],
         ];
 
         Firebase::sendSignal($receiverId, 'call:incoming', $signalPayload);
+
+        // If host has FCM token, dispatch high-priority incoming call push
+        if (!empty($receiver['fcm_token'])) {
+            Firebase::sendPush(
+                $receiver['fcm_token'],
+                'Incoming Call 📞',
+                ($user['name'] ?: 'Someone') . ' is calling you...',
+                [
+                    'type'         => 'incoming_call',
+                    'callId'       => $callId,
+                    'callerId'     => $user['id'],
+                    'callerName'   => $user['name'] ?: 'Caller',
+                    'callerAvatar' => $user['avatar_url'] ?: '',
+                    'callType'     => $callType,
+                    'channelName'  => $agoraChannel,
+                    'agoraChannel' => $agoraChannel,
+                    'agoraAppId'   => $config['agora_app_id'],
+                ]
+            );
+        }
 
         jsonResponse([
             'success'      => true,

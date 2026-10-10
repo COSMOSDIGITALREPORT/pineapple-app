@@ -84,6 +84,8 @@ export const getLiveUsers = () => get('/users/live');
 
 export const setOffline = () => put('/users/me/offline');
 
+export const setLiveStatus = (isLive) => post('/users/live-status', { isLive });
+
 // ── Calls ────────────────────────────────────────────────────────────────────
 export const initiateCall = (receiverId, type = 'audio') =>
   post('/calls/initiate', { receiverId, type });

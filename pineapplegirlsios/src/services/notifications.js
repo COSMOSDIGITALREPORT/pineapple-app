@@ -61,6 +61,19 @@ export async function syncFcmToken() {
   }
 }
 
+const incomingCallListeners = new Set();
+
+export function onIncomingCallNotification(listener) {
+  incomingCallListeners.add(listener);
+  return () => incomingCallListeners.delete(listener);
+}
+
+function notifyIncomingCall(data) {
+  incomingCallListeners.forEach((fn) => {
+    try { fn(data); } catch (e) { console.warn('[FCM] Incoming call listener error:', e); }
+  });
+}
+
 /**
  * Sets up foreground and background notification listeners
  */
@@ -74,9 +87,13 @@ export function setupNotificationListeners(onNotificationPress) {
     } catch (_) {}
   });
 
-  // 2. Foreground notifications (show in-app alert)
+  // 2. Foreground notifications (show in-app alert or trigger call modal)
   const unsubscribeMessage = messaging().onMessage(async (remoteMessage) => {
     console.log('[FCM] Foreground notification received:', remoteMessage);
+    if (remoteMessage.data?.type === 'incoming_call') {
+      notifyIncomingCall(remoteMessage.data);
+      return;
+    }
     const title = remoteMessage.notification?.title || remoteMessage.data?.title || 'Pineapple';
     const body  = remoteMessage.notification?.body  || remoteMessage.data?.body  || '';
 
@@ -88,6 +105,10 @@ export function setupNotificationListeners(onNotificationPress) {
   // 3. User tapped notification while app was in background
   const unsubscribeOpenedApp = messaging().onNotificationOpenedApp((remoteMessage) => {
     console.log('[FCM] Notification opened from background:', remoteMessage);
+    if (remoteMessage?.data?.type === 'incoming_call') {
+      notifyIncomingCall(remoteMessage.data);
+      return;
+    }
     if (onNotificationPress && remoteMessage) {
       onNotificationPress(remoteMessage);
     }
@@ -99,6 +120,10 @@ export function setupNotificationListeners(onNotificationPress) {
     .then((remoteMessage) => {
       if (remoteMessage) {
         console.log('[FCM] Notification opened from quit state:', remoteMessage);
+        if (remoteMessage?.data?.type === 'incoming_call') {
+          notifyIncomingCall(remoteMessage.data);
+          return;
+        }
         if (onNotificationPress) {
           onNotificationPress(remoteMessage);
         }

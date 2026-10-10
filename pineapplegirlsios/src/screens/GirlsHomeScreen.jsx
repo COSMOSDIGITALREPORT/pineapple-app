@@ -28,6 +28,7 @@ import RecentsScreen from './RecentsScreen';
 import IncomingCallScreen from './IncomingCallScreen';
 import VideoCallScreen from './VideoCallScreen';
 import GirlsEarningsScreen from './GirlsEarningsScreen';
+import { onIncomingCallNotification } from '../services/notifications';
 import GirlsRedeemScreen from './GirlsRedeemScreen';
 import GirlsTransactionsScreen from './GirlsTransactionsScreen';
 import BlockedUsersScreen from './BlockedUsersScreen';
@@ -116,6 +117,25 @@ export default function GirlsHomeScreen({ onLogout }) {
 
     initSocket();
     return () => disconnectSocket();
+  }, []);
+
+  // Listen for incoming calls triggered via FCM push notifications (app in background or killed)
+  useEffect(() => {
+    const unsubCallPush = onIncomingCallNotification((data) => {
+      console.log('[CALL PUSH] Received incoming call notification in GirlsHomeScreen:', data);
+      const incomingData = {
+        callId: data.callId,
+        callerId: data.callerId,
+        callerName: data.callerName || 'Caller',
+        callerAvatar: data.callerAvatar || '',
+        channelName: data.channelName,
+        type: data.callType || 'video',
+      };
+      incomingCallRef.current = incomingData;
+      setIncomingCall(incomingData);
+    });
+
+    return () => unsubCallPush?.();
   }, []);
 
   const goHome = () => { setAcceptedCallData(null); setCurrentSubScreen(null); };

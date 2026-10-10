@@ -7,9 +7,10 @@ import {
 import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSelector } from 'react-redux';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from '../components/Icon';
 
-import { getEarnings, getCallHistory, getWallet, getUserReviews, getWithdrawals } from '../services/api';
+import { getEarnings, getCallHistory, getWallet, getUserReviews, getWithdrawals, getMe, setLiveStatus } from '../services/api';
 import { getSocket } from '../services/socket';
 
 const GIFT_EMOJI = { Rose:'🌹', Chocolate:'🍫', Pastry:'🍰', Pineapple:'🍍', Heart:'❤️', Perfume:'🧴', Crown:'👑' };
@@ -31,7 +32,15 @@ export default function GirlsEarningsScreen({ onDrawer, onRedeem }) {
   const [reviews, setReviews] = useState([]);
   const [loadingReviews, setLoadingReviews] = useState(false);
 
-  useEffect(() => { loadData(); }, [userId]);
+  useEffect(() => {
+    // Load persisted live toggle state
+    AsyncStorage.getItem('@pineapple_host_is_live').then((val) => {
+      if (val !== null) {
+        setIsLive(val === 'true');
+      }
+    }).catch(() => {});
+    loadData();
+  }, [userId]);
 
   const loadData = async () => {
     try {
@@ -53,6 +62,13 @@ export default function GirlsEarningsScreen({ onDrawer, onRedeem }) {
       }
       if (wdRes.status === 'fulfilled' && Array.isArray(wdRes.value)) {
         setWithdrawals(wdRes.value);
+      }
+      if (meRes.status === 'fulfilled' && meRes.value) {
+        if (meRes.value.is_live !== undefined && meRes.value.is_live !== null) {
+          const liveBool = meRes.value.is_live === 1 || meRes.value.is_live === true || meRes.value.is_live === '1';
+          setIsLive(liveBool);
+          AsyncStorage.setItem('@pineapple_host_is_live', String(liveBool)).catch(() => {});
+        }
       }
       let myId = (meRes.status === 'fulfilled' && meRes.value?.id)
         ? meRes.value.id
@@ -89,8 +105,14 @@ export default function GirlsEarningsScreen({ onDrawer, onRedeem }) {
     }
   };
 
-  const toggleLive = (val) => {
+  const toggleLive = async (val) => {
     setIsLive(val);
+    try {
+      await AsyncStorage.setItem('@pineapple_host_is_live', String(val));
+      await setLiveStatus(val);
+    } catch (e) {
+      console.warn('Failed to update live status:', e);
+    }
     getSocket()?.emit(val ? 'user:online' : 'user:offline');
   };
 

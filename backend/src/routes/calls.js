@@ -24,6 +24,12 @@ router.post('/initiate', auth, async (req, res) => {
       return res.status(403).json({ error: 'Cannot start call. You or this user is blocked.' });
     }
 
+    // Check if receiver host has explicitly toggled offline (is_live = 0)
+    const [receiverRows] = await pool.query('SELECT is_live FROM users WHERE id=?', [receiverId]).catch(() => [[]]);
+    if (receiverRows && receiverRows.length > 0 && (receiverRows[0].is_live === 0 || receiverRows[0].is_live === false)) {
+      return res.status(400).json({ error: 'Host is currently offline.' });
+    }
+
     if (freeTrialCall) {
       const [userRows] = await pool.query('SELECT free_trial_used FROM users WHERE id=?', [req.user.userId]);
       if (userRows[0]?.free_trial_used) return res.status(400).json({ error: 'Free trial already used.' });

@@ -217,8 +217,8 @@ function FloatingBubble({
           </View>
         )}
 
-        {/* Green online dot — strictly when girl is actually online */}
-        {!!(user?.is_online === 1 || user?.is_online === true) && (
+        {/* Green online dot — when host is online or live */}
+        {!!(user?.is_online === 1 || user?.is_online === true || user?.is_live === 1 || user?.is_live === true) && (
           <View style={bStyles.dot} />
         )}
 
@@ -383,10 +383,10 @@ export default function ConnectScreen({ onVideoCall, onAudioCall, onDrawer, onBu
   }, []);
 
   const visibleUsers = users.filter((u) => {
-    if (activeFilter === '🔴 Live') return u.is_online === 1 || u.is_online === true;
+    if (activeFilter === '🔴 Live') return u.is_online === 1 || u.is_online === true || u.is_live === 1 || u.is_live === true;
     if (activeFilter === 'Hindi')   return (u.language || '').toLowerCase().includes('hindi') || u.language === 'HI';
     if (activeFilter === 'English') return (u.language || '').toLowerCase().includes('english') || u.language === 'EN';
-    if (activeFilter === 'New')     return !u.is_online;
+    if (activeFilter === 'New')     return !u.is_online && !u.is_live;
     return true;
   });
 
@@ -609,7 +609,7 @@ export default function ConnectScreen({ onVideoCall, onAudioCall, onDrawer, onBu
                         <View style={pStyles.langBadgePreview}>
                           <Text style={pStyles.langBadgePreviewText}>{callPickerUser?.language || 'HI'}</Text>
                         </View>
-                        {!!callPickerUser?.is_online && (
+                        {!!(callPickerUser?.is_online || callPickerUser?.is_live) && (
                           <View style={pStyles.onlineBadge}>
                             <View style={pStyles.onlineDot} />
                             <Text style={pStyles.onlineBadgeText}>Online</Text>

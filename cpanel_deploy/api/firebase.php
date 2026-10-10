@@ -163,6 +163,15 @@ class Firebase {
                         'default_sound' => true,
                         'channel_id' => 'pineapple_default_channel'
                     ]
+                ],
+                'apns' => [
+                    'payload' => [
+                        'aps' => [
+                            'sound' => 'default',
+                            'badge' => 1,
+                            'content-available' => 1
+                        ]
+                    ]
                 ]
             ]
         ];
