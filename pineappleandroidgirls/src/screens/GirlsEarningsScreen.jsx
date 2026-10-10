@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
   TouchableOpacity, StatusBar, Image, Switch, RefreshControl,
@@ -27,6 +27,7 @@ export default function GirlsEarningsScreen({ onDrawer, onRedeem }) {
   const [gifts, setGifts]       = useState([]);
   const [isLive, setIsLive]     = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const lastToggleTimeRef = useRef(0);
 
   // Reviews modal state
   const [showReviewsModal, setShowReviewsModal] = useState(false);
@@ -65,10 +66,12 @@ export default function GirlsEarningsScreen({ onDrawer, onRedeem }) {
         setWithdrawals(wdRes.value);
       }
       if (meRes.status === 'fulfilled' && meRes.value) {
-        if (meRes.value.is_live !== undefined && meRes.value.is_live !== null) {
-          const liveBool = meRes.value.is_live === 1 || meRes.value.is_live === true || meRes.value.is_live === '1';
-          setIsLive(liveBool);
-          AsyncStorage.setItem('@pineapple_host_is_live', String(liveBool)).catch(() => {});
+        if (Date.now() - lastToggleTimeRef.current > 4000) {
+          if (meRes.value.is_live !== undefined && meRes.value.is_live !== null) {
+            const liveBool = meRes.value.is_live === 1 || meRes.value.is_live === true || meRes.value.is_live === '1';
+            setIsLive(liveBool);
+            AsyncStorage.setItem('@pineapple_host_is_live', String(liveBool)).catch(() => {});
+          }
         }
       }
       let myId = (meRes.status === 'fulfilled' && meRes.value?.id)
@@ -106,18 +109,29 @@ export default function GirlsEarningsScreen({ onDrawer, onRedeem }) {
     }
   };
 
-  const toggleLive = async (val) => {
+  const toggleLive = (val) => {
+    lastToggleTimeRef.current = Date.now();
     setIsLive(val);
+
+    // 1. Instantly broadcast socket status with zero delay so boys app reflects it immediately
     try {
-      await AsyncStorage.setItem('@pineapple_host_is_live', String(val));
-      await setLiveStatus(val);
-      if (val) {
-        syncFcmToken();
-      }
-    } catch (e) {
+      getSocket()?.emit(val ? 'user:online' : 'user:offline');
+    } catch (_) {}
+
+    // 2. Persist locally in storage
+    AsyncStorage.setItem('@pineapple_host_is_live', String(val)).catch(() => {});
+
+    // 3. Send to backend without blocking switch UI
+    setLiveStatus(val).catch((e) => {
       console.warn('Failed to update live status:', e);
+    });
+
+    // 4. Background FCM sync when going live
+    if (val) {
+      setTimeout(() => {
+        try { syncFcmToken(); } catch (_) {}
+      }, 100);
     }
-    getSocket()?.emit(val ? 'user:online' : 'user:offline');
   };
 
   const getCallSecs = (c) => {

@@ -11,10 +11,12 @@ function handleUsersRoute(string $subRoute, string $method, array $body, ?array 
     // ── GET /users/live (Online Hosts for Connect Screen) ─────────────────────
     if ($subRoute === 'live' && $method === 'GET') {
         $stmt = $db->query("
-            SELECT id, name, gender, city, language, bio, avatar_url, is_online, is_live, rating, total_calls
+            SELECT id, name, gender, city, language, bio, avatar_url, 
+                   CASE WHEN is_live = 1 THEN is_online ELSE 0 END AS is_online, 
+                   is_live, rating, total_calls
             FROM users
             WHERE gender IN ('girl', 'female') AND is_blocked = 0 AND is_verified = 1
-            ORDER BY is_online DESC, is_live DESC, rating DESC, total_calls DESC
+            ORDER BY is_live DESC, is_online DESC, rating DESC, total_calls DESC
             LIMIT 50
         ");
         jsonResponse($stmt->fetchAll());
@@ -23,7 +25,9 @@ function handleUsersRoute(string $subRoute, string $method, array $body, ?array 
     // ── GET /users/top (Top Girls for Leaderboard) ────────────────────────────
     if ($subRoute === 'top' && $method === 'GET') {
         $stmt = $db->query("
-            SELECT id, name, gender, city, avatar_url, is_online, is_live, rating, total_calls
+            SELECT id, name, gender, city, avatar_url, 
+                   CASE WHEN is_live = 1 THEN is_online ELSE 0 END AS is_online, 
+                   is_live, rating, total_calls
             FROM users
             WHERE gender IN ('girl', 'female') AND is_blocked = 0
             ORDER BY total_calls DESC, rating DESC
@@ -47,12 +51,13 @@ function handleUsersRoute(string $subRoute, string $method, array $body, ?array 
     // ── POST /users/live-status (Persistent Host Live Toggle) ─────────────────
     if ($subRoute === 'live-status' && $method === 'POST') {
         if (!$user) jsonResponse(['error' => 'Unauthorized'], 401);
-        $isLive = isset($body['isLive']) ? (!empty($body['isLive']) ? 1 : 0) : 1;
+        $isLive = isset($body['isLive']) ? (!empty($body['isLive']) ? 1 : 0) : 0;
 
-        $stmt = $db->prepare('UPDATE users SET is_live = ?, last_seen = datetime("now") WHERE id = ?');
-        $stmt->execute([$isLive, $user['id']]);
+        $stmt = $db->prepare('UPDATE users SET is_live = ?, is_online = ?, last_seen = datetime("now") WHERE id = ?');
+        $stmt->execute([$isLive, $isLive, $user['id']]);
 
-        jsonResponse(['success' => true, 'is_live' => $isLive]);
+        Firebase::setPresence($user['id'], (bool)$isLive);
+        jsonResponse(['success' => true, 'is_live' => $isLive, 'is_online' => $isLive]);
     }
 
     // ── PUT /users/profile (Update Profile) ───────────────────────────────────
@@ -104,7 +109,12 @@ function handleUsersRoute(string $subRoute, string $method, array $body, ?array 
     // ── Current User Profile GET /users/me ───────────────────────────────────
     if ($subRoute === 'me' && $method === 'GET') {
         if (!$user) jsonResponse(['error' => 'Unauthorized'], 401);
-        $stmt = $db->prepare('UPDATE users SET is_online = 1, last_seen = datetime("now") WHERE id = ?');
+        $isGirl = in_array(strtolower($user['gender'] ?? ''), ['girl', 'female']);
+        if ($isGirl) {
+            $stmt = $db->prepare('UPDATE users SET is_online = CASE WHEN is_live = 1 THEN 1 ELSE 0 END, last_seen = datetime("now") WHERE id = ?');
+        } else {
+            $stmt = $db->prepare('UPDATE users SET is_online = 1, last_seen = datetime("now") WHERE id = ?');
+        }
         $stmt->execute([$user['id']]);
 
         $stmt = $db->prepare('SELECT * FROM users WHERE id = ?');

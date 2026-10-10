@@ -45,7 +45,13 @@ if (preg_match('/Bearer\s+(\S+)/i', $authHeader, $matches)) {
                 $user['coins'] = (float)($user['coins'] ?? $user['minutes'] ?? 0);
                 // Keep presence alive on any active app request
                 try {
-                    $db->prepare('UPDATE users SET is_online = 1, last_seen = datetime("now") WHERE id = ?')->execute([$tokenPayload['userId']]);
+                    $isGirl = in_array(strtolower($user['gender'] ?? ''), ['girl', 'female']);
+                    if ($isGirl) {
+                        // Female host's online presence is strictly tied to her Live toggle (is_live)
+                        $db->prepare('UPDATE users SET is_online = CASE WHEN is_live = 1 THEN 1 ELSE 0 END, last_seen = datetime("now") WHERE id = ?')->execute([$tokenPayload['userId']]);
+                    } else {
+                        $db->prepare('UPDATE users SET is_online = 1, last_seen = datetime("now") WHERE id = ?')->execute([$tokenPayload['userId']]);
+                    }
                 } catch (\Throwable $_) {}
             }
         } elseif (!empty($tokenPayload['role']) && $tokenPayload['role'] === 'admin') {

@@ -218,8 +218,8 @@ function FloatingBubble({
           </View>
         )}
 
-        {/* Green online dot — when host is online or live */}
-        {!!(user?.is_online === 1 || user?.is_online === true || user?.is_live === 1 || user?.is_live === true) && (
+        {/* Green online dot — when host is live */}
+        {!!(user?.is_live === 1 || user?.is_live === true || user?.is_live === '1') && (
           <View style={bStyles.dot} />
         )}
 
@@ -372,13 +372,14 @@ export default function ConnectScreen({ onVideoCall, onAudioCall, onDrawer, onBu
     const interval = setInterval(fetchUsers, 10000);
 
     const socket = getSocket();
-    const handleStatusChanged = ({ userId, is_online }) => {
+    const handleStatusChanged = ({ userId, is_online, is_live }) => {
       const onlineVal = (is_online === 1 || is_online === true) ? 1 : 0;
+      const liveVal   = is_live !== undefined ? ((is_live === 1 || is_live === true) ? 1 : 0) : onlineVal;
       setUsers((prev) =>
-        prev.map((u) => (u.id === userId ? { ...u, is_online: onlineVal } : u))
+        prev.map((u) => (u.id === userId ? { ...u, is_online: onlineVal, is_live: liveVal } : u))
       );
       setTopGirls((prev) =>
-        prev.map((g) => (g.id === userId ? { ...g, is_online: onlineVal } : g))
+        prev.map((g) => (g.id === userId ? { ...g, is_online: onlineVal, is_live: liveVal } : g))
       );
     };
 
@@ -391,10 +392,11 @@ export default function ConnectScreen({ onVideoCall, onAudioCall, onDrawer, onBu
   }, []);
 
   const visibleUsers = users.filter((u) => {
-    if (activeFilter === '🔴 Live') return u.is_online === 1 || u.is_online === true || u.is_live === 1 || u.is_live === true;
+    const isLiveHost = (u.is_live === 1 || u.is_live === true || u.is_live === '1');
+    if (activeFilter === '🔴 Live') return isLiveHost;
     if (activeFilter === 'Hindi')   return (u.language || '').toLowerCase().includes('hindi') || u.language === 'HI';
     if (activeFilter === 'English') return (u.language || '').toLowerCase().includes('english') || u.language === 'EN';
-    if (activeFilter === 'New')     return !u.is_online && !u.is_live;
+    if (activeFilter === 'New')     return !isLiveHost;
     return true;
   });
 
@@ -617,7 +619,7 @@ export default function ConnectScreen({ onVideoCall, onAudioCall, onDrawer, onBu
                         <View style={pStyles.langBadgePreview}>
                           <Text style={pStyles.langBadgePreviewText}>{callPickerUser?.language || 'HI'}</Text>
                         </View>
-                        {(callPickerUser?.is_online || callPickerUser?.is_live) && (
+                        {!!(callPickerUser?.is_live === 1 || callPickerUser?.is_live === true || callPickerUser?.is_live === '1') && (
                           <View style={pStyles.onlineBadge}>
                             <View style={pStyles.onlineDot} />
                             <Text style={pStyles.onlineBadgeText}>Online</Text>
