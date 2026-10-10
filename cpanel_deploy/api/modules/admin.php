@@ -30,11 +30,41 @@ function handleAdminRoute(string $subRoute, string $method, array $body, ?array 
         return $p;
     };
 
-    // Helper: Send SMS OTP via Fast2SMS and 2Factor
+    // Helper: Send Pure SMS OTP via 2Factor (AUTOGEN DLT template)
     $sendSms = function(string $phone, string $otp, string $purpose = 'Verification') use ($config) {
         $sent = false;
-        // 1. Fast2SMS Quick Gateway
-        if (!empty($config['fast2sms_api_key'])) {
+
+        // 1. 2Factor.in SMS using AUTOGEN template (Guaranteed Pure SMS delivery, never voice call)
+        if (!empty($config['twofactor_api_key'])) {
+            $apiKey = urlencode($config['twofactor_api_key']);
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, "https://2factor.in/API/V1/{$apiKey}/SMS/{$phone}/{$otp}/AUTOGEN");
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 6);
+            $resp = curl_exec($ch);
+            curl_close($ch);
+            if ($resp) {
+                $j = json_decode($resp, true);
+                if (($j['Status'] ?? '') === 'Success') $sent = true;
+            }
+
+            // Fallback route without template name
+            if (!$sent) {
+                $ch = curl_init();
+                curl_setopt($ch, CURLOPT_URL, "https://2factor.in/API/V1/{$apiKey}/SMS/{$phone}/{$otp}");
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch, CURLOPT_TIMEOUT, 6);
+                $resp2 = curl_exec($ch);
+                curl_close($ch);
+                if ($resp2) {
+                    $j2 = json_decode($resp2, true);
+                    if (($j2['Status'] ?? '') === 'Success') $sent = true;
+                }
+            }
+        }
+
+        // 2. Fast2SMS Quick Gateway Fallback
+        if (!$sent && !empty($config['fast2sms_api_key'])) {
             $ch = curl_init();
             curl_setopt($ch, CURLOPT_URL, 'https://www.fast2sms.com/dev/bulkV2');
             curl_setopt($ch, CURLOPT_POST, true);
@@ -56,19 +86,7 @@ function handleAdminRoute(string $subRoute, string $method, array $body, ?array 
                 if (!empty($j['return'])) $sent = true;
             }
         }
-        // 2. 2Factor Gateway Fallback
-        if (!$sent && !empty($config['twofactor_api_key'])) {
-            $ch = curl_init();
-            curl_setopt($ch, CURLOPT_URL, "https://2factor.in/API/V1/{$config['twofactor_api_key']}/SMS/{$phone}/{$otp}/PineappleAdmin");
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($ch, CURLOPT_TIMEOUT, 6);
-            $resp = curl_exec($ch);
-            curl_close($ch);
-            if ($resp) {
-                $j = json_decode($resp, true);
-                if (($j['Status'] ?? '') === 'Success') $sent = true;
-            }
-        }
+
         return $sent;
     };
 

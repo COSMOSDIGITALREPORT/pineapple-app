@@ -3689,10 +3689,10 @@ async function loadAdminProfile(isQuiet=false) {
     const last3 = d.last3 || phone.slice(-3);
 
     document.getElementById('sec-admin-name').textContent = d.name || 'Pineapple Administrator';
-    document.getElementById('sec-current-phone').innerHTML = `+91 ${phone} <span style="font-size:12px;background:#DBEAFE;color:#1E40AF;padding:3px 8px;border-radius:6px;margin-left:8px;font-weight:800;vertical-align:middle;">•••${last3}</span>`;
-    document.getElementById('inp-current-phone-ro').value = `+91 ${phone}  [Last 3 digits: ${last3}]`;
+    document.getElementById('sec-current-phone').innerHTML = `+91 •••••••<b style="color:var(--pink);font-size:24px;">${last3}</b>`;
+    document.getElementById('inp-current-phone-ro').value = `+91 •••••••${last3}`;
     document.getElementById('sec-otp-dest').innerHTML = `+91 •••••••<b>${last3}</b>`;
-    if (!isQuiet) showToast(`✓ Admin Recovery Phone: +91 ${phone} (•••${last3})`);
+    if (!isQuiet) showToast(`✓ Admin Recovery Phone: +91 •••••••${last3}`);
   } catch(e) {
     if (!isQuiet) showToast('Failed to load profile: ' + e.message, false);
   }
