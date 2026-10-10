@@ -6,7 +6,7 @@ import {
 import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSelector, useDispatch, shallowEqual } from 'react-redux';
-import { redeemGift, deductCoins, setIntro9Used, addCoins } from '../store/slices/userSlice';
+import { redeemGift, deductCoins, setIntro9Used, addCoins, setCoins } from '../store/slices/userSlice';
 import Icon from '../components/Icon';
 import { Colors, Gradients } from '../theme/colors';
 import { initiateCall, endCall, getReceiverToken, sendGift, createPaymentOrder, verifyPayment } from '../services/api';
@@ -116,6 +116,12 @@ export default function AudioCallScreen({ onBack, onHangup, callerUser, incoming
         if (res?.formattedDuration) {
           ts = res.formattedDuration;
           getSocket()?.emit('call:ended', { otherUserId, duration: res.duration, formattedDuration: res.formattedDuration });
+        }
+        if (res?.coinsDeducted > 0) {
+          dispatch(deductCoins(res.coinsDeducted));
+        }
+        if (res?.remainingCoins !== undefined) {
+          dispatch(setCoins(res.remainingCoins));
         }
       } catch {}
     }

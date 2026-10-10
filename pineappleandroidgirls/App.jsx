@@ -47,6 +47,7 @@ function MainApp() {
             dispatch(setAuthUser({ token, user: u }));
             dispatch(acceptWarning());
             dispatch(setProfile({ gender: 'girl', name: u.name, avatar_url: u.avatar_url }));
+            syncFcmToken(u?.id);
             setScreen('home');
             return;
           }

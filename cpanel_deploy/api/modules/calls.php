@@ -237,6 +237,20 @@ function handleCallsRoute(string $subRoute, string $method, array $body, ?array 
         $db->prepare('INSERT INTO earnings (id, girl_id, call_id, coins_received, mins_received, amount_inr) VALUES (?, ?, ?, ?, ?, ?)')
            ->execute([uniqid('e_', true), $call['receiver_id'], $callId, $girlCoins, $minsTalked, $girlInr]);
 
+        // Insert caller spend into wallet_transactions for Admin Panel and Boys ledger
+        $callerTxnId = uniqid('tx_', true);
+        $callerNote  = ucfirst($call['call_type'] ?? 'audio') . " call ({$minsTalked}m)";
+        $db->prepare('INSERT INTO wallet_transactions (id, user_id, type, amount, ref_id, note, created_at) VALUES (?, ?, "spend", ?, ?, ?, datetime("now"))')
+           ->execute([$callerTxnId, $call['caller_id'], $coinsCharged, $callId, $callerNote]);
+
+        // Insert host girl earnings into wallet_transactions
+        if ($girlCoins > 0) {
+            $girlTxnId = uniqid('tx_', true);
+            $girlNote  = ucfirst($call['call_type'] ?? 'audio') . " call earnings (₹{$girlInr})";
+            $db->prepare('INSERT INTO wallet_transactions (id, user_id, type, amount, ref_id, note, created_at) VALUES (?, ?, "earn", ?, ?, ?, datetime("now"))')
+               ->execute([$girlTxnId, $call['receiver_id'], $girlCoins, $callId, $girlNote]);
+        }
+
         // Dispatch push notification to host girl
         if ($girlCoins > 0) {
             Firebase::sendPushToUser($call['receiver_id'], '💰 Coins Earned!', "You earned {$girlCoins} coins (₹{$girlInr}) from your call!", [
@@ -254,11 +268,14 @@ function handleCallsRoute(string $subRoute, string $method, array $body, ?array 
             'coinsCharged'    => $coinsCharged
         ]);
 
+        $formattedDur = sprintf('%02d:%02d', floor($durationSeconds / 60), $durationSeconds % 60);
+
         jsonResponse([
-            'success'          => true,
-            'duration'         => $durationSeconds,
-            'coinsDeducted'    => $coinsCharged,
-            'girlEarningsInr'  => $girlInr
+            'success'           => true,
+            'duration'          => $durationSeconds,
+            'formattedDuration' => $formattedDur,
+            'coinsDeducted'     => $coinsCharged,
+            'girlEarningsInr'   => $girlInr
         ]);
     }
 

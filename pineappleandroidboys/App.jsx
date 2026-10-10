@@ -174,6 +174,7 @@ function MainApp() {
                 dispatch(setProfile({ ...fresh, gender: 'boy' }));
               }
             } catch (_) {}
+            syncFcmToken(u?.id);
             setScreen('home');
             return;
           }

@@ -43,6 +43,10 @@ if (preg_match('/Bearer\s+(\S+)/i', $authHeader, $matches)) {
             $user = $stmt->fetch() ?: null;
             if ($user) {
                 $user['coins'] = (float)($user['coins'] ?? $user['minutes'] ?? 0);
+                // Keep presence alive on any active app request
+                try {
+                    $db->prepare('UPDATE users SET is_online = 1, last_seen = datetime("now") WHERE id = ?')->execute([$tokenPayload['userId']]);
+                } catch (\Throwable $_) {}
             }
         } elseif (!empty($tokenPayload['role']) && $tokenPayload['role'] === 'admin') {
             $user = ['id' => 'admin', 'role' => 'admin', 'name' => $tokenPayload['name'] ?? 'Admin'];

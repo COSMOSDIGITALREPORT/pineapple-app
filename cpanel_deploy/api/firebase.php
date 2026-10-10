@@ -161,7 +161,7 @@ class Firebase {
                     'notification' => [
                         'sound' => 'default',
                         'default_sound' => true,
-                        'channel_id' => 'pineapple_default_channel'
+                        'channel_id' => (($strData['type'] ?? '') === 'incoming_call') ? 'pineapple_calls_channel' : 'pineapple_default_channel'
                     ]
                 ],
                 'apns' => [

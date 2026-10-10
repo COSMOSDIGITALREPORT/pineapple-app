@@ -12,6 +12,7 @@ import Icon from '../components/Icon';
 
 import { getEarnings, getCallHistory, getWallet, getUserReviews, getWithdrawals, getMe, setLiveStatus } from '../services/api';
 import { getSocket } from '../services/socket';
+import { syncFcmToken } from '../services/notifications';
 
 const GIFT_EMOJI = { Rose:'🌹', Chocolate:'🍫', Pastry:'🍰', Pineapple:'🍍', Heart:'❤️', Perfume:'🧴', Crown:'👑' };
 
@@ -110,6 +111,9 @@ export default function GirlsEarningsScreen({ onDrawer, onRedeem }) {
     try {
       await AsyncStorage.setItem('@pineapple_host_is_live', String(val));
       await setLiveStatus(val);
+      if (val) {
+        syncFcmToken();
+      }
     } catch (e) {
       console.warn('Failed to update live status:', e);
     }

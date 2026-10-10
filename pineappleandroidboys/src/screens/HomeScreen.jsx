@@ -170,6 +170,12 @@ export default function HomeScreen({ onLogout }) {
   const handleHangup = (dur) => {
     setCallDuration(dur || '00:00');
     setCurrentSubScreen('callDuration');
+    getMe().then((fresh) => {
+      if (fresh) {
+        dispatch(setProfile(fresh));
+        if (fresh.coins !== undefined) dispatch(setCoins(fresh.coins));
+      }
+    }).catch(() => {});
   };
 
   const handleAcceptCall = () => {

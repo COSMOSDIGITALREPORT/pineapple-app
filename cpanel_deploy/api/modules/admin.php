@@ -202,7 +202,7 @@ function handleAdminRoute(string $subRoute, string $method, array $body, ?array 
         $totalUsers = (int)$db->query('SELECT COUNT(*) FROM users')->fetchColumn();
         $totalBoys  = (int)$db->query("SELECT COUNT(*) FROM users WHERE gender IN ('boy','male')")->fetchColumn();
         $totalGirls = (int)$db->query("SELECT COUNT(*) FROM users WHERE gender IN ('girl','female')")->fetchColumn();
-        $online     = (int)$db->query('SELECT COUNT(*) FROM users WHERE is_online = 1')->fetchColumn();
+        $online     = (int)$db->query("SELECT COUNT(*) FROM users WHERE is_online = 1 OR last_seen >= datetime('now', '-15 minutes')")->fetchColumn();
         
         $calls = $db->query("
             SELECT COUNT(*) AS total,
@@ -272,7 +272,9 @@ function handleAdminRoute(string $subRoute, string $method, array $body, ?array 
     if ($subRoute === 'users' && $method === 'GET') {
         $stmt = $db->query("
             SELECT 
-                u.id, u.phone, u.name, u.gender, u.avatar_url, u.city, u.is_online, u.is_blocked, u.is_premium, u.is_verified, u.rating, u.created_at,
+                u.id, u.phone, u.name, u.gender, u.avatar_url, u.city,
+                CASE WHEN (u.is_online = 1 OR u.last_seen >= datetime('now', '-15 minutes')) THEN 1 ELSE 0 END AS is_online,
+                u.is_blocked, u.is_premium, u.is_verified, u.rating, u.created_at,
                 CASE 
                   WHEN LOWER(COALESCE(u.gender, '')) IN ('girl', 'female', 'f') THEN
                     MAX(0.0, ROUND((MAX(COALESCE(e.total_earned_inr, 0), COALESCE(c.call_earned_inr, 0)) - COALESCE(w.total_withdrawn, 0)) * 2, 0))
@@ -430,7 +432,9 @@ function handleAdminRoute(string $subRoute, string $method, array $body, ?array 
     if ($subRoute === 'hosts' && $method === 'GET') {
         $stmt = $db->query("
             SELECT 
-                u.id, u.name, u.phone, u.avatar_url, u.city, u.is_online, u.is_verified, u.is_blocked, u.rating,
+                u.id, u.name, u.phone, u.avatar_url, u.city,
+                CASE WHEN (u.is_online = 1 OR u.last_seen >= datetime('now', '-15 minutes')) THEN 1 ELSE 0 END AS is_online,
+                u.is_verified, u.is_blocked, u.rating,
                 u.minutes AS wallet_coins, u.created_at,
                 COALESCE(e.total_earned_inr, 0) AS total_earned_inr,
                 COALESCE(e.total_earned_coins, 0) AS total_earned_coins,
@@ -548,7 +552,9 @@ function handleAdminRoute(string $subRoute, string $method, array $body, ?array 
         // 5. Host Breakdown
         $hostBreakdown = $db->query("
             SELECT 
-                u.id, u.name, u.phone, u.avatar_url, u.city, u.is_online, u.is_verified, u.is_blocked, u.rating,
+                u.id, u.name, u.phone, u.avatar_url, u.city, 
+                CASE WHEN (u.is_online = 1 OR u.last_seen >= datetime('now', '-15 minutes')) THEN 1 ELSE 0 END AS is_online, 
+                u.is_verified, u.is_blocked, u.rating,
                 u.minutes AS wallet_coins, u.created_at,
                 COALESCE(e.total_earned_inr, 0) AS total_earned_inr,
                 COALESCE(e.total_earned_coins, 0) AS total_earned_coins,

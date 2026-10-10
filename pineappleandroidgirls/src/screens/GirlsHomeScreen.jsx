@@ -28,7 +28,7 @@ import RecentsScreen from './RecentsScreen';
 import IncomingCallScreen from './IncomingCallScreen';
 import VideoCallScreen from './VideoCallScreen';
 import GirlsEarningsScreen from './GirlsEarningsScreen';
-import { onIncomingCallNotification } from '../services/notifications';
+import { onIncomingCallNotification, syncFcmToken, getPendingIncomingCall } from '../services/notifications';
 import GirlsRedeemScreen from './GirlsRedeemScreen';
 import GirlsTransactionsScreen from './GirlsTransactionsScreen';
 import BlockedUsersScreen from './BlockedUsersScreen';
@@ -121,7 +121,8 @@ export default function GirlsHomeScreen({ onLogout }) {
 
   // Listen for incoming calls triggered via FCM push notifications (app in background or killed)
   useEffect(() => {
-    const unsubCallPush = onIncomingCallNotification((data) => {
+    const handleCallData = (data) => {
+      if (!data?.callId) return;
       console.log('[CALL PUSH] Received incoming call notification in GirlsHomeScreen:', data);
       const incomingData = {
         callId: data.callId,
@@ -129,11 +130,21 @@ export default function GirlsHomeScreen({ onLogout }) {
         callerName: data.callerName || 'Caller',
         callerAvatar: data.callerAvatar || '',
         channelName: data.channelName,
-        type: data.callType || 'video',
+        type: data.callType || data.type || 'video',
       };
       incomingCallRef.current = incomingData;
       setIncomingCall(incomingData);
-    });
+    };
+
+    const unsubCallPush = onIncomingCallNotification(handleCallData);
+
+    const pending = getPendingIncomingCall();
+    if (pending) {
+      console.log('[CALL PUSH] Processing pending call from cold start:', pending);
+      handleCallData(pending);
+    }
+
+    syncFcmToken();
 
     return () => unsubCallPush?.();
   }, []);

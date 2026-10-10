@@ -145,7 +145,7 @@ router.put('/:id/end', auth, async (req, res) => {
     }
 
     const fmt = `${String(Math.floor(durationSec / 60)).padStart(2, '0')}:${String(durationSec % 60).padStart(2, '0')}`;
-    res.json({ success: true, coinsUsed, girlCoins, girlInr, platformInr, duration: durationSec, formattedDuration: fmt, isFreeTrial });
+    res.json({ success: true, coinsUsed, coinsDeducted: coinsUsed, girlCoins, girlInr, platformInr, duration: durationSec, formattedDuration: fmt, isFreeTrial });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

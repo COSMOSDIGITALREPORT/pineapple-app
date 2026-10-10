@@ -34,7 +34,7 @@ export async function requestNotificationPermission() {
 /**
  * Retrieves FCM token and syncs it with backend server
  */
-export async function syncFcmToken() {
+export async function syncFcmToken(userIdOverride) {
   try {
     const hasPermission = await requestNotificationPermission();
     if (!hasPermission) return null;
@@ -43,13 +43,28 @@ export async function syncFcmToken() {
     if (token) {
       console.log('[FCM] Token acquired:', token.substring(0, 15) + '...');
       await AsyncStorage.setItem('fcm_token', token);
-      
+
+      let userId = userIdOverride;
+      if (!userId) {
+        try {
+          const session = await AsyncStorage.getItem('user_session');
+          if (session) {
+            const parsed = JSON.parse(session);
+            userId = parsed?.user?.id;
+          }
+        } catch (_) {}
+      }
+      if (!userId) {
+        try {
+          userId = await AsyncStorage.getItem('user_id');
+        } catch (_) {}
+      }
+
       // Sync with backend
       try {
-        await saveFcmToken(token);
-        console.log('[FCM] Token synced to backend successfully');
+        await saveFcmToken(token, userId);
+        console.log('[FCM] Token synced to backend successfully for user:', userId);
       } catch (apiErr) {
-        // User may not be logged in yet; token will sync after login
         console.log('[FCM] Backend sync deferred (user not yet authenticated)');
       }
     }
@@ -61,16 +76,41 @@ export async function syncFcmToken() {
   }
 }
 
+let pendingIncomingCall = null;
 const incomingCallListeners = new Set();
+
+export function getPendingIncomingCall() {
+  const call = pendingIncomingCall;
+  pendingIncomingCall = null;
+  return call;
+}
 
 export function onIncomingCallNotification(listener) {
   incomingCallListeners.add(listener);
+  // If there was an incoming call received while no listeners were registered, dispatch immediately
+  if (pendingIncomingCall) {
+    const call = pendingIncomingCall;
+    pendingIncomingCall = null;
+    try {
+      listener(call);
+    } catch (e) {
+      console.warn('[FCM] Pending call listener error:', e);
+    }
+  }
   return () => incomingCallListeners.delete(listener);
 }
 
 function notifyIncomingCall(data) {
+  if (incomingCallListeners.size === 0) {
+    pendingIncomingCall = data;
+    return;
+  }
   incomingCallListeners.forEach((fn) => {
-    try { fn(data); } catch (e) { console.warn('[FCM] Incoming call listener error:', e); }
+    try {
+      fn(data);
+    } catch (e) {
+      console.warn('[FCM] Incoming call listener error:', e);
+    }
   });
 }
 
@@ -83,7 +123,15 @@ export function setupNotificationListeners(onNotificationPress) {
     console.log('[FCM] Token refreshed');
     await AsyncStorage.setItem('fcm_token', newToken);
     try {
-      await saveFcmToken(newToken);
+      let userId = null;
+      try {
+        const session = await AsyncStorage.getItem('user_session');
+        if (session) {
+          const parsed = JSON.parse(session);
+          userId = parsed?.user?.id;
+        }
+      } catch (_) {}
+      await saveFcmToken(newToken, userId);
     } catch (_) {}
   });
 
@@ -106,6 +154,7 @@ export function setupNotificationListeners(onNotificationPress) {
   const unsubscribeOpenedApp = messaging().onNotificationOpenedApp((remoteMessage) => {
     console.log('[FCM] Notification opened from background:', remoteMessage);
     if (remoteMessage?.data?.type === 'incoming_call') {
+      pendingIncomingCall = remoteMessage.data;
       notifyIncomingCall(remoteMessage.data);
       return;
     }
@@ -121,6 +170,7 @@ export function setupNotificationListeners(onNotificationPress) {
       if (remoteMessage) {
         console.log('[FCM] Notification opened from quit state:', remoteMessage);
         if (remoteMessage?.data?.type === 'incoming_call') {
+          pendingIncomingCall = remoteMessage.data;
           notifyIncomingCall(remoteMessage.data);
           return;
         }

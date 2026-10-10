@@ -44,10 +44,24 @@ export async function syncFcmToken() {
       console.log('[FCM] Token acquired:', token.substring(0, 15) + '...');
       await AsyncStorage.setItem('fcm_token', token);
       
+      let userId = null;
+      try {
+        const session = await AsyncStorage.getItem('user_session');
+        if (session) {
+          const parsed = JSON.parse(session);
+          userId = parsed?.user?.id;
+        }
+      } catch (_) {}
+      if (!userId) {
+        try {
+          userId = await AsyncStorage.getItem('user_id');
+        } catch (_) {}
+      }
+
       // Sync with backend
       try {
-        await saveFcmToken(token);
-        console.log('[FCM] Token synced to backend successfully');
+        await saveFcmToken(token, userId);
+        console.log('[FCM] Token synced to backend successfully for user:', userId);
       } catch (apiErr) {
         // User may not be logged in yet; token will sync after login
         console.log('[FCM] Backend sync deferred (user not yet authenticated)');

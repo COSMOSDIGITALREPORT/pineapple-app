@@ -60,7 +60,13 @@ async function sendPush(token, { title, body, data = {} }) {
       notification: { title, body },
       data: Object.fromEntries(Object.entries(data).map(([k, v]) => [k, String(v)])),
       apns: { payload: { aps: { sound: 'default', badge: 1 } } },
-      android: { priority: 'high', notification: { sound: 'default' } },
+      android: {
+        priority: 'high',
+        notification: {
+          sound: 'default',
+          channelId: (data && data.type === 'incoming_call') ? 'pineapple_calls_channel' : 'pineapple_default_channel',
+        },
+      },
     });
   } catch (e) {
     console.error('[FCM] send error:', e.message);

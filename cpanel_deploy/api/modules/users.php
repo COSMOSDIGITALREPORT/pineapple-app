@@ -101,6 +101,22 @@ function handleUsersRoute(string $subRoute, string $method, array $body, ?array 
         jsonResponse(['success' => true, 'newRating' => $avg]);
     }
 
+    // ── Current User Profile GET /users/me ───────────────────────────────────
+    if ($subRoute === 'me' && $method === 'GET') {
+        if (!$user) jsonResponse(['error' => 'Unauthorized'], 401);
+        $stmt = $db->prepare('UPDATE users SET is_online = 1, last_seen = datetime("now") WHERE id = ?');
+        $stmt->execute([$user['id']]);
+
+        $stmt = $db->prepare('SELECT * FROM users WHERE id = ?');
+        $stmt->execute([$user['id']]);
+        $u = $stmt->fetch();
+        if ($u) {
+            $u['coins'] = (float)($u['coins'] ?? $u['minutes'] ?? 0);
+            jsonResponse($u);
+        }
+        jsonResponse(['error' => 'User not found'], 404);
+    }
+
     // ── Single User Profile /users/:id ───────────────────────────────────────
     if ($method === 'GET' && !empty($subRoute)) {
         $stmt = $db->prepare('SELECT id, name, gender, city, language, bio, avatar_url, is_online, rating, total_calls, is_verified FROM users WHERE id = ?');
