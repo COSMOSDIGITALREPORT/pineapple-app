@@ -62,7 +62,7 @@ function handleAuthRoute(string $subRoute, string $method, array $body, ?array $
         $stmt = $db->prepare('INSERT INTO otp_sessions (id, phone, otp, expires_at) VALUES (?, ?, ?, ?)');
         $stmt->execute([uniqid('otp_', true), $phone, $otp, $expiresAt]);
 
-        // 3. Dispatch Voice Call OTP via 2Factor (with automatic SMS fallback)
+        // 3. Dispatch SMS OTP via 2Factor (Primary) with Voice & Fast2SMS Fallback
         $voiceSent = false;
         $smsSent = false;
         $dispatchNote = '';
@@ -70,34 +70,64 @@ function handleAuthRoute(string $subRoute, string $method, array $body, ?array $
         if (!empty($config['twofactor_api_key'])) {
             $apiKey = urlencode($config['twofactor_api_key']);
 
-            // Attempt Voice Call OTP
+            // Attempt 1: SMS OTP via 2Factor (Pineapple template)
             $ch = curl_init();
-            curl_setopt($ch, CURLOPT_URL, "https://2factor.in/API/V1/{$apiKey}/VOICE/{$phone}/{$otp}");
+            curl_setopt($ch, CURLOPT_URL, "https://2factor.in/API/V1/{$apiKey}/SMS/{$phone}/{$otp}/Pineapple");
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
             curl_setopt($ch, CURLOPT_TIMEOUT, 6);
-            $voiceResp = curl_exec($ch);
+            $smsResp = curl_exec($ch);
             curl_close($ch);
 
-            $vData = json_decode($voiceResp, true);
-            if (!empty($vData) && ($vData['Status'] ?? '') === 'Success') {
-                $voiceSent = true;
-                $dispatchNote = 'Voice call OTP dispatched';
+            $sData = json_decode($smsResp, true);
+            if (!empty($sData) && ($sData['Status'] ?? '') === 'Success') {
+                $smsSent = true;
+                $dispatchNote = 'SMS OTP dispatched via 2Factor';
             } else {
-                // If Voice call failed (e.g. Insufficient Voice Balance on 2Factor), fallback to SMS
+                // Attempt 2: Generic template SMS via 2Factor
                 $ch = curl_init();
-                curl_setopt($ch, CURLOPT_URL, "https://2factor.in/API/V1/{$apiKey}/SMS/{$phone}/{$otp}/Pineapple");
+                curl_setopt($ch, CURLOPT_URL, "https://2factor.in/API/V1/{$apiKey}/SMS/{$phone}/{$otp}");
                 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
                 curl_setopt($ch, CURLOPT_TIMEOUT, 6);
-                $smsResp = curl_exec($ch);
+                $smsResp2 = curl_exec($ch);
                 curl_close($ch);
 
-                $sData = json_decode($smsResp, true);
-                if (!empty($sData) && ($sData['Status'] ?? '') === 'Success') {
+                $sData2 = json_decode($smsResp2, true);
+                if (!empty($sData2) && ($sData2['Status'] ?? '') === 'Success') {
                     $smsSent = true;
-                    $dispatchNote = 'SMS OTP dispatched (Voice account balance exhausted)';
+                    $dispatchNote = 'SMS OTP dispatched via 2Factor (Standard)';
                 } else {
-                    $dispatchNote = 'Voice: ' . ($vData['Details'] ?? 'Failed') . '; SMS: ' . ($sData['Details'] ?? 'Failed');
+                    // Attempt 3: Voice Call Fallback
+                    $ch = curl_init();
+                    curl_setopt($ch, CURLOPT_URL, "https://2factor.in/API/V1/{$apiKey}/VOICE/{$phone}/{$otp}");
+                    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                    curl_setopt($ch, CURLOPT_TIMEOUT, 6);
+                    $voiceResp = curl_exec($ch);
+                    curl_close($ch);
+
+                    $vData = json_decode($voiceResp, true);
+                    if (!empty($vData) && ($vData['Status'] ?? '') === 'Success') {
+                        $voiceSent = true;
+                        $dispatchNote = 'Voice call OTP dispatched (SMS fallback)';
+                    } else {
+                        $dispatchNote = 'SMS: ' . ($sData['Details'] ?? 'Failed') . '; Voice: ' . ($vData['Details'] ?? 'Failed');
+                    }
                 }
+            }
+        }
+
+        // Fast2SMS Fallback if SMS not sent yet
+        if (!$smsSent && !$voiceSent && !empty($config['fast2sms_api_key'])) {
+            $fApiKey = $config['fast2sms_api_key'];
+            $fCh = curl_init();
+            curl_setopt($fCh, CURLOPT_URL, "https://www.fast2sms.com/dev/bulkV2?authorization={$fApiKey}&route=otp&variables_values={$otp}&flash=0&numbers={$phone}");
+            curl_setopt($fCh, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($fCh, CURLOPT_TIMEOUT, 6);
+            $fResp = curl_exec($fCh);
+            curl_close($fCh);
+            $fData = json_decode($fResp, true);
+            if (!empty($fData) && !empty($fData['return'])) {
+                $smsSent = true;
+                $dispatchNote = 'SMS OTP dispatched via Fast2SMS';
             }
         }
 

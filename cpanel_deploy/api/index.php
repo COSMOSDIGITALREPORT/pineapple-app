@@ -112,6 +112,11 @@ switch ($module) {
         handleWalletRoute($subRoute, $method, $body, $user);
         break;
 
+    case 'payment':
+        require_once __DIR__ . '/modules/payment.php';
+        handlePaymentRoute($subRoute, $method, $body, $user);
+        break;
+
     case 'earnings':
         require_once __DIR__ . '/modules/earnings.php';
         handleEarningsRoute($subRoute, $method, $body, $user);

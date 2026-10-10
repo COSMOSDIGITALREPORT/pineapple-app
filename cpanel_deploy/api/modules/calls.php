@@ -33,6 +33,16 @@ function handleCallsRoute(string $subRoute, string $method, array $body, ?array 
             jsonResponse(['error' => 'Host is currently offline'], 400);
         }
 
+        // Check free trial validity in database
+        if ($freeTrialCall) {
+            $ftStmt = $db->prepare('SELECT free_trial_used FROM users WHERE id = ?');
+            $ftStmt->execute([$user['id']]);
+            $uRow = $ftStmt->fetch();
+            if (!empty($uRow['free_trial_used'])) {
+                $freeTrialCall = false; // Cannot reuse free trial!
+            }
+        }
+
         // Check caller balance
         $callerCoins = (float)($user['coins'] ?? $user['minutes'] ?? 0);
         $minCoinsNeeded = ($callType === 'video') ? 2.0 : 1.0;
@@ -41,11 +51,16 @@ function handleCallsRoute(string $subRoute, string $method, array $body, ?array 
             jsonResponse(['error' => 'Insufficient coins. Please recharge to make calls.'], 402);
         }
 
+        // Mark free trial as used immediately when initiated
+        if ($freeTrialCall) {
+            $db->prepare('UPDATE users SET free_trial_used = 1 WHERE id = ?')->execute([$user['id']]);
+        }
+
         $callId       = uniqid('call_', true);
         $agoraChannel = 'call_' . substr(md5($callId), 0, 16);
 
-        $stmt = $db->prepare('INSERT INTO calls (id, caller_id, receiver_id, call_type, status, agora_channel) VALUES (?, ?, ?, ?, "initiated", ?)');
-        $stmt->execute([$callId, $user['id'], $receiverId, $callType, $agoraChannel]);
+        $stmt = $db->prepare('INSERT INTO calls (id, caller_id, receiver_id, call_type, status, agora_channel, free_trial) VALUES (?, ?, ?, ?, "initiated", ?, ?)');
+        $stmt->execute([$callId, $user['id'], $receiverId, $callType, $agoraChannel, $freeTrialCall ? 1 : 0]);
 
         // Generate Agora Tokens for caller (uid=1) and receiver (uid=2)
         $callerToken = '';
@@ -212,14 +227,57 @@ function handleCallsRoute(string $subRoute, string $method, array $body, ?array 
         $call = $stmt->fetch();
         if (!$call) jsonResponse(['error' => 'Call not found'], 404);
 
+        // ── 1. IDEMPOTENCY GUARD: Prevent double payout & double deduction ──
+        if ($call['status'] === 'ended') {
+            $formattedDur = sprintf('%02d:%02d', floor((int)$call['duration_seconds'] / 60), (int)$call['duration_seconds'] % 60);
+            jsonResponse([
+                'success'           => true,
+                'already_ended'     => true,
+                'duration'          => (int)$call['duration_seconds'],
+                'formattedDuration' => $formattedDur,
+                'coinsDeducted'     => (float)$call['coins_deducted'],
+                'girlEarningsInr'   => (float)$call['girl_earnings_inr']
+            ]);
+        }
+
+        // ── 2. SERVER-SIDE DURATION CLAMPING: Prevent manipulated duration ──
+        $callStart = !empty($call['started_at']) ? strtotime($call['started_at']) : (!empty($call['created_at']) ? strtotime($call['created_at']) : time());
+        $serverElapsed = max(0, time() - $callStart);
+        // Allow at most 15 seconds buffer for network latency
+        $maxAllowed = $serverElapsed + 15;
+        if ($durationSeconds > $maxAllowed && $maxAllowed > 0) {
+            $durationSeconds = $maxAllowed;
+        }
+        if ($durationSeconds < 0) {
+            $durationSeconds = 0;
+        }
+
+        // ── 3. OVERDRAFT & ADMIN FINANCIAL LOSS PREVENTION ──
+        $isFreeTrial = !empty($call['free_trial']);
         $ratePerMin = ($call['call_type'] === 'video') ? 2.0 : 1.0;
         $minsTalked = max(1, ceil($durationSeconds / 60));
-        $coinsCharged = (float)($minsTalked * $ratePerMin);
 
-        // 70% share to host girl, 0.50 INR per coin
-        $girlCoins = round($coinsCharged * 0.70, 2);
-        $girlInr   = round($girlCoins * 0.50, 2);
-        $platCut   = round($coinsCharged - $girlCoins, 2);
+        if ($isFreeTrial) {
+            $coinsCharged = 0.0;
+            $girlCoins    = 0.0;
+            $girlInr      = 0.0;
+            $platCut      = 0.0;
+        } else {
+            $cStmt = $db->prepare('SELECT id, coins, minutes FROM users WHERE id = ?');
+            $cStmt->execute([$call['caller_id']]);
+            $caller = $cStmt->fetch();
+            $callerBalance = (float)($caller['coins'] ?? $caller['minutes'] ?? 0);
+
+            $expectedCharge = (float)($minsTalked * $ratePerMin);
+            // Cap deduction to caller's actual balance so admin never pays out deficit
+            $coinsCharged = min($callerBalance, $expectedCharge);
+            if ($coinsCharged < 0) $coinsCharged = 0.0;
+
+            // 70% share to host girl, 0.50 INR per coin
+            $girlCoins = round($coinsCharged * 0.70, 2);
+            $girlInr   = round($girlCoins * 0.50, 2);
+            $platCut   = round($coinsCharged - $girlCoins, 2);
+        }
 
         // Update Call
         $upd = $db->prepare('UPDATE calls SET status = "ended", ended_at = datetime("now"), duration_seconds = ?, coins_deducted = ?, girl_coins = ?, girl_earnings_inr = ?, platform_revenue_inr = ? WHERE id = ?');
@@ -230,34 +288,36 @@ function handleCallsRoute(string $subRoute, string $method, array $body, ?array 
            ->execute([$coinsCharged, $coinsCharged, $call['caller_id']]);
 
         // Credit host girl
-        $db->prepare('UPDATE users SET coins = coins + ?, minutes = minutes + ?, total_calls = total_calls + 1 WHERE id = ?')
-           ->execute([$girlCoins, $girlCoins, $call['receiver_id']]);
-
-        // Log to earnings & ledger
-        $db->prepare('INSERT INTO earnings (id, girl_id, call_id, coins_received, mins_received, amount_inr) VALUES (?, ?, ?, ?, ?, ?)')
-           ->execute([uniqid('e_', true), $call['receiver_id'], $callId, $girlCoins, $minsTalked, $girlInr]);
-
-        // Insert caller spend into wallet_transactions for Admin Panel and Boys ledger
-        $callerTxnId = uniqid('tx_', true);
-        $callerNote  = ucfirst($call['call_type'] ?? 'audio') . " call ({$minsTalked}m)";
-        $db->prepare('INSERT INTO wallet_transactions (id, user_id, type, amount, ref_id, note, created_at) VALUES (?, ?, "spend", ?, ?, ?, datetime("now"))')
-           ->execute([$callerTxnId, $call['caller_id'], $coinsCharged, $callId, $callerNote]);
-
-        // Insert host girl earnings into wallet_transactions
         if ($girlCoins > 0) {
+            $db->prepare('UPDATE users SET coins = coins + ?, minutes = minutes + ?, total_calls = total_calls + 1 WHERE id = ?')
+               ->execute([$girlCoins, $girlCoins, $call['receiver_id']]);
+
+            // Log to earnings & ledger
+            $db->prepare('INSERT INTO earnings (id, girl_id, call_id, coins_received, mins_received, amount_inr) VALUES (?, ?, ?, ?, ?, ?)')
+               ->execute([uniqid('e_', true), $call['receiver_id'], $callId, $girlCoins, $minsTalked, $girlInr]);
+
             $girlTxnId = uniqid('tx_', true);
             $girlNote  = ucfirst($call['call_type'] ?? 'audio') . " call earnings (₹{$girlInr})";
             $db->prepare('INSERT INTO wallet_transactions (id, user_id, type, amount, ref_id, note, created_at) VALUES (?, ?, "earn", ?, ?, ?, datetime("now"))')
                ->execute([$girlTxnId, $call['receiver_id'], $girlCoins, $callId, $girlNote]);
-        }
 
-        // Dispatch push notification to host girl
-        if ($girlCoins > 0) {
+            // Dispatch push notification to host girl
             Firebase::sendPushToUser($call['receiver_id'], '💰 Coins Earned!', "You earned {$girlCoins} coins (₹{$girlInr}) from your call!", [
                 'type'      => 'call_earnings',
                 'coins'     => $girlCoins,
                 'amountInr' => $girlInr
             ]);
+        } else {
+            $db->prepare('UPDATE users SET total_calls = total_calls + 1 WHERE id = ?')
+               ->execute([$call['receiver_id']]);
+        }
+
+        // Insert caller spend into wallet_transactions for Admin Panel and Boys ledger
+        if ($coinsCharged > 0) {
+            $callerTxnId = uniqid('tx_', true);
+            $callerNote  = ucfirst($call['call_type'] ?? 'audio') . " call ({$minsTalked}m)";
+            $db->prepare('INSERT INTO wallet_transactions (id, user_id, type, amount, ref_id, note, created_at) VALUES (?, ?, "spend", ?, ?, ?, datetime("now"))')
+               ->execute([$callerTxnId, $call['caller_id'], $coinsCharged, $callId, $callerNote]);
         }
 
         // Signal other party that call has ended
@@ -270,11 +330,18 @@ function handleCallsRoute(string $subRoute, string $method, array $body, ?array 
 
         $formattedDur = sprintf('%02d:%02d', floor($durationSeconds / 60), $durationSeconds % 60);
 
+        // Fetch remaining coins for caller
+        $remStmt = $db->prepare('SELECT coins FROM users WHERE id = ?');
+        $remStmt->execute([$call['caller_id']]);
+        $callerRow = $remStmt->fetch();
+        $remainingCoins = (float)($callerRow['coins'] ?? 0);
+
         jsonResponse([
             'success'           => true,
             'duration'          => $durationSeconds,
             'formattedDuration' => $formattedDur,
             'coinsDeducted'     => $coinsCharged,
+            'remainingCoins'    => $remainingCoins,
             'girlEarningsInr'   => $girlInr
         ]);
     }
