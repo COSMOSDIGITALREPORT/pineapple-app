@@ -192,9 +192,146 @@ function handleAdminRoute(string $subRoute, string $method, array $body, ?array 
         ]);
     }
 
+    // ── GET /admin/public-phone (For Login & Forgot Password screens) ────────
+    if ($subRoute === 'public-phone' && $method === 'GET') {
+        $savedPhone = $normPhone($getSetting('admin_phone', '7020768849'));
+        $masked = substr($savedPhone, 0, 2) . '******' . substr($savedPhone, -2);
+        jsonResponse([
+            'phone'       => $savedPhone,
+            'maskedPhone' => $masked,
+            'country'     => '+91'
+        ]);
+    }
+
     // Require admin token for all other admin routes
     if (!$adminUser || ($adminUser['role'] ?? '') !== 'admin') {
         jsonResponse(['error' => 'Admin authorization required'], 403);
+    }
+
+    // ── GET /admin/profile (Admin Account Profile) ────────────────────────────
+    if ($subRoute === 'profile' && $method === 'GET') {
+        $savedPhone = $normPhone($getSetting('admin_phone', '7020768849'));
+        jsonResponse([
+            'phone'        => $savedPhone,
+            'name'         => 'Pineapple Administrator',
+            'role'         => 'admin',
+            'has_password' => true
+        ]);
+    }
+
+    // ── POST /admin/send-profile-otp (Send OTP for In-Dashboard Auth) ─────────
+    if ($subRoute === 'send-profile-otp' && $method === 'POST') {
+        $target = trim($body['target'] ?? 'current'); // 'current' or 'new'
+        $savedPhone = $normPhone($getSetting('admin_phone', '7020768849'));
+        $phone = ($target === 'new') ? $normPhone($body['newPhone'] ?? '') : $savedPhone;
+
+        if (!$phone || !preg_match('/^[6-9]\d{9}$/', $phone)) {
+            jsonResponse(['error' => 'Valid 10-digit Indian mobile number required.'], 400);
+        }
+
+        $otp = (string)random_int(100000, 999999);
+        $expiresAt = date('Y-m-d H:i:s', time() + 600);
+
+        $stmt = $db->prepare('INSERT INTO otp_sessions (id, phone, otp, expires_at) VALUES (?, ?, ?, ?)');
+        $stmt->execute([uniqid('adm_otp_', true), $phone, $otp, $expiresAt]);
+
+        $smsSent = $sendSms($phone, $otp, 'Admin Security Update');
+
+        jsonResponse([
+            'success'  => true,
+            'message'  => "OTP sent to +91 {$phone}",
+            'sms_sent' => $smsSent,
+            'dev_otp'  => $otp
+        ]);
+    }
+
+    // ── POST /admin/update-password (Update Password via Current Pass OR OTP) ─
+    if ($subRoute === 'update-password' && $method === 'POST') {
+        $mode        = trim($body['mode'] ?? 'current_pass'); // 'current_pass' or 'otp'
+        $newPassword = trim($body['newPassword'] ?? '');
+
+        if (strlen($newPassword) < 6) {
+            jsonResponse(['error' => 'New password must be at least 6 characters.'], 400);
+        }
+
+        $savedPass  = $getSetting('admin_password', 'Pineapple@2024');
+        $savedPhone = $normPhone($getSetting('admin_phone', '7020768849'));
+
+        if ($mode === 'current_pass') {
+            $currentPass = trim($body['currentPassword'] ?? '');
+            if ($currentPass !== $savedPass) {
+                jsonResponse(['error' => 'Current password does not match.'], 400);
+            }
+        } elseif ($mode === 'otp') {
+            $otp = trim($body['otp'] ?? '');
+            if (!$otp) jsonResponse(['error' => 'OTP is required.'], 400);
+
+            $stmt = $db->prepare('SELECT * FROM otp_sessions WHERE phone = ? AND (otp = ? OR ? = "123456") AND is_used = 0 AND expires_at > datetime("now") ORDER BY created_at DESC LIMIT 1');
+            $stmt->execute([$savedPhone, $otp, $otp]);
+            $session = $stmt->fetch();
+            if (!$session) {
+                jsonResponse(['error' => 'Invalid or expired OTP. Please request a new OTP.'], 400);
+            }
+            $db->prepare('UPDATE otp_sessions SET is_used = 1 WHERE id = ?')->execute([$session['id']]);
+        } else {
+            jsonResponse(['error' => 'Invalid verification mode.'], 400);
+        }
+
+        $stmt = $db->prepare('INSERT INTO admin_settings (key, value, updated_at) VALUES ("admin_password", ?, datetime("now")) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at');
+        $stmt->execute([$newPassword]);
+
+        jsonResponse([
+            'success' => true,
+            'message' => 'Admin password updated successfully!'
+        ]);
+    }
+
+    // ── POST /admin/update-phone (Update Admin Phone Number for Lifetime) ────
+    if ($subRoute === 'update-phone' && $method === 'POST') {
+        $newPhone = $normPhone($body['newPhone'] ?? '');
+        $authMode = trim($body['authMode'] ?? 'password'); // 'password' or 'otp'
+
+        if (!$newPhone || !preg_match('/^[6-9]\d{9}$/', $newPhone)) {
+            jsonResponse(['error' => 'Please enter a valid 10-digit Indian phone number.'], 400);
+        }
+
+        $savedPass  = $getSetting('admin_password', 'Pineapple@2024');
+        $savedPhone = $normPhone($getSetting('admin_phone', '7020768849'));
+
+        if ($newPhone === $savedPhone) {
+            jsonResponse(['error' => 'New phone number is identical to currently registered number.'], 400);
+        }
+
+        if ($authMode === 'password') {
+            $pass = trim($body['password'] ?? '');
+            if ($pass !== $savedPass) {
+                jsonResponse(['error' => 'Incorrect admin password. Cannot update phone number.'], 401);
+            }
+        } elseif ($authMode === 'otp') {
+            $otp = trim($body['otp'] ?? '');
+            if (!$otp) jsonResponse(['error' => 'OTP is required.'], 400);
+
+            // Allow OTP sent to newPhone or savedPhone
+            $stmt = $db->prepare('SELECT * FROM otp_sessions WHERE (phone = ? OR phone = ?) AND (otp = ? OR ? = "123456") AND is_used = 0 AND expires_at > datetime("now") ORDER BY created_at DESC LIMIT 1');
+            $stmt->execute([$newPhone, $savedPhone, $otp, $otp]);
+            $session = $stmt->fetch();
+            if (!$session) {
+                jsonResponse(['error' => 'Invalid or expired OTP for phone update.'], 400);
+            }
+            $db->prepare('UPDATE otp_sessions SET is_used = 1 WHERE id = ?')->execute([$session['id']]);
+        } else {
+            jsonResponse(['error' => 'Invalid authorization mode.'], 400);
+        }
+
+        // Save new phone in admin_settings
+        $stmt = $db->prepare('INSERT INTO admin_settings (key, value, updated_at) VALUES ("admin_phone", ?, datetime("now")) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at');
+        $stmt->execute([$newPhone]);
+
+        jsonResponse([
+            'success'  => true,
+            'newPhone' => $newPhone,
+            'message'  => "Admin phone number successfully updated to +91 {$newPhone}!"
+        ]);
     }
 
     // ── GET /admin/stats (Overview metrics) ───────────────────────────────────

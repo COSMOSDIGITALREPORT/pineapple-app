@@ -786,6 +786,9 @@ td b{color:var(--text);font-weight:600;}
       <button class="nav-btn" id="n-calls" onclick="go('calls')">
         <span class="ic">📞</span> Calls
       </button>
+      <button class="nav-btn" id="n-admin-sec" onclick="go('admin-sec')">
+        <span class="ic">🛡️</span> Admin Security
+      </button>
     </div>
     <div class="sidebar-footer">
       <button class="logout-btn" onclick="logout()">← Logout</button>
@@ -1579,6 +1582,143 @@ td b{color:var(--text);font-weight:600;}
       </div>
     </div>
 
+    <!-- ADMIN SECURITY & RECOVERY -->
+    <div class="page" id="p-admin-sec">
+      <div class="ph">
+        <div>
+          <div class="ph-title">🛡️ Admin Security &amp; Phone Recovery</div>
+          <div class="ph-sub">Manage master admin password, update lifetime recovery mobile number, and review auth credentials</div>
+        </div>
+        <div class="ph-actions">
+          <button class="refresh-btn" onclick="loadAdminProfile()">↻ &nbsp;Refresh Profile</button>
+        </div>
+      </div>
+
+      <!-- Overview Cards -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px;margin-bottom:24px;">
+        <div class="stat-card" style="background:#fff;border:1px solid #FFE0EA;box-shadow:0 8px 24px rgba(255,56,112,0.06);padding:20px;border-radius:18px;">
+          <div class="stat-top" style="display:flex;justify-content:space-between;align-items:center;">
+            <div class="stat-icon-wrap" style="background:#FFE6EE;color:var(--pink);font-size:22px;">👑</div>
+            <span class="badge b-green">Master Admin</span>
+          </div>
+          <div class="stat-num" style="font-size:18px;margin-top:10px;font-weight:800;" id="sec-admin-name">Pineapple Administrator</div>
+          <div class="stat-label" style="font-size:12px;color:#64748B;margin-top:4px;">System Access: Full Rights Active</div>
+        </div>
+
+        <div class="stat-card" style="background:#fff;border:1px solid #DBEAFE;box-shadow:0 8px 24px rgba(37,99,235,0.06);padding:20px;border-radius:18px;">
+          <div class="stat-top" style="display:flex;justify-content:space-between;align-items:center;">
+            <div class="stat-icon-wrap" style="background:#EFF6FF;color:#2563EB;font-size:22px;">📱</div>
+            <span class="badge" style="background:#EFF6FF;color:#2563EB;font-weight:700;">Recovery SIM</span>
+          </div>
+          <div class="stat-num" style="font-size:22px;margin-top:10px;color:#1E3A8A;font-weight:900;" id="sec-current-phone">+91 Loading...</div>
+          <div class="stat-label" style="font-size:12px;color:#64748B;margin-top:4px;">Active SMS OTP &amp; Reset Mobile Number</div>
+        </div>
+
+        <div class="stat-card" style="background:#fff;border:1px solid #DCFCE7;box-shadow:0 8px 24px rgba(22,163,74,0.06);padding:20px;border-radius:18px;">
+          <div class="stat-top" style="display:flex;justify-content:space-between;align-items:center;">
+            <div class="stat-icon-wrap" style="background:#DCFCE7;color:#16A34A;font-size:22px;">🔒</div>
+            <span class="badge b-green">Protected</span>
+          </div>
+          <div class="stat-num" style="font-size:18px;margin-top:10px;color:#16A34A;font-weight:800;">Dual-Factor Ready</div>
+          <div class="stat-label" style="font-size:12px;color:#64748B;margin-top:4px;">Password + SMS OTP Recovery Enabled</div>
+        </div>
+      </div>
+
+      <!-- Action Panels -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:24px;">
+
+        <!-- CARD 1: Update Admin Password -->
+        <div class="widget" style="background:#fff;border-radius:20px;border:1px solid #FFE0EA;box-shadow:0 8px 30px rgba(0,0,0,0.04);padding:26px;">
+          <div class="widget-header" style="padding:0 0 16px;border-bottom:1px solid #F1F5F9;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;">
+            <div class="widget-title" style="font-size:16px;font-weight:800;">🔑 Update Admin Password</div>
+            <span class="badge" style="background:#FDF2F8;color:var(--pink);font-weight:700;">Security</span>
+          </div>
+
+          <!-- Method Selector Tabs -->
+          <div class="login-tabs" style="margin-bottom:20px;">
+            <button type="button" class="login-tab active" id="tab-pw-current" onclick="switchPwTab('current')">Option 1: Current Password</button>
+            <button type="button" class="login-tab" id="tab-pw-otp" onclick="switchPwTab('otp')">Option 2: Phone SMS OTP</button>
+          </div>
+
+          <!-- Method A: Current Password -->
+          <div id="view-pw-current">
+            <div style="margin-bottom:14px;">
+              <label class="login-label">Current Admin Password</label>
+              <input type="password" id="inp-curr-pass" class="login-input" placeholder="Enter current admin password" />
+            </div>
+            <div style="margin-bottom:14px;">
+              <label class="login-label">New Password</label>
+              <input type="password" id="inp-new-pass-1" class="login-input" placeholder="At least 6 characters" />
+            </div>
+            <div style="margin-bottom:20px;">
+              <label class="login-label">Confirm New Password</label>
+              <input type="password" id="inp-new-pass-1-conf" class="login-input" placeholder="Re-enter new password" />
+            </div>
+            <button class="btn btn-pink" style="width:100%;padding:14px;font-size:14px;border-radius:12px;font-weight:700;" id="btn-save-pass-current" onclick="savePassWithCurrent()">✓ Save New Password</button>
+          </div>
+
+          <!-- Method B: Phone OTP -->
+          <div id="view-pw-otp" style="display:none;">
+            <div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:12px;padding:12px 16px;margin-bottom:16px;font-size:12.5px;color:#166534;line-height:1.5;">
+              📲 OTP will be sent via Text SMS to registered recovery number: <b id="sec-otp-dest">+91 ...</b>
+            </div>
+
+            <div style="display:flex;gap:10px;margin-bottom:14px;">
+              <button class="btn btn-purple" id="btn-sec-send-otp" style="flex:1;padding:12px;font-weight:700;border-radius:10px;" onclick="sendPassOtp()">Send SMS OTP →</button>
+            </div>
+
+            <div style="margin-bottom:14px;">
+              <label class="login-label">6-Digit SMS Verification Code</label>
+              <input type="text" id="inp-pw-otp" class="login-input" placeholder="Enter 6-digit OTP" maxlength="6" style="text-align:center;letter-spacing:4px;font-weight:800;font-size:18px;" />
+            </div>
+            <div style="margin-bottom:14px;">
+              <label class="login-label">New Password</label>
+              <input type="password" id="inp-new-pass-2" class="login-input" placeholder="At least 6 characters" />
+            </div>
+            <div style="margin-bottom:20px;">
+              <label class="login-label">Confirm New Password</label>
+              <input type="password" id="inp-new-pass-2-conf" class="login-input" placeholder="Re-enter new password" />
+            </div>
+            <button class="btn btn-pink" style="width:100%;padding:14px;font-size:14px;border-radius:12px;font-weight:700;" id="btn-save-pass-otp" onclick="savePassWithOtp()">✓ Verify OTP &amp; Save New Password</button>
+          </div>
+        </div>
+
+        <!-- CARD 2: Update Registered Phone Number (Lifetime Recovery) -->
+        <div class="widget" style="background:#fff;border-radius:20px;border:1px solid #DBEAFE;box-shadow:0 8px 30px rgba(0,0,0,0.04);padding:26px;">
+          <div class="widget-header" style="padding:0 0 16px;border-bottom:1px solid #F1F5F9;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;">
+            <div class="widget-title" style="font-size:16px;font-weight:800;">📲 Update Recovery Phone Number</div>
+            <span class="badge" style="background:#EFF6FF;color:#2563EB;font-weight:700;">Lifetime SIM</span>
+          </div>
+
+          <div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:12px;padding:12px 16px;margin-bottom:18px;font-size:12.5px;color:#1E40AF;line-height:1.5;">
+            💡 <b>Lifetime Portability:</b> Agar aap future mein apna phone number change karte hain, toh yahan apna new mobile number update kar lijiye taaki jab bhi aap password reset karein, OTP aapke new active number par hi aaye.
+          </div>
+
+          <div style="margin-bottom:14px;">
+            <label class="login-label">Currently Registered Number</label>
+            <input type="text" id="inp-current-phone-ro" class="login-input" readonly style="background:#F1F5F9;color:#64748B;font-weight:700;" value="+91 Loading..." />
+          </div>
+
+          <div style="margin-bottom:16px;">
+            <label class="login-label">New Mobile Number (10 Digits)</label>
+            <div style="display:flex;align-items:center;background:#F9FAFB;border:1.5px solid var(--border);border-radius:14px;padding:0 14px;">
+              <span style="font-weight:700;color:#64748B;font-size:14px;margin-right:6px;">🇮🇳 +91</span>
+              <input class="login-input" type="tel" id="inp-new-phone" maxlength="10" placeholder="Enter new 10-digit number" style="border:none;background:transparent;padding:14px 4px;" />
+            </div>
+          </div>
+
+          <!-- Auth Mode for Phone Update -->
+          <div style="margin-bottom:20px;">
+            <label class="login-label">Authorize Change Using Current Admin Password</label>
+            <input type="password" id="inp-phone-auth-pass" class="login-input" placeholder="Enter current admin password to confirm" />
+          </div>
+
+          <button class="btn btn-purple" style="width:100%;padding:14px;font-size:14px;border-radius:12px;font-weight:700;" id="btn-save-phone" onclick="saveNewPhone()">🔄 Update Admin Phone Number</button>
+        </div>
+
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -1801,7 +1941,8 @@ function go(name) {
     reports: loadReports,
     reviews: loadReviews,
     calls: loadCalls,
-    support: loadSupport
+    support: loadSupport,
+    'admin-sec': loadAdminProfile
   })[name]?.();
 }
 
@@ -3485,6 +3626,156 @@ async function deleteActiveSupportThread() {
     loadDash();
   } catch(e) { showToast(e.message, false); }
 }
+
+// ── ADMIN SECURITY & LIFETIME PHONE RECOVERY ────────────────────────────
+let adminProfileData = null;
+
+async function loadPublicAdminPhone() {
+  try {
+    const res = await fetch(BASE + '/admin/public-phone').then(r => r.json());
+    if (res && res.phone) {
+      const fInp = document.getElementById('forgot-phone');
+      if (fInp) {
+        fInp.value = res.phone;
+      }
+      const subEl = document.getElementById('forgot-sub-text');
+      if (subEl) {
+        subEl.innerHTML = `Verify your registered admin phone (+91 <b>${res.phone}</b>) to choose a new password`;
+      }
+    }
+  } catch(e) {}
+}
+
+async function loadAdminProfile(isQuiet=false) {
+  try {
+    const d = await api('/admin/profile');
+    adminProfileData = d;
+    document.getElementById('sec-admin-name').textContent = d.name || 'Pineapple Administrator';
+    document.getElementById('sec-current-phone').textContent = `+91 ${d.phone}`;
+    document.getElementById('inp-current-phone-ro').value = `+91 ${d.phone}`;
+    document.getElementById('sec-otp-dest').textContent = `+91 ${d.phone}`;
+    if (!isQuiet) showToast('✓ Admin security profile loaded');
+  } catch(e) {
+    if (!isQuiet) showToast('Failed to load profile: ' + e.message, false);
+  }
+}
+
+function switchPwTab(tab) {
+  document.getElementById('tab-pw-current').classList.toggle('active', tab === 'current');
+  document.getElementById('tab-pw-otp').classList.toggle('active', tab === 'otp');
+  document.getElementById('view-pw-current').style.display = (tab === 'current') ? 'block' : 'none';
+  document.getElementById('view-pw-otp').style.display = (tab === 'otp') ? 'block' : 'none';
+}
+
+async function savePassWithCurrent() {
+  const currentPassword = document.getElementById('inp-curr-pass').value.trim();
+  const newPassword = document.getElementById('inp-new-pass-1').value;
+  const confirmPassword = document.getElementById('inp-new-pass-1-conf').value;
+  const btn = document.getElementById('btn-save-pass-current');
+
+  if (!currentPassword) { showToast('Please enter your current admin password', false); return; }
+  if (!newPassword || newPassword.length < 6) { showToast('New password must be at least 6 characters', false); return; }
+  if (newPassword !== confirmPassword) { showToast('New passwords do not match', false); return; }
+
+  btn.disabled = true; btn.textContent = 'Updating...';
+  try {
+    const res = await api('/admin/update-password', {
+      method: 'POST',
+      body: JSON.stringify({ mode: 'current_pass', currentPassword, newPassword })
+    });
+    showToast('✓ ' + (res.message || 'Password updated successfully!'));
+    document.getElementById('inp-curr-pass').value = '';
+    document.getElementById('inp-new-pass-1').value = '';
+    document.getElementById('inp-new-pass-1-conf').value = '';
+  } catch(e) {
+    showToast('✕ ' + e.message, false);
+  } finally {
+    btn.disabled = false; btn.textContent = '✓ Save New Password';
+  }
+}
+
+async function sendPassOtp() {
+  const btn = document.getElementById('btn-sec-send-otp');
+  btn.disabled = true; btn.textContent = 'Sending SMS...';
+  try {
+    const res = await api('/admin/send-profile-otp', {
+      method: 'POST',
+      body: JSON.stringify({ target: 'current' })
+    });
+    showToast('✓ ' + (res.message || 'OTP sent via SMS!') + (res.dev_otp ? ` (${res.dev_otp})` : ''));
+    let sec = 60;
+    const interval = setInterval(() => {
+      sec--;
+      if (sec <= 0) {
+        clearInterval(interval);
+        btn.disabled = false; btn.textContent = 'Resend SMS OTP →';
+      } else {
+        btn.textContent = `Resend in ${sec}s`;
+      }
+    }, 1000);
+  } catch(e) {
+    showToast('✕ ' + e.message, false);
+    btn.disabled = false; btn.textContent = 'Send SMS OTP →';
+  }
+}
+
+async function savePassWithOtp() {
+  const otp = document.getElementById('inp-pw-otp').value.trim();
+  const newPassword = document.getElementById('inp-new-pass-2').value;
+  const confirmPassword = document.getElementById('inp-new-pass-2-conf').value;
+  const btn = document.getElementById('btn-save-pass-otp');
+
+  if (!otp || otp.length < 4) { showToast('Please enter the 6-digit SMS OTP', false); return; }
+  if (!newPassword || newPassword.length < 6) { showToast('New password must be at least 6 characters', false); return; }
+  if (newPassword !== confirmPassword) { showToast('New passwords do not match', false); return; }
+
+  btn.disabled = true; btn.textContent = 'Verifying & Updating...';
+  try {
+    const res = await api('/admin/update-password', {
+      method: 'POST',
+      body: JSON.stringify({ mode: 'otp', otp, newPassword })
+    });
+    showToast('✓ ' + (res.message || 'Password updated successfully!'));
+    document.getElementById('inp-pw-otp').value = '';
+    document.getElementById('inp-new-pass-2').value = '';
+    document.getElementById('inp-new-pass-2-conf').value = '';
+  } catch(e) {
+    showToast('✕ ' + e.message, false);
+  } finally {
+    btn.disabled = false; btn.textContent = '✓ Verify OTP & Save New Password';
+  }
+}
+
+async function saveNewPhone() {
+  const newPhone = document.getElementById('inp-new-phone').value.trim();
+  const password = document.getElementById('inp-phone-auth-pass').value.trim();
+  const btn = document.getElementById('btn-save-phone');
+
+  if (!newPhone || newPhone.length < 10) { showToast('Please enter a valid 10-digit mobile number', false); return; }
+  if (!password) { showToast('Please enter current admin password to authorize phone change', false); return; }
+
+  if (!confirm(`Are you sure you want to change registered admin recovery phone to +91 ${newPhone}?`)) return;
+
+  btn.disabled = true; btn.textContent = 'Updating Phone...';
+  try {
+    const res = await api('/admin/update-phone', {
+      method: 'POST',
+      body: JSON.stringify({ newPhone, password, authMode: 'password' })
+    });
+    showToast('✓ ' + (res.message || 'Admin phone number updated successfully!'));
+    document.getElementById('inp-new-phone').value = '';
+    document.getElementById('inp-phone-auth-pass').value = '';
+    await loadAdminProfile(true);
+    await loadPublicAdminPhone();
+  } catch(e) {
+    showToast('✕ ' + e.message, false);
+  } finally {
+    btn.disabled = false; btn.textContent = '🔄 Update Admin Phone Number';
+  }
+}
+
+// Initial Sync for login screen and app
+loadPublicAdminPhone();
 
 if (token) {
   document.getElementById('login-screen').style.display = 'none';
