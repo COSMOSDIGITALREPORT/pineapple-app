@@ -195,10 +195,12 @@ function handleAdminRoute(string $subRoute, string $method, array $body, ?array 
     // ── GET /admin/public-phone (For Login & Forgot Password screens) ────────
     if ($subRoute === 'public-phone' && $method === 'GET') {
         $savedPhone = $normPhone($getSetting('admin_phone', '7020768849'));
-        $masked = substr($savedPhone, 0, 2) . '******' . substr($savedPhone, -2);
+        $last3 = substr($savedPhone, -3);
+        $masked = substr($savedPhone, 0, 2) . '*****' . $last3;
         jsonResponse([
             'phone'       => $savedPhone,
             'maskedPhone' => $masked,
+            'last3'       => $last3,
             'country'     => '+91'
         ]);
     }
@@ -211,8 +213,12 @@ function handleAdminRoute(string $subRoute, string $method, array $body, ?array 
     // ── GET /admin/profile (Admin Account Profile) ────────────────────────────
     if ($subRoute === 'profile' && $method === 'GET') {
         $savedPhone = $normPhone($getSetting('admin_phone', '7020768849'));
+        $last3 = substr($savedPhone, -3);
+        $masked = substr($savedPhone, 0, 3) . '****' . $last3;
         jsonResponse([
             'phone'        => $savedPhone,
+            'maskedPhone'  => $masked,
+            'last3'        => $last3,
             'name'         => 'Pineapple Administrator',
             'role'         => 'admin',
             'has_password' => true

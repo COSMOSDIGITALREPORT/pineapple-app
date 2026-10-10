@@ -1746,12 +1746,40 @@ function showToast(msg, ok=true) {
 }
 
 async function api(path, opts={}) {
-  const r = await fetch(BASE + path, {
+  const url = BASE + path;
+  let r = await fetch(url, {
     ...opts,
     headers: { 'Content-Type':'application/json', 'Authorization':'Bearer '+token, ...(opts.headers||{}) }
   });
-  if (!r.ok) { const e = await r.json().catch(()=>({error:'Error'})); throw new Error(e.error||'Request failed'); }
-  return r.json();
+
+  const text = await r.text();
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch (jsonErr) {
+    // If /admin was requested directly and returned HTML, retry with /api/admin
+    if (path.startsWith('/admin/')) {
+      const retryUrl = BASE + '/api' + path;
+      const r2 = await fetch(retryUrl, {
+        ...opts,
+        headers: { 'Content-Type':'application/json', 'Authorization':'Bearer '+token, ...(opts.headers||{}) }
+      });
+      const t2 = await r2.text();
+      try {
+        data = JSON.parse(t2);
+        r = r2;
+      } catch (_) {
+        throw new Error('Server returned invalid HTML instead of JSON. Ensure cPanel .htaccess is updated.');
+      }
+    } else {
+      throw new Error('Server returned invalid HTML instead of JSON. Ensure cPanel .htaccess is updated.');
+    }
+  }
+
+  if (!r.ok) {
+    throw new Error(data.error || data.message || 'Request failed');
+  }
+  return data;
 }
 
 function switchLoginMode(mode) {
@@ -3632,15 +3660,22 @@ let adminProfileData = null;
 
 async function loadPublicAdminPhone() {
   try {
-    const res = await fetch(BASE + '/admin/public-phone').then(r => r.json());
+    const res = await fetch(BASE + '/admin/public-phone').then(r => r.json()).catch(() => null)
+             || await fetch(BASE + '/api/admin/public-phone').then(r => r.json()).catch(() => null);
     if (res && res.phone) {
+      const phone = res.phone;
+      const last3 = res.last3 || phone.slice(-3);
       const fInp = document.getElementById('forgot-phone');
       if (fInp) {
-        fInp.value = res.phone;
+        fInp.value = phone;
       }
       const subEl = document.getElementById('forgot-sub-text');
       if (subEl) {
-        subEl.innerHTML = `Verify your registered admin phone (+91 <b>${res.phone}</b>) to choose a new password`;
+        subEl.innerHTML = `Verify registered recovery phone (+91 •••••••<b>${last3}</b>) to choose a new password`;
+      }
+      const otpNote = document.getElementById('forgot-step-2')?.querySelector('div');
+      if (otpNote) {
+        otpNote.innerHTML = `✓ OTP sent to registered admin phone (+91 •••••••<b>${last3}</b>)`;
       }
     }
   } catch(e) {}
@@ -3650,11 +3685,14 @@ async function loadAdminProfile(isQuiet=false) {
   try {
     const d = await api('/admin/profile');
     adminProfileData = d;
+    const phone = d.phone || '7020768849';
+    const last3 = d.last3 || phone.slice(-3);
+
     document.getElementById('sec-admin-name').textContent = d.name || 'Pineapple Administrator';
-    document.getElementById('sec-current-phone').textContent = `+91 ${d.phone}`;
-    document.getElementById('inp-current-phone-ro').value = `+91 ${d.phone}`;
-    document.getElementById('sec-otp-dest').textContent = `+91 ${d.phone}`;
-    if (!isQuiet) showToast('✓ Admin security profile loaded');
+    document.getElementById('sec-current-phone').innerHTML = `+91 ${phone} <span style="font-size:12px;background:#DBEAFE;color:#1E40AF;padding:3px 8px;border-radius:6px;margin-left:8px;font-weight:800;vertical-align:middle;">•••${last3}</span>`;
+    document.getElementById('inp-current-phone-ro').value = `+91 ${phone}  [Last 3 digits: ${last3}]`;
+    document.getElementById('sec-otp-dest').innerHTML = `+91 •••••••<b>${last3}</b>`;
+    if (!isQuiet) showToast(`✓ Admin Recovery Phone: +91 ${phone} (•••${last3})`);
   } catch(e) {
     if (!isQuiet) showToast('Failed to load profile: ' + e.message, false);
   }
