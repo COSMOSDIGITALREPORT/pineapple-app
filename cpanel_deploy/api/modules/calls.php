@@ -1,19 +1,22 @@
 <?php
 // ==============================================================================
-// Pineapple App — Calls & Signaling Module (PHP + SQLite + Firebase)
+// Pineapple App — Calls & Signaling Module (PHP + SQLite + Firebase + Agora)
 // ==============================================================================
 
 if (!defined('PINEAPPLE_APP')) die('Direct access forbidden');
+
+require_once dirname(__DIR__) . '/RtcTokenBuilder.php';
 
 function handleCallsRoute(string $subRoute, string $method, array $body, ?array $user): void {
     if (!$user) jsonResponse(['error' => 'Unauthorized'], 401);
     $db = Database::getConnection();
     $config = require dirname(__DIR__) . '/config.php';
 
-    // ── POST /calls/request ───────────────────────────────────────────────────
-    if ($subRoute === 'request' && $method === 'POST') {
-        $receiverId = trim($body['receiverId'] ?? '');
-        $callType   = trim($body['callType'] ?? 'audio');
+    // ── POST /calls/initiate OR /calls/request ────────────────────────────────
+    if (($subRoute === 'initiate' || $subRoute === 'request') && $method === 'POST') {
+        $receiverId    = trim($body['receiverId'] ?? '');
+        $callType      = trim($body['callType'] ?? $body['type'] ?? 'audio');
+        $freeTrialCall = !empty($body['freeTrialCall']);
 
         if (!$receiverId) jsonResponse(['error' => 'Receiver ID required'], 400);
 
@@ -34,7 +37,7 @@ function handleCallsRoute(string $subRoute, string $method, array $body, ?array 
         $callerCoins = (float)($user['coins'] ?? $user['minutes'] ?? 0);
         $minCoinsNeeded = ($callType === 'video') ? 2.0 : 1.0;
 
-        if ($callerCoins < $minCoinsNeeded && empty($user['is_premium'])) {
+        if (!$freeTrialCall && $callerCoins < $minCoinsNeeded && empty($user['is_premium'])) {
             jsonResponse(['error' => 'Insufficient coins. Please recharge to make calls.'], 402);
         }
 
@@ -43,6 +46,30 @@ function handleCallsRoute(string $subRoute, string $method, array $body, ?array 
 
         $stmt = $db->prepare('INSERT INTO calls (id, caller_id, receiver_id, call_type, status, agora_channel) VALUES (?, ?, ?, ?, "initiated", ?)');
         $stmt->execute([$callId, $user['id'], $receiverId, $callType, $agoraChannel]);
+
+        // Generate Agora Tokens for caller (uid=1) and receiver (uid=2)
+        $callerToken = '';
+        $receiverToken = '';
+        if (!empty($config['agora_app_id']) && !empty($config['agora_app_certificate'])) {
+            try {
+                $callerToken = RtcTokenBuilder::buildTokenWithUid(
+                    $config['agora_app_id'],
+                    $config['agora_app_certificate'],
+                    $agoraChannel,
+                    1,
+                    RtcTokenBuilder::RolePublisher,
+                    time() + 3600
+                );
+                $receiverToken = RtcTokenBuilder::buildTokenWithUid(
+                    $config['agora_app_id'],
+                    $config['agora_app_certificate'],
+                    $agoraChannel,
+                    2,
+                    RtcTokenBuilder::RolePublisher,
+                    time() + 3600
+                );
+            } catch (\Throwable $e) {}
+        }
 
         // Publish real-time ring to receiver phone via Firebase RTDB
         $signalPayload = [
@@ -54,6 +81,7 @@ function handleCallsRoute(string $subRoute, string $method, array $body, ?array 
             'channelName'  => $agoraChannel,
             'agoraChannel' => $agoraChannel,
             'agoraAppId'   => $config['agora_app_id'],
+            'receiverToken'=> $receiverToken,
         ];
 
         Firebase::sendSignal($receiverId, 'call:incoming', $signalPayload);
@@ -79,10 +107,45 @@ function handleCallsRoute(string $subRoute, string $method, array $body, ?array 
         }
 
         jsonResponse([
-            'success'      => true,
-            'callId'       => $callId,
-            'agoraChannel' => $agoraChannel,
-            'agoraAppId'   => $config['agora_app_id'],
+            'success'       => true,
+            'callId'        => $callId,
+            'callerToken'   => $callerToken,
+            'receiverToken' => $receiverToken,
+            'channelName'   => $agoraChannel,
+            'agoraChannel'  => $agoraChannel,
+            'appId'         => $config['agora_app_id'],
+            'agoraAppId'    => $config['agora_app_id'],
+        ]);
+    }
+
+    // ── GET /calls/:id/receiver-token ─────────────────────────────────────────
+    if (preg_match('#^([^/]+)/receiver-token$#', $subRoute, $matches) && $method === 'GET') {
+        $callId = $matches[1];
+        $stmt = $db->prepare('SELECT * FROM calls WHERE id = ?');
+        $stmt->execute([$callId]);
+        $call = $stmt->fetch();
+        if (!$call) jsonResponse(['error' => 'Call not found'], 404);
+
+        $receiverToken = '';
+        if (!empty($config['agora_app_id']) && !empty($config['agora_app_certificate'])) {
+            try {
+                $receiverToken = RtcTokenBuilder::buildTokenWithUid(
+                    $config['agora_app_id'],
+                    $config['agora_app_certificate'],
+                    $call['agora_channel'],
+                    2,
+                    RtcTokenBuilder::RolePublisher,
+                    time() + 3600
+                );
+            } catch (\Throwable $e) {}
+        }
+
+        jsonResponse([
+            'callId'        => $callId,
+            'receiverToken' => $receiverToken,
+            'channelName'   => $call['agora_channel'],
+            'appId'         => $config['agora_app_id'],
+            'agoraAppId'    => $config['agora_app_id'],
         ]);
     }
 
@@ -130,9 +193,16 @@ function handleCallsRoute(string $subRoute, string $method, array $body, ?array 
         jsonResponse(['success' => true]);
     }
 
-    // ── POST /calls/end ───────────────────────────────────────────────────────
-    if ($subRoute === 'end' && $method === 'POST') {
-        $callId          = trim($body['callId'] ?? '');
+    // ── POST / PUT /calls/end OR /calls/:id/end ──────────────────────────────
+    $isEndRoute = ($subRoute === 'end');
+    $urlCallId = '';
+    if (!$isEndRoute && preg_match('#^([^/]+)/end$#', $subRoute, $matches)) {
+        $isEndRoute = true;
+        $urlCallId = $matches[1];
+    }
+
+    if ($isEndRoute && ($method === 'POST' || $method === 'PUT')) {
+        $callId          = $urlCallId ?: trim($body['callId'] ?? '');
         $durationSeconds = (int)($body['durationSeconds'] ?? $body['duration'] ?? 0);
 
         if (!$callId) jsonResponse(['error' => 'callId required'], 400);

@@ -94,13 +94,45 @@ export const getRandomUser = () => get('/users/random');
 export const setOffline = () => put('/users/me/offline');
 
 // ── Calls ────────────────────────────────────────────────────────────────────
-export const initiateCall = (receiverId, type = 'audio', freeTrialCall = false) =>
-  post('/calls/initiate', { receiverId, type, freeTrialCall });
+export const initiateCall = async (receiverId, type = 'audio', freeTrialCall = false) => {
+  try {
+    const res = await post('/calls/initiate', { receiverId, type, freeTrialCall });
+    return {
+      ...res,
+      channelName: res.channelName || res.agoraChannel,
+      appId:       res.appId || res.agoraAppId,
+    };
+  } catch (err) {
+    if (err.message && (err.message.includes('not found') || err.message.includes('404'))) {
+      const res = await post('/calls/request', { receiverId, callType: type, type, freeTrialCall });
+      return {
+        ...res,
+        channelName: res.channelName || res.agoraChannel,
+        appId:       res.appId || res.agoraAppId,
+      };
+    }
+    throw err;
+  }
+};
 
-export const getReceiverToken = (callId) => get(`/calls/${callId}/receiver-token`);
+export const getReceiverToken = async (callId) => {
+  try {
+    return await get(`/calls/${callId}/receiver-token`);
+  } catch (_) {
+    return { receiverToken: '', callId };
+  }
+};
 
-export const endCall = (callId, durationSeconds) =>
-  put(`/calls/${callId}/end`, { duration: durationSeconds });
+export const endCall = async (callId, durationSeconds) => {
+  try {
+    return await put(`/calls/${callId}/end`, { duration: durationSeconds, durationSeconds });
+  } catch (err) {
+    if (err.message && (err.message.includes('not found') || err.message.includes('404'))) {
+      return await post('/calls/end', { callId, durationSeconds, duration: durationSeconds });
+    }
+    throw err;
+  }
+};
 
 export const getCallHistory = async () => {
   const rows = await get('/calls/history');
