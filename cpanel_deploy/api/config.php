@@ -25,9 +25,8 @@ return [
     'razorpay_key_id'     => 'rzp_test_T6EyUZ7PKaClav',
     'razorpay_key_secret' => 'kNSRaj4mEm6pKnBCxl01iK4X',
 
-    // OTP SMS / Voice Gateways
-    'fast2sms_api_key'  => 'PazQubw6iVrs214GHXItdTSvxUOM0ZCf9mcpgD8LWBYy7qFJNhpZtlfWqT0hubwIgEHeMzFSkLPJdR4y',
-    'twofactor_api_key' => '5cfec1bc-7131-11f1-8174-0200cd936042',
+    // OTP SMS Gateway (Client 2Factor.in Account - pineappleapp544@gmail.com)
+    'twofactor_api_key' => '4bd92262-c607-11f1-af74-0200cd936042',
 
     // Media & Local Storage
     'upload_dir' => dirname(__DIR__) . '/uploads/',
