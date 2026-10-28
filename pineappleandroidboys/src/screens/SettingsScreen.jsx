@@ -47,7 +47,6 @@ const SECTIONS = [
     title: 'Notifications',
     items: [
       { label: 'Push Notifications', type: 'toggle', key: 'push' },
-      { label: 'Promotions & Offers', type: 'toggle', key: 'promos' },
     ],
   },
   {
@@ -100,7 +99,6 @@ export default function SettingsScreen({ onBack, onLogout, onBlockedUsers, onPri
 
   const [toggles, setToggles] = useState({
     push: true,
-    promos: false,
   });
 
   const flip = (key) => setToggles((prev) => ({ ...prev, [key]: !prev[key] }));
