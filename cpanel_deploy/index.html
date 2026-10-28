@@ -789,6 +789,10 @@ td b{color:var(--text);font-weight:600;}
       <button class="nav-btn" id="n-admin-sec" onclick="go('admin-sec')">
         <span class="ic">🛡️</span> Admin Security
       </button>
+      <button class="nav-btn" id="n-past-users" onclick="go('past-users')">
+        <span class="ic">🚪</span> Past Users
+        <span class="nav-badge" id="nb-pu" style="display:none">0</span>
+      </button>
     </div>
     <div class="sidebar-footer">
       <button class="logout-btn" onclick="logout()">← Logout</button>
@@ -1719,6 +1723,96 @@ td b{color:var(--text);font-weight:600;}
       </div>
     </div>
 
+    <!-- PAST USERS (DELETED ACCOUNTS & EXIT SURVEY) -->
+    <div class="page" id="p-past-users">
+      <div class="ph">
+        <div>
+          <div class="ph-title">🚪 Past Users &amp; Deleted Accounts</div>
+          <div class="ph-sub">Archive of past members who deleted their accounts, with survey reasons, custom feedback, and re-signup bonus prevention tracking</div>
+        </div>
+        <div class="ph-actions">
+          <button class="refresh-btn" onclick="loadPastUsers()">↻ &nbsp;Refresh Past Users</button>
+        </div>
+      </div>
+
+      <!-- Stats Cards -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:16px;margin-bottom:24px;">
+        <div class="stat-card" style="background:#fff;border:1px solid #FFE0EA;padding:18px;border-radius:18px;">
+          <div class="stat-top" style="display:flex;justify-content:space-between;align-items:center;">
+            <div class="stat-icon-wrap" style="background:#FFF0F4;color:var(--pink);font-size:20px;">🚪</div>
+            <span class="badge" style="background:#FFE6EE;color:var(--crimson);font-weight:700;">Total Deleted</span>
+          </div>
+          <div class="stat-num" style="font-size:26px;margin-top:8px;font-weight:900;" id="pu-stat-total">0</div>
+          <div class="stat-label" style="font-size:12px;color:#64748B;margin-top:2px;">All-time deleted accounts</div>
+        </div>
+
+        <div class="stat-card" style="background:#fff;border:1px solid #DBEAFE;padding:18px;border-radius:18px;">
+          <div class="stat-top" style="display:flex;justify-content:space-between;align-items:center;">
+            <div class="stat-icon-wrap" style="background:#EFF6FF;color:#2563EB;font-size:20px;">👦</div>
+            <span class="badge" style="background:#EFF6FF;color:#2563EB;font-weight:700;">Boys Deleted</span>
+          </div>
+          <div class="stat-num" style="font-size:26px;margin-top:8px;font-weight:900;color:#1E3A8A;" id="pu-stat-boys">0</div>
+          <div class="stat-label" style="font-size:12px;color:#64748B;margin-top:2px;">Re-signup bonus blocked</div>
+        </div>
+
+        <div class="stat-card" style="background:#fff;border:1px solid #FCE7F3;padding:18px;border-radius:18px;">
+          <div class="stat-top" style="display:flex;justify-content:space-between;align-items:center;">
+            <div class="stat-icon-wrap" style="background:#FDF2F8;color:#DB2777;font-size:20px;">👧</div>
+            <span class="badge" style="background:#FDF2F8;color:#DB2777;font-weight:700;">Girls / Hosts</span>
+          </div>
+          <div class="stat-num" style="font-size:26px;margin-top:8px;font-weight:900;color:#9D174D;" id="pu-stat-girls">0</div>
+          <div class="stat-label" style="font-size:12px;color:#64748B;margin-top:2px;">Host departures</div>
+        </div>
+
+        <div class="stat-card" style="background:#fff;border:1px solid #FEF3C7;padding:18px;border-radius:18px;">
+          <div class="stat-top" style="display:flex;justify-content:space-between;align-items:center;">
+            <div class="stat-icon-wrap" style="background:#FFFBEB;color:#D97706;font-size:20px;">💬</div>
+            <span class="badge" style="background:#FEF3C7;color:#B45309;font-weight:700;">With Feedback</span>
+          </div>
+          <div class="stat-num" style="font-size:26px;margin-top:8px;font-weight:900;color:#92400E;" id="pu-stat-feedback">0</div>
+          <div class="stat-label" style="font-size:12px;color:#64748B;margin-top:2px;">Custom feedback message</div>
+        </div>
+      </div>
+
+      <!-- Filters & Search Bar -->
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:16px;">
+        <div style="flex:1;min-width:260px;position:relative;">
+          <input type="text" id="pu-search" placeholder="Search past members by phone, name, or feedback..."
+                 style="width:100%;padding:10px 14px 10px 38px;border:1.5px solid var(--border);border-radius:12px;font-size:13px;font-family:'Inter',sans-serif;"
+                 oninput="filterPastUsers()" />
+          <span style="position:absolute;left:14px;top:50%;transform:translateY(-50%);font-size:14px;color:#94A3B8;">🔍</span>
+        </div>
+        <div class="filter-tabs" style="margin-bottom:0;">
+          <button class="ft-btn active" id="puf-all" onclick="setPastUsersFilter('all')">All Past Users <span class="ft-pill" id="puc-all">0</span></button>
+          <button class="ft-btn" id="puf-boy" onclick="setPastUsersFilter('boy')">👦 Boys <span class="ft-pill" id="puc-boy">0</span></button>
+          <button class="ft-btn" id="puf-girl" onclick="setPastUsersFilter('girl')">👧 Girls <span class="ft-pill" id="puc-girl">0</span></button>
+          <button class="ft-btn" id="puf-bored" onclick="setPastUsersFilter('bored')">🥱 Bored / Not Interested</button>
+          <button class="ft-btn" id="puf-dontlike" onclick="setPastUsersFilter('dontlike')">👎 Don't Like App</button>
+        </div>
+      </div>
+
+      <!-- Past Users Table -->
+      <div class="table-card">
+        <table>
+          <thead>
+            <tr>
+              <th>User / Name</th>
+              <th>Phone Number</th>
+              <th>Gender</th>
+              <th>Exit Reason</th>
+              <th>Custom Feedback / Message</th>
+              <th>Coins / Bal at Deletion</th>
+              <th>Registered Date</th>
+              <th>Deleted Date</th>
+            </tr>
+          </thead>
+          <tbody id="pu-body">
+            <tr><td colspan="8"><div class="empty-state"><div class="e-icon">⏳</div><p>Loading past users...</p></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -1949,6 +2043,9 @@ function startAutoRefresh() {
     } else if (currentTab === 'support') {
       const q = document.getElementById('support-search')?.value;
       if (!q) loadSupport(true);
+    } else if (currentTab === 'past-users') {
+      const q = document.getElementById('pu-search')?.value;
+      if (!q) loadPastUsers(true);
     }
   }, 4000);
 }
@@ -1970,7 +2067,8 @@ function go(name) {
     reviews: loadReviews,
     calls: loadCalls,
     support: loadSupport,
-    'admin-sec': loadAdminProfile
+    'admin-sec': loadAdminProfile,
+    'past-users': loadPastUsers
   })[name]?.();
 }
 
@@ -3810,6 +3908,158 @@ async function saveNewPhone() {
   } finally {
     btn.disabled = false; btn.textContent = '🔄 Update Admin Phone Number';
   }
+}
+
+// ── PAST USERS MANAGEMENT ────────────────────────────────────────────────────
+let allPastUsers = [];
+let pastUsersFilterTab = 'all';
+
+function escHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str).replace(/[&<>"']/g, m => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  })[m]);
+}
+
+async function loadPastUsers(silent = false) {
+  try {
+    const res = await api('/admin/past-users');
+    allPastUsers = res.pastUsers || [];
+
+    // Update stats cards
+    const total = allPastUsers.length;
+    const boys = allPastUsers.filter(u => ['boy', 'male', 'm'].includes((u.gender || '').toLowerCase())).length;
+    const girls = allPastUsers.filter(u => ['girl', 'female', 'f'].includes((u.gender || '').toLowerCase())).length;
+    const feedback = allPastUsers.filter(u => u.custom_feedback && u.custom_feedback.trim().length > 0).length;
+
+    const elTotal = document.getElementById('pu-stat-total');
+    if (elTotal) elTotal.textContent = total;
+    const elBoys = document.getElementById('pu-stat-boys');
+    if (elBoys) elBoys.textContent = boys;
+    const elGirls = document.getElementById('pu-stat-girls');
+    if (elGirls) elGirls.textContent = girls;
+    const elFeedback = document.getElementById('pu-stat-feedback');
+    if (elFeedback) elFeedback.textContent = feedback;
+
+    // Filter pills counters
+    const pcAll = document.getElementById('puc-all');
+    if (pcAll) pcAll.textContent = total;
+    const pcBoy = document.getElementById('puc-boy');
+    if (pcBoy) pcBoy.textContent = boys;
+    const pcGirl = document.getElementById('puc-girl');
+    if (pcGirl) pcGirl.textContent = girls;
+
+    // Nav badge
+    const nb = document.getElementById('nb-pu');
+    if (nb) {
+      if (total > 0) {
+        nb.textContent = total;
+        nb.style.display = 'inline-block';
+      } else {
+        nb.style.display = 'none';
+      }
+    }
+
+    renderPastUsersTable();
+  } catch (err) {
+    if (!silent) showToast('✕ Failed to load past users: ' + err.message, false);
+  }
+}
+
+function setPastUsersFilter(filter) {
+  pastUsersFilterTab = filter;
+  document.querySelectorAll('#p-past-users .ft-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('puf-' + filter)?.classList.add('active');
+  renderPastUsersTable();
+}
+
+function filterPastUsers() {
+  renderPastUsersTable();
+}
+
+function renderPastUsersTable() {
+  const tbody = document.getElementById('pu-body');
+  if (!tbody) return;
+
+  const query = (document.getElementById('pu-search')?.value || '').toLowerCase().trim();
+
+  let filtered = allPastUsers.filter(u => {
+    // Tab filter
+    const g = (u.gender || '').toLowerCase();
+    const r = (u.reason || '').toLowerCase();
+    if (pastUsersFilterTab === 'boy' && !['boy', 'male', 'm'].includes(g)) return false;
+    if (pastUsersFilterTab === 'girl' && !['girl', 'female', 'f'].includes(g)) return false;
+    if (pastUsersFilterTab === 'bored' && !r.includes('bore') && !r.includes('interest')) return false;
+    if (pastUsersFilterTab === 'dontlike' && !r.includes('like') && !r.includes('app')) return false;
+
+    // Search query
+    if (query) {
+      const matchPhone = (u.phone || '').toLowerCase().includes(query);
+      const matchName = (u.name || '').toLowerCase().includes(query);
+      const matchReason = (u.reason || '').toLowerCase().includes(query);
+      const matchFeedback = (u.custom_feedback || '').toLowerCase().includes(query);
+      if (!matchPhone && !matchName && !matchReason && !matchFeedback) return false;
+    }
+    return true;
+  });
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="e-icon">🚪</div><p>No past or deleted members found.</p></div></td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = filtered.map(u => {
+    const isGirl = ['girl', 'female', 'f'].includes((u.gender || '').toLowerCase());
+    const genderBadge = isGirl 
+      ? `<span class="badge" style="background:#FDF2F8;color:#DB2777;font-weight:700;">👧 Girl / Host</span>`
+      : `<span class="badge" style="background:#EFF6FF;color:#2563EB;font-weight:700;">👦 Boy</span>`;
+
+    const reasons = (u.reason || 'Not specified').split(',').map(s => s.trim()).filter(Boolean);
+    const reasonBadges = reasons.map(r => {
+      let bg = '#F1F5F9', col = '#475569';
+      const lr = r.toLowerCase();
+      if (lr.includes('bore') || lr.includes('interest')) { bg = '#FEF3C7'; col = '#B45309'; }
+      else if (lr.includes('like')) { bg = '#FEE2E2'; col = '#B91C1C'; }
+      else if (lr.includes('expensive') || lr.includes('coin')) { bg = '#FCE7F3'; col = '#BE185D'; }
+      else if (lr.includes('admin')) { bg = '#EDE9FE'; col = '#6D28D9'; }
+      return `<span class="badge" style="background:${bg};color:${col};font-weight:600;margin:2px 3px 2px 0;display:inline-block;">${escHtml(r)}</span>`;
+    }).join(' ');
+
+    const feedbackHtml = u.custom_feedback && u.custom_feedback.trim().length > 0
+      ? `<div style="max-width:260px;font-size:12px;color:#1E293B;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:8px 12px;font-style:italic;">
+           💬 "${escHtml(u.custom_feedback)}"
+         </div>`
+      : `<span style="color:#94A3B8;font-size:12px;">— None —</span>`;
+
+    const coinsDisplay = isGirl
+      ? `<div><span style="font-weight:800;color:#16A34A;">₹${(parseFloat(u.earnings_at_deletion) || 0).toFixed(2)}</span> <span style="font-size:11px;color:#64748B;">earned</span></div>`
+      : `<div><span style="font-weight:800;color:var(--pink);">🪙 ${(parseFloat(u.coins_at_deletion) || 0).toFixed(0)}</span> <span style="font-size:11px;color:#64748B;">coins</span></div>`;
+
+    const regDate = u.registered_at ? u.registered_at.replace('T', ' ').slice(0, 16) : '—';
+    const delDate = u.deleted_at ? u.deleted_at.replace('T', ' ').slice(0, 16) : '—';
+
+    return `
+      <tr>
+        <td>
+          <div style="font-weight:700;color:var(--text);font-size:13.5px;">${escHtml(u.name || 'Pineapple User')}</div>
+          <div style="font-size:11px;color:#94A3B8;font-family:monospace;">ID: ${escHtml(u.user_id || u.id)}</div>
+        </td>
+        <td>
+          <span style="font-family:monospace;font-size:13px;font-weight:700;color:#334155;">🇮🇳 +91 ${escHtml(u.phone || '—')}</span>
+        </td>
+        <td>${genderBadge}</td>
+        <td><div style="max-width:220px;">${reasonBadges}</div></td>
+        <td>${feedbackHtml}</td>
+        <td>${coinsDisplay}</td>
+        <td style="font-size:12px;color:#64748B;">${regDate}</td>
+        <td style="font-size:12px;color:#EF4444;font-weight:600;">${delDate}</td>
+      </tr>
+    `;
+  }).join('');
 }
 
 // Initial Sync for login screen and app

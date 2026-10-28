@@ -198,6 +198,22 @@ class Database {
             ('admin_phone', '7020768849'),
             ('new_user_free_coins_enabled', '0'),
             ('new_user_free_coins_amount', '100');
+
+        -- 13. Past / Deleted Users Archive
+        CREATE TABLE IF NOT EXISTS past_users (
+            id TEXT PRIMARY KEY,
+            user_id TEXT,
+            phone TEXT NOT NULL,
+            name TEXT,
+            gender TEXT,
+            coins_at_deletion REAL DEFAULT 0,
+            earnings_at_deletion REAL DEFAULT 0,
+            reason TEXT,
+            custom_feedback TEXT,
+            registered_at DATETIME,
+            deleted_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_past_users_phone ON past_users(phone);
 SQL;
 
         $pdo->exec($schema);

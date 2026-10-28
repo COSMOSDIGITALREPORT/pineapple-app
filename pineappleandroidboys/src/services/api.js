@@ -43,7 +43,7 @@ async function request(method, path, body) {
 const get  = (path)        => request('GET',    path);
 const post = (path, body)  => request('POST',   path, body);
 const put  = (path, body)  => request('PUT',    path, body);
-const del  = (path)        => request('DELETE', path);
+const del  = (path, body)  => request('DELETE', path, body);
 
 // ── Auth ─────────────────────────────────────────────────────────────────────
 export const sendOtp = (phone, gender = 'boy') => post('/auth/send-otp', { phone, gender, appType: gender });
@@ -214,7 +214,7 @@ export const reportUser    = (userId, reason) => post(`/users/${userId}/report`,
 export const blockUser       = (userId)        => post(`/users/${userId}/block`, {});
 export const unblockUser     = (userId)        => request('DELETE', `/users/${userId}/block`);
 export const getBlockedUsers = ()              => get('/users/blocked');
-export const deleteAccount   = ()              => request('DELETE', '/users/me');
+export const deleteAccount   = (data = {})     => del('/users/me', data);
 export const rateUser = (userId, stars, callId, review = '', tags = []) => post(`/users/${userId}/rate`, { stars, callId, review, tags });
 export const getUserReviews = (userId) => get(`/users/${userId}/reviews`);
 

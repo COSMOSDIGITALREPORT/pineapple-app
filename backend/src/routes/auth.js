@@ -147,11 +147,16 @@ router.post('/verify-otp', async (req, res) => {
       const [r] = await pool.query('SELECT * FROM users WHERE phone=?', [phone]);
       user = r[0];
     } else {
-      // new user
+      // new user (Anti-Abuse: past members do NOT receive welcome bonus)
       const ageErr = validateAge(dob, gender);
       if (ageErr) return res.status(400).json({ error: ageErr });
       const id = uuidv4();
-      await pool.query('INSERT INTO users (id,phone,gender,dob,minutes) VALUES (?,?,?,?,3)', [id, phone, gender||null, dob||null]);
+      let initialMinutes = 3;
+      try {
+        const [past] = await pool.query('SELECT 1 FROM past_users WHERE phone = ?', [phone]);
+        if (past.length > 0) initialMinutes = 0;
+      } catch (_) {}
+      await pool.query('INSERT INTO users (id,phone,gender,dob,minutes) VALUES (?,?,?,?,?)', [id, phone, gender||null, dob||null, initialMinutes]);
       const [r] = await pool.query('SELECT * FROM users WHERE id=?', [id]);
       user = r[0];
     }

@@ -190,19 +190,29 @@ function handleAuthRoute(string $subRoute, string $method, array $body, ?array $
             $isBoy = in_array(strtolower($gender), ['boy', 'male', 'm']);
             $initialCoins = 0.0;
             if ($isBoy) {
+                // Anti-Abuse: If phone was previously deleted, do NOT grant first-time welcome bonus!
+                $isPastMember = false;
                 try {
-                    $setStmt = $db->prepare("SELECT value FROM admin_settings WHERE key = 'new_user_free_coins_enabled'");
-                    $setStmt->execute();
-                    $isEnabled = ($setStmt->fetchColumn() === '1');
+                    $pastStmt = $db->prepare('SELECT COUNT(*) FROM past_users WHERE phone = ?');
+                    $pastStmt->execute([$phone]);
+                    $isPastMember = ((int)$pastStmt->fetchColumn() > 0);
+                } catch (\Throwable $e) {}
 
-                    if ($isEnabled) {
-                        $amtStmt = $db->prepare("SELECT value FROM admin_settings WHERE key = 'new_user_free_coins_amount'");
-                        $amtStmt->execute();
-                        $amtVal = $amtStmt->fetchColumn();
-                        $initialCoins = ($amtVal !== false && $amtVal !== null && is_numeric($amtVal)) ? max(0.0, (float)$amtVal) : 100.0;
+                if (!$isPastMember) {
+                    try {
+                        $setStmt = $db->prepare("SELECT value FROM admin_settings WHERE key = 'new_user_free_coins_enabled'");
+                        $setStmt->execute();
+                        $isEnabled = ($setStmt->fetchColumn() === '1');
+
+                        if ($isEnabled) {
+                            $amtStmt = $db->prepare("SELECT value FROM admin_settings WHERE key = 'new_user_free_coins_amount'");
+                            $amtStmt->execute();
+                            $amtVal = $amtStmt->fetchColumn();
+                            $initialCoins = ($amtVal !== false && $amtVal !== null && is_numeric($amtVal)) ? max(0.0, (float)$amtVal) : 100.0;
+                        }
+                    } catch (\Throwable $e) {
+                        $initialCoins = 0.0;
                     }
-                } catch (\Throwable $e) {
-                    $initialCoins = 0.0;
                 }
             }
 

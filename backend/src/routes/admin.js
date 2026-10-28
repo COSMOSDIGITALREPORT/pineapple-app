@@ -500,8 +500,28 @@ router.put('/users/:id/block', adminAuth, async (req, res) => {
 // DELETE /admin/users/:id — delete user
 router.delete('/users/:id', adminAuth, async (req, res) => {
   try {
+    const [users] = await pool.query('SELECT * FROM users WHERE id=?', [req.params.id]);
+    if (users.length) {
+      const u = users[0];
+      const pastId = uuidv4();
+      try {
+        await pool.query(
+          `INSERT INTO past_users (id, user_id, phone, name, gender, coins_at_deletion, earnings_at_deletion, reason, custom_feedback, registered_at, deleted_at)
+           VALUES (?, ?, ?, ?, ?, ?, 0, 'Deleted by Admin', 'Removed from Admin Panel', ?, NOW())`,
+          [pastId, u.id, u.phone || '', u.name || 'User', u.gender || 'boy', u.coins || u.minutes || 0, u.created_at || new Date()]
+        );
+      } catch (_) {}
+    }
     await pool.query('DELETE FROM users WHERE id=?', [req.params.id]);
     res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// GET /admin/past-users — list archived deleted users
+router.get('/past-users', adminAuth, async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM past_users ORDER BY deleted_at DESC');
+    res.json({ pastUsers: rows || [], total: rows.length });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

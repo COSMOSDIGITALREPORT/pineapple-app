@@ -127,6 +127,54 @@ function handleUsersRoute(string $subRoute, string $method, array $body, ?array 
         jsonResponse(['error' => 'User not found'], 404);
     }
 
+    // ── Delete Account DELETE /users/me or POST /users/delete-account ────────
+    if (($subRoute === 'me' && $method === 'DELETE') || ($subRoute === 'delete-account' && in_array($method, ['POST', 'DELETE']))) {
+        if (!$user) jsonResponse(['error' => 'Unauthorized'], 401);
+
+        $userId = $user['id'];
+        $stmt = $db->prepare('SELECT * FROM users WHERE id = ?');
+        $stmt->execute([$userId]);
+        $currUser = $stmt->fetch();
+
+        if ($currUser) {
+            $reason = trim($body['reason'] ?? 'Not specified');
+            $customFeedback = trim($body['customFeedback'] ?? $body['custom_feedback'] ?? $body['feedback'] ?? '');
+            $phone = $currUser['phone'] ?? '';
+            $name = $currUser['name'] ?? 'User';
+            $gender = $currUser['gender'] ?? 'boy';
+            $coins = (float)($currUser['coins'] ?? $currUser['minutes'] ?? 0);
+            $regAt = $currUser['created_at'] ?? date('Y-m-d H:i:s');
+
+            // Calculate host earnings if girl
+            $hostEarnings = 0.0;
+            try {
+                $earnStmt = $db->prepare("SELECT COALESCE(SUM(amount_inr), 0) FROM earnings WHERE girl_id = ? AND status = 'cleared'");
+                $earnStmt->execute([$userId]);
+                $hostEarnings = (float)$earnStmt->fetchColumn();
+            } catch (\Throwable $e) {}
+
+            // Archive to past_users table
+            $pastId = uniqid('past_', true);
+            $ins = $db->prepare('INSERT INTO past_users (id, user_id, phone, name, gender, coins_at_deletion, earnings_at_deletion, reason, custom_feedback, registered_at, deleted_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime("now"))');
+            $ins->execute([$pastId, $userId, $phone, $name, $gender, $coins, $hostEarnings, $reason, $customFeedback, $regAt]);
+
+            // Clear presence from Firebase if host
+            if (class_exists('Firebase')) {
+                try {
+                    Firebase::setPresence($userId, false);
+                } catch (\Throwable $e) {}
+            }
+
+            // Remove from active users table
+            $db->prepare('DELETE FROM users WHERE id = ?')->execute([$userId]);
+        }
+
+        jsonResponse([
+            'success' => true,
+            'message' => 'Your account has been deleted successfully.'
+        ]);
+    }
+
     // ── Single User Profile /users/:id ───────────────────────────────────────
     if ($method === 'GET' && !empty($subRoute)) {
         $stmt = $db->prepare('SELECT id, name, gender, city, language, bio, avatar_url, is_online, rating, total_calls, is_verified FROM users WHERE id = ?');

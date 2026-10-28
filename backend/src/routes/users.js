@@ -273,6 +273,23 @@ router.put('/me/offline', auth, async (req, res) => {
 
 router.delete('/me', auth, async (req, res) => {
   try {
+    const { reason, customFeedback, custom_feedback, feedback } = req.body || {};
+    const [users] = await pool.query('SELECT * FROM users WHERE id=?', [req.user.userId]);
+    if (users.length) {
+      const u = users[0];
+      const pastId = uuidv4();
+      const userReason = reason || 'Not specified';
+      const userFeedback = customFeedback || custom_feedback || feedback || '';
+      try {
+        await pool.query(
+          `INSERT INTO past_users (id, user_id, phone, name, gender, coins_at_deletion, earnings_at_deletion, reason, custom_feedback, registered_at, deleted_at)
+           VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, NOW())`,
+          [pastId, u.id, u.phone || '', u.name || 'User', u.gender || 'boy', u.coins || u.minutes || 0, userReason, userFeedback, u.created_at || new Date()]
+        );
+      } catch (pastErr) {
+        console.error('Archive to past_users failed:', pastErr.message);
+      }
+    }
     await pool.query('DELETE FROM users WHERE id=?', [req.user.userId]);
     res.json({ success: true, message: 'Account deleted' });
   } catch (err) { res.status(500).json({ error: err.message }); }

@@ -534,8 +534,27 @@ function handleAdminRoute(string $subRoute, string $method, array $body, ?array 
     // ── DELETE /admin/users/:id ───────────────────────────────────────────────
     if (preg_match('#^users/([^/]+)$#', $subRoute, $m) && $method === 'DELETE') {
         $uid = $m[1];
+        $uStmt = $db->prepare('SELECT * FROM users WHERE id = ?');
+        $uStmt->execute([$uid]);
+        $u = $uStmt->fetch();
+        if ($u) {
+            $pastId = uniqid('past_', true);
+            $coins = (float)($u['coins'] ?? $u['minutes'] ?? 0);
+            $db->prepare('INSERT INTO past_users (id, user_id, phone, name, gender, coins_at_deletion, earnings_at_deletion, reason, custom_feedback, registered_at, deleted_at) VALUES (?, ?, ?, ?, ?, ?, 0, "Deleted by Admin", "Removed from Admin Panel", ?, datetime("now"))')
+               ->execute([$pastId, $uid, $u['phone'] ?? '', $u['name'] ?? 'User', $u['gender'] ?? 'boy', $coins, $u['created_at'] ?? date('Y-m-d H:i:s')]);
+        }
         $db->prepare('DELETE FROM users WHERE id = ?')->execute([$uid]);
         jsonResponse(['success' => true]);
+    }
+
+    // ── GET /admin/past-users (List of Deleted / Past Members) ────────────────
+    if ($subRoute === 'past-users' && $method === 'GET') {
+        $stmt = $db->query('SELECT * FROM past_users ORDER BY deleted_at DESC');
+        $rows = $stmt->fetchAll();
+        jsonResponse([
+            'pastUsers' => $rows ?: [],
+            'total'     => count($rows)
+        ]);
     }
 
     // ── POST /admin/fix-genders ───────────────────────────────────────────────

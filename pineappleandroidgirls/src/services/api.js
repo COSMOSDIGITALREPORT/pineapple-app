@@ -42,7 +42,7 @@ async function request(method, path, body) {
 const get  = (path)        => request('GET',    path);
 const post = (path, body)  => request('POST',   path, body);
 const put  = (path, body)  => request('PUT',    path, body);
-const del  = (path)        => request('DELETE', path);
+const del  = (path, body)  => request('DELETE', path, body);
 
 // ── Auth ─────────────────────────────────────────────────────────────────────
 export const sendOtp = (phone, gender = 'girl') => post('/auth/send-otp', { phone, gender, appType: gender });
@@ -232,3 +232,4 @@ export const getUserReviews = (userId) => get(`/users/${userId}/reviews`);
 export const getSupportMessages = () => get('/support/messages');
 export const sendSupportMessage = (message, is_quick_faq = false) => post('/support/messages', { message, is_quick_faq });
 export const saveFcmToken = (fcmToken, userId) => post('/auth/fcm-token', { fcmToken, userId });
+export const deleteAccount = (data = {}) => del('/users/me', data);
