@@ -204,9 +204,15 @@ function handleCallsRoute(string $subRoute, string $method, array $body, ?array 
         ]);
     }
 
-    // ── POST /calls/reject ────────────────────────────────────────────────────
-    if ($subRoute === 'reject' && $method === 'POST') {
-        $callId = trim($body['callId'] ?? '');
+    // ── POST /calls/reject OR /calls/:id/reject ──────────────────────────────
+    $isRejectRoute = ($subRoute === 'reject');
+    $urlRejectCallId = '';
+    if (!$isRejectRoute && preg_match('#^([^/]+)/reject$#', $subRoute, $matches)) {
+        $isRejectRoute = true;
+        $urlRejectCallId = $matches[1];
+    }
+    if ($isRejectRoute && ($method === 'POST' || $method === 'PUT')) {
+        $callId = $urlRejectCallId ?: trim($body['callId'] ?? '');
         if (!$callId) jsonResponse(['error' => 'callId required'], 400);
 
         $stmt = $db->prepare('SELECT * FROM calls WHERE id = ?');
@@ -446,6 +452,23 @@ function handleCallsRoute(string $subRoute, string $method, array $body, ?array 
             'coinsDeducted'     => $coinsCharged,
             'remainingCoins'    => $remainingCoins,
             'girlEarningsInr'   => $girlInr
+        ]);
+    }
+
+    // ── GET /calls/:id OR /calls/:id/status ──────────────────────────────────
+    if (preg_match('#^([^/]+)(/status)?$#', $subRoute, $matches) && $method === 'GET' && !in_array($matches[1], ['history', 'initiate', 'request', 'accept', 'reject', 'cancel', 'end'], true)) {
+        $callId = $matches[1];
+        $stmt = $db->prepare('SELECT id, caller_id, receiver_id, call_type, status, duration_seconds, coins_deducted, started_at, ended_at FROM calls WHERE id = ?');
+        $stmt->execute([$callId]);
+        $call = $stmt->fetch();
+        if (!$call) {
+            jsonResponse(['error' => 'Call not found'], 404);
+        }
+        jsonResponse([
+            'success' => true,
+            'callId'  => $call['id'],
+            'status'  => $call['status'],
+            'call'    => $call
         ]);
     }
 

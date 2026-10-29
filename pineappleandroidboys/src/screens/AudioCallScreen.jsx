@@ -158,16 +158,48 @@ export default function AudioCallScreen({ onBack, onHangup, callerUser, incoming
 
     startAgoraCall();
 
+    // Active polling for call status (declined/accepted) during "Connecting..."
+    let pollInterval = null;
+    if (!incomingCallData) {
+      pollInterval = setInterval(async () => {
+        const cId = callRef.current?.id;
+        if (!cId || timerStarted) {
+          if (timerStarted && pollInterval) clearInterval(pollInterval);
+          return;
+        }
+        try {
+          const { get } = require('../services/api');
+          const res = await get(`/calls/${cId}/status`);
+          if (res?.status === 'rejected') {
+            if (pollInterval) clearInterval(pollInterval);
+            Alert.alert('Call Declined', 'The other person declined your call.');
+            cleanupCall('00:00');
+          } else if (res?.status === 'ended' || res?.status === 'cancelled') {
+            if (pollInterval) clearInterval(pollInterval);
+            cleanupCall('00:00');
+          } else if (res?.status === 'connected') {
+            if (pollInterval) clearInterval(pollInterval);
+            if (!timerStarted) startTimer();
+          }
+        } catch (_) {}
+      }, 1200);
+    }
+
     // Socket: when other person accepts (caller side) → start timer
     const socket = getSocket();
     if (socket) {
       if (!incomingCallData) {
-        socket.on('call:accepted', () => startTimer());
+        socket.on('call:accepted', () => {
+          if (pollInterval) clearInterval(pollInterval);
+          startTimer();
+        });
         socket.on('call:rejected', () => {
+          if (pollInterval) clearInterval(pollInterval);
           Alert.alert('Call Declined', 'The other person declined your call.');
           cleanupCall('00:00');
         });
         socket.on('call:unavailable', () => {
+          if (pollInterval) clearInterval(pollInterval);
           Alert.alert('Offline', 'User is not available right now.');
           (onHangup || onBack)('00:00');
         });
@@ -177,6 +209,7 @@ export default function AudioCallScreen({ onBack, onHangup, callerUser, incoming
     }
 
     return () => {
+      if (pollInterval) clearInterval(pollInterval);
       clearInterval(callRef.current?._timer);
       try {
         if (engineRef.current) {

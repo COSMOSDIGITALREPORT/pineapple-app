@@ -201,6 +201,10 @@ export default function HomeScreen({ onLogout }) {
     const call = incomingCallRef.current;
     if (call) {
       getSocket()?.emit('call:rejected', { callerId: call.callerId });
+      try {
+        const { post } = require('../services/api');
+        post('/calls/reject', { callId: call.callId }).catch(() => {});
+      } catch (_) {}
     }
     setIncomingCall(null);
     incomingCallRef.current = null;

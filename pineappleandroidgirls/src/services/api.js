@@ -48,7 +48,8 @@ const del  = (path, body)  => request('DELETE', path, body);
 export const sendOtp = (phone, gender = 'girl') => post('/auth/send-otp', { phone, gender, appType: gender });
 
 export const verifyOtp = async (phone, otp, gender = 'girl') => {
-  const data = await post("/auth/verify-otp", { phone, otp, gender, appType: gender });
+  const fcmToken = await AsyncStorage.getItem('fcm_token').catch(() => null);
+  const data = await post("/auth/verify-otp", { phone, otp, gender, appType: gender, fcmToken });
   await AsyncStorage.setItem('auth_token', data.token);
   return data;
 };
@@ -64,7 +65,10 @@ export const logout = () => AsyncStorage.removeItem('auth_token');
 // ── Users ────────────────────────────────────────────────────────────────────
 export const getMe = () => get('/users/me');
 
-export const updateProfile = (profile) => put('/users/me', profile);
+export const updateProfile = async (profile) => {
+  const fcmToken = await AsyncStorage.getItem('fcm_token').catch(() => null);
+  return put('/users/me', { ...profile, fcm_token: fcmToken });
+};
 
 export const uploadAvatar = async (fileUri) => {
   const token = await AsyncStorage.getItem('auth_token');
@@ -89,7 +93,10 @@ export const getLiveUsers = () => get('/users/live');
 
 export const setOffline = () => put('/users/me/offline');
 
-export const setLiveStatus = (isLive) => post('/users/live-status', { isLive });
+export const setLiveStatus = async (isLive) => {
+  const fcmToken = await AsyncStorage.getItem('fcm_token').catch(() => null);
+  return post('/users/live-status', { isLive, fcmToken });
+};
 
 // ── Calls ────────────────────────────────────────────────────────────────────
 export const initiateCall = async (receiverId, type = 'audio') => {

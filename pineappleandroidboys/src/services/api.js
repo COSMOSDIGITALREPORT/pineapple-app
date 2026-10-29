@@ -65,7 +65,10 @@ export const logout = () => AsyncStorage.removeItem('auth_token');
 // ── Users ────────────────────────────────────────────────────────────────────
 export const getMe = () => get('/users/me');
 
-export const updateProfile = (profile) => put('/users/me', profile);
+export const updateProfile = async (profile) => {
+  const fcmToken = await AsyncStorage.getItem('fcm_token').catch(() => null);
+  return put('/users/me', { ...profile, fcm_token: fcmToken });
+};
 
 export const uploadAvatar = async (fileUri) => {
   const token = await AsyncStorage.getItem('auth_token');

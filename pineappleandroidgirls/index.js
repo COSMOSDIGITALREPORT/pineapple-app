@@ -18,6 +18,7 @@ messaging().setBackgroundMessageHandler(async (remoteMessage) => {
   if (type === 'incoming_call') {
     try {
       await AsyncStorage.setItem('@pineapple_pending_incoming_call', JSON.stringify(remoteMessage.data));
+      RingtoneModule?.showCallNotification?.(remoteMessage.data);
     } catch (_) {}
   } else if (type === 'call_cancelled' || type === 'call_ended') {
     try {

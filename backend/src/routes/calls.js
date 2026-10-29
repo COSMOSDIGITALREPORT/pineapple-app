@@ -64,6 +64,28 @@ router.get('/:id/receiver-token', auth, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+router.get(['/:id/status', '/:id'], async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT id, status, caller_id, receiver_id, call_type, duration_seconds FROM calls WHERE id=?', [req.params.id]);
+    if (!rows.length) return res.status(404).json({ error: 'Call not found' });
+    res.json({ success: true, callId: rows[0].id, status: rows[0].status, call: rows[0] });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+router.post(['/:id/reject', '/reject'], async (req, res) => {
+  const callId = req.params.id || req.body.callId;
+  try {
+    const [rows] = await pool.query('SELECT * FROM calls WHERE id=?', [callId]);
+    if (rows.length) {
+      await pool.query('UPDATE calls SET status="rejected", ended_at=NOW(), duration_seconds=0 WHERE id=?', [callId]);
+      if (rows[0].free_trial) {
+        await pool.query('UPDATE users SET free_trial_used=0 WHERE id=?', [rows[0].caller_id]);
+      }
+    }
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 router.put('/:id/end', auth, async (req, res) => {
   const { duration = 0 } = req.body; // seconds
   try {

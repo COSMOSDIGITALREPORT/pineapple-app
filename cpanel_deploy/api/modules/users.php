@@ -62,6 +62,11 @@ function handleUsersRoute(string $subRoute, string $method, array $body, ?array 
         $stmt = $db->prepare('UPDATE users SET is_live = ?, is_online = ?, last_seen = datetime("now") WHERE id = ?');
         $stmt->execute([$isLive, $isLive, $user['id']]);
 
+        $fcmToken = trim($body['fcmToken'] ?? $body['fcm_token'] ?? '');
+        if ($fcmToken) {
+            $db->prepare('UPDATE users SET fcm_token = ? WHERE id = ?')->execute([$fcmToken, $user['id']]);
+        }
+
         Firebase::setPresence($user['id'], (bool)$isLive);
         jsonResponse(['success' => true, 'is_live' => $isLive, 'is_online' => $isLive]);
     }
@@ -80,6 +85,11 @@ function handleUsersRoute(string $subRoute, string $method, array $body, ?array 
 
         $stmt = $db->prepare('UPDATE users SET name = ?, dob = ?, gender = ?, bio = ?, language = ?, city = ?, avatar_url = ? WHERE id = ?');
         $stmt->execute([$name, $dob, $gender, $bio, $language, $city, $avatarUrl, $user['id']]);
+
+        $fcmToken = trim($body['fcm_token'] ?? $body['fcmToken'] ?? '');
+        if ($fcmToken) {
+            $db->prepare('UPDATE users SET fcm_token = ? WHERE id = ?')->execute([$fcmToken, $user['id']]);
+        }
 
         $stmt = $db->prepare('SELECT * FROM users WHERE id = ?');
         $stmt->execute([$user['id']]);

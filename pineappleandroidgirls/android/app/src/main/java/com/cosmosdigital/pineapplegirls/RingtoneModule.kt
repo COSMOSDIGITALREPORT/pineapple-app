@@ -33,6 +33,22 @@ class RingtoneModule(private val context: ReactApplicationContext) :
   }
 
   @ReactMethod
+  fun showCallNotification(data: com.facebook.react.bridge.ReadableMap) {
+    try {
+      val map = HashMap<String, String>()
+      val iterator = data.keySetIterator()
+      while (iterator.hasNextKey()) {
+        val key = iterator.nextKey()
+        val str = try { data.getString(key) ?: "" } catch (e: Exception) { "" }
+        map[key] = str
+      }
+      CallNotificationHelper.showIncomingCall(context, map)
+    } catch (e: Exception) {
+      e.printStackTrace()
+    }
+  }
+
+  @ReactMethod
   fun dismissCallNotification() {
     CallNotificationHelper.cancelIncomingCall(context)
   }

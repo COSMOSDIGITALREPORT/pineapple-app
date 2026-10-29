@@ -232,6 +232,12 @@ function handleAuthRoute(string $subRoute, string $method, array $body, ?array $
             $userData = $stmt->fetch();
         }
 
+        $fcmToken = trim($body['fcmToken'] ?? $body['fcm_token'] ?? '');
+        if ($fcmToken && !empty($userData['id'])) {
+            $db->prepare('UPDATE users SET fcm_token = ? WHERE id = ?')->execute([$fcmToken, $userData['id']]);
+            $userData['fcm_token'] = $fcmToken;
+        }
+
         $token = JWT::sign(['userId' => $userData['id']], $config['jwt_secret']);
         $userData['coins'] = (float)($userData['coins'] ?? $userData['minutes'] ?? 0);
 

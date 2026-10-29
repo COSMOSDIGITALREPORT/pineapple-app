@@ -10,14 +10,17 @@ const { RingtoneModule } = NativeModules;
  */
 export async function requestNotificationPermission() {
   try {
-    if (Platform.OS === 'android' && Platform.Version >= 33) {
-      const granted = await PermissionsAndroid.request(
-        PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS
-      );
-      if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
-        console.log('[FCM] Notification permission denied by user');
-        return false;
+    if (Platform.OS === 'android') {
+      if (Platform.Version >= 33) {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS
+        );
+        if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+          console.log('[FCM] Notification permission denied by user');
+          return false;
+        }
       }
+      return true;
     }
 
     const authStatus = await messaging().requestPermission();
@@ -29,7 +32,7 @@ export async function requestNotificationPermission() {
     return enabled;
   } catch (err) {
     console.warn('[FCM] Permission request failed:', err?.message || err);
-    return false;
+    return Platform.OS === 'android';
   }
 }
 
