@@ -66,25 +66,29 @@ function handleUsersRoute(string $subRoute, string $method, array $body, ?array 
         jsonResponse(['success' => true, 'is_live' => $isLive, 'is_online' => $isLive]);
     }
 
-    // ── PUT /users/profile (Update Profile) ───────────────────────────────────
-    if ($subRoute === 'profile' && $method === 'PUT') {
+    // ── PUT/POST /users/profile OR /users/me (Update Profile) ─────────────────
+    if (($subRoute === 'profile' || $subRoute === 'me') && ($method === 'PUT' || $method === 'POST')) {
         if (!$user) jsonResponse(['error' => 'Unauthorized'], 401);
 
-        $name      = $body['name'] ?? $user['name'];
-        $bio       = $body['bio'] ?? $user['bio'];
-        $language  = $body['language'] ?? $user['language'];
-        $city      = $body['city'] ?? $user['city'];
-        $avatarUrl = $body['avatar_url'] ?? $user['avatar_url'];
+        $name      = isset($body['name']) && trim($body['name']) !== '' ? trim($body['name']) : ($user['name'] ?? '');
+        $dob       = !empty($body['dob']) ? trim($body['dob']) : (!empty($body['birthdate']) ? trim($body['birthdate']) : ($user['dob'] ?? null));
+        $gender    = !empty($body['gender']) ? trim($body['gender']) : ($user['gender'] ?? 'boy');
+        $bio       = isset($body['bio']) ? trim($body['bio']) : ($user['bio'] ?? '');
+        $language  = isset($body['language']) ? trim($body['language']) : ($user['language'] ?? 'Hindi');
+        $city      = isset($body['city']) ? trim($body['city']) : ($user['city'] ?? '');
+        $avatarUrl = !empty($body['avatar_url']) ? trim($body['avatar_url']) : ($user['avatar_url'] ?? null);
 
-        $stmt = $db->prepare('UPDATE users SET name = ?, bio = ?, language = ?, city = ?, avatar_url = ? WHERE id = ?');
-        $stmt->execute([$name, $bio, $language, $city, $avatarUrl, $user['id']]);
+        $stmt = $db->prepare('UPDATE users SET name = ?, dob = ?, gender = ?, bio = ?, language = ?, city = ?, avatar_url = ? WHERE id = ?');
+        $stmt->execute([$name, $dob, $gender, $bio, $language, $city, $avatarUrl, $user['id']]);
 
         $stmt = $db->prepare('SELECT * FROM users WHERE id = ?');
         $stmt->execute([$user['id']]);
         $updated = $stmt->fetch();
         $updated['coins'] = (float)($updated['coins'] ?? $updated['minutes'] ?? 0);
+        $updated['success'] = true;
+        $updated['user'] = $updated;
 
-        jsonResponse(['success' => true, 'user' => $updated]);
+        jsonResponse($updated);
     }
 
     // ── POST /users/rating (Submit Call Rating & Review) ─────────────────────

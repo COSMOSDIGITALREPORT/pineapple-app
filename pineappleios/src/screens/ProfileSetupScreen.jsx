@@ -76,7 +76,7 @@ export default function ProfileSetupScreen({ onComplete }) {
   const [name, setName]         = useState('');
   const [avatarUri, setAvatar]  = useState(null);
   const [birthdate, setBirth]   = useState('');
-  const [gender, setGender]     = useState('boy');
+  const gender = 'boy';
   const [showPicker, setShow]   = useState(false);
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState('');
@@ -168,23 +168,6 @@ export default function ProfileSetupScreen({ onComplete }) {
           </Text>
           <Text style={styles.dateIcon}>📅</Text>
         </TouchableOpacity>
-
-        {/* Gender */}
-        <Text style={styles.label}>I am a</Text>
-        <View style={styles.genderRow}>
-          <TouchableOpacity
-            style={[styles.genderBtn, gender === 'boy' && styles.genderBtnActive]}
-            onPress={() => setGender('boy')} activeOpacity={0.85}>
-            <Text style={styles.genderEmoji}>👦</Text>
-            <Text style={[styles.genderText, gender === 'boy' && styles.genderTextActive]}>Boy</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.genderBtn, gender === 'girl' && styles.genderBtnActive]}
-            onPress={() => setGender('girl')} activeOpacity={0.85}>
-            <Text style={styles.genderEmoji}>👧</Text>
-            <Text style={[styles.genderText, gender === 'girl' && styles.genderTextActive]}>Girl</Text>
-          </TouchableOpacity>
-        </View>
 
         {error.length > 0 && <Text style={styles.error}>{error}</Text>}
 

@@ -42,7 +42,7 @@ router.get('/me', auth, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-router.put('/me', auth, async (req, res) => {
+router.put(['/me', '/profile'], auth, async (req, res) => {
   const { name, dob, gender, city, language, bio, avatar_url, content_prefs } = req.body;
   const safeAvatar = avatar_url && !avatar_url.startsWith('file://') ? avatar_url : undefined;
 
