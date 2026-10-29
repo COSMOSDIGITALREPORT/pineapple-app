@@ -102,13 +102,21 @@ export default function VideoCallScreen({ onBack, onHangup, callerUser, incoming
         engineRef.current = null;
       }
     } catch {}
-    let ts = dur;
+    const isCancelledBeforeConnect = !callRef.current?._started || !callRef.current?._secs;
+    const durationToSend = isCancelledBeforeConnect ? 0 : (callRef.current?._secs || 0);
+    let ts = isCancelledBeforeConnect ? '00:00' : dur;
+
+    // Immediately notify server and socket that call was ended / cancelled
+    if (isCancelledBeforeConnect) {
+      getSocket()?.emit('call:cancel', { otherUserId, callId: callRef.current?.id });
+    }
+
     if (callRef.current?.id) {
       try {
-        const res = await endCall(callRef.current.id, callRef.current._secs || 0);
+        const res = await endCall(callRef.current.id, durationToSend);
         if (res?.formattedDuration) {
           ts = res.formattedDuration;
-          getSocket()?.emit('call:ended', { otherUserId, duration: res.duration, formattedDuration: res.formattedDuration });
+          getSocket()?.emit('call:ended', { otherUserId, callId: callRef.current.id, duration: res.duration, formattedDuration: res.formattedDuration });
         }
         if (res?.coinsDeducted > 0) {
           dispatch(deductCoins(res.coinsDeducted));
@@ -119,9 +127,9 @@ export default function VideoCallScreen({ onBack, onHangup, callerUser, incoming
       } catch {}
     }
     if (!ts) {
-      const s = callRef.current?._secs || 0;
+      const s = durationToSend;
       ts = `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
-      getSocket()?.emit('call:ended', { otherUserId, duration: s, formattedDuration: ts });
+      getSocket()?.emit('call:ended', { otherUserId, callId: callRef.current?.id, duration: s, formattedDuration: ts });
     }
     if (typeof onHangup === 'function') onHangup(ts);
     else if (typeof onBack === 'function') onBack(ts);

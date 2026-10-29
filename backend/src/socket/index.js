@@ -91,7 +91,38 @@ module.exports = (io) => {
     });
 
     socket.on('call:accepted',  ({ callerId })              => { const d = online.get(callerId);  if (d) io.to(d).emit('call:accepted',  {}); });
-    socket.on('call:ended',     ({ otherUserId, duration, formattedDuration, callType }) => { const d = online.get(otherUserId); if (d) io.to(d).emit('call:ended', { duration, formattedDuration, callType }); });
+    socket.on('call:ended',     async ({ otherUserId, duration, formattedDuration, callType, callId }) => {
+      const d = online.get(otherUserId);
+      if (d) io.to(d).emit('call:ended', { duration, formattedDuration, callType, callId });
+      // If duration is 0 or empty, caller cancelled before answer: send FCM cancellation push to receiver!
+      if (!duration || duration === 0 || duration === '00:00') {
+        try {
+          await sendPushToUser(otherUserId, {
+            title: 'Call Ended',
+            body: 'Call was cancelled',
+            data: {
+              type: 'call_cancelled',
+              callId: String(callId || ''),
+            },
+          });
+        } catch (_) {}
+      }
+    });
+
+    socket.on('call:cancel',    async ({ otherUserId, callId }) => {
+      const d = online.get(otherUserId);
+      if (d) io.to(d).emit('call:ended', { duration: 0, formattedDuration: '00:00', callId, cancelled: true });
+      try {
+        await sendPushToUser(otherUserId, {
+          title: 'Call Cancelled',
+          body: 'Call was cancelled',
+          data: {
+            type: 'call_cancelled',
+            callId: String(callId || ''),
+          },
+        });
+      } catch (_) {}
+    });
 
     socket.on('room:join',    ({ roomId }) => { socket.join(`room:${roomId}`);  socket.to(`room:${roomId}`).emit('room:user_joined', { userId }); });
     socket.on('room:leave',   ({ roomId }) => { socket.leave(`room:${roomId}`); socket.to(`room:${roomId}`).emit('room:user_left',  { userId }); });

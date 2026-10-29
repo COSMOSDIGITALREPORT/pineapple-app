@@ -1,5 +1,8 @@
 package com.cosmosdigital.pineapplegirls
 
+import android.app.KeyguardManager
+import android.content.Context
+import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
@@ -12,9 +15,23 @@ class MainActivity : ReactActivity() {
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
+    setupWakeAndLockscreen()
+    handleCallIntent(intent)
+  }
+
+  override fun onNewIntent(intent: Intent?) {
+    super.onNewIntent(intent)
+    setIntent(intent)
+    setupWakeAndLockscreen()
+    handleCallIntent(intent)
+  }
+
+  private fun setupWakeAndLockscreen() {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
       setShowWhenLocked(true)
       setTurnScreenOn(true)
+      val km = getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
+      km?.requestDismissKeyguard(this, null)
     } else {
       @Suppress("DEPRECATION")
       window.addFlags(
@@ -23,6 +40,28 @@ class MainActivity : ReactActivity() {
         WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
         WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD
       )
+    }
+  }
+
+  private fun handleCallIntent(intent: Intent?) {
+    if (intent == null) return
+    val callId = intent.getStringExtra("callId")
+    if (!callId.isNullOrEmpty()) {
+      val map = mutableMapOf<String, String>()
+      val extras = intent.extras
+      if (extras != null) {
+        for (key in extras.keySet()) {
+          val v = extras.get(key)
+          if (v != null) {
+            map[key] = v.toString()
+          }
+        }
+      }
+      if (intent.action == "ACTION_ANSWER_CALL") {
+        map["autoAccept"] = "true"
+      }
+      IncomingCallBridge.pendingCallData = map
+      IncomingCallBridge.onIncomingCall(map)
     }
   }
 

@@ -1,7 +1,9 @@
-import { Platform, PermissionsAndroid, Alert } from 'react-native';
+import { Platform, PermissionsAndroid, Alert, NativeModules, DeviceEventEmitter } from 'react-native';
 import messaging from '@react-native-firebase/messaging';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { saveFcmToken } from './api';
+
+const { RingtoneModule } = NativeModules;
 
 /**
  * Request notification permissions (including Android 13+ POST_NOTIFICATIONS)
@@ -78,8 +80,18 @@ export async function syncFcmToken(userIdOverride) {
 
 let pendingIncomingCall = null;
 const incomingCallListeners = new Set();
+const callCancelledListeners = new Set();
 
 export async function getPendingIncomingCall() {
+  if (Platform.OS === 'android' && RingtoneModule?.getInitialCallData) {
+    try {
+      const initialCall = await RingtoneModule.getInitialCallData();
+      if (initialCall && initialCall.callId) {
+        return initialCall;
+      }
+    } catch (_) {}
+  }
+
   if (pendingIncomingCall) {
     const call = pendingIncomingCall;
     pendingIncomingCall = null;
@@ -97,7 +109,7 @@ export async function getPendingIncomingCall() {
 
 export function onIncomingCallNotification(listener) {
   incomingCallListeners.add(listener);
-  // If there was an incoming call received while no listeners were registered, dispatch immediately
+
   if (pendingIncomingCall) {
     const call = pendingIncomingCall;
     pendingIncomingCall = null;
@@ -107,16 +119,34 @@ export function onIncomingCallNotification(listener) {
       console.warn('[FCM] Pending call listener error:', e);
     }
   } else {
-    AsyncStorage.getItem('@pineapple_pending_incoming_call').then((raw) => {
-      if (raw) {
-        AsyncStorage.removeItem('@pineapple_pending_incoming_call').catch(() => {});
-        try {
-          listener(JSON.parse(raw));
-        } catch (_) {}
+    getPendingIncomingCall().then((pending) => {
+      if (pending) {
+        try { listener(pending); } catch (_) {}
       }
     }).catch(() => {});
   }
-  return () => incomingCallListeners.delete(listener);
+
+  const subNative = DeviceEventEmitter.addListener('onIncomingCall', (data) => {
+    notifyIncomingCall(data);
+  });
+
+  return () => {
+    incomingCallListeners.delete(listener);
+    subNative.remove();
+  };
+}
+
+export function onCallCancelledNotification(listener) {
+  callCancelledListeners.add(listener);
+
+  const subNative = DeviceEventEmitter.addListener('onCallCancelled', (data) => {
+    notifyCallCancelled(data);
+  });
+
+  return () => {
+    callCancelledListeners.delete(listener);
+    subNative.remove();
+  };
 }
 
 function notifyIncomingCall(data) {
@@ -129,6 +159,20 @@ function notifyIncomingCall(data) {
       fn(data);
     } catch (e) {
       console.warn('[FCM] Incoming call listener error:', e);
+    }
+  });
+}
+
+function notifyCallCancelled(data) {
+  pendingIncomingCall = null;
+  AsyncStorage.removeItem('@pineapple_pending_incoming_call').catch(() => {});
+  try { RingtoneModule?.dismissCallNotification?.(); } catch (_) {}
+
+  callCancelledListeners.forEach((fn) => {
+    try {
+      fn(data);
+    } catch (e) {
+      console.warn('[FCM] Call cancelled listener error:', e);
     }
   });
 }
@@ -157,10 +201,17 @@ export function setupNotificationListeners(onNotificationPress) {
   // 2. Foreground notifications (show in-app alert or trigger call modal)
   const unsubscribeMessage = messaging().onMessage(async (remoteMessage) => {
     console.log('[FCM] Foreground notification received:', remoteMessage);
-    if (remoteMessage.data?.type === 'incoming_call') {
+    const type = remoteMessage.data?.type;
+
+    if (type === 'incoming_call') {
       notifyIncomingCall(remoteMessage.data);
       return;
     }
+    if (type === 'call_cancelled' || type === 'call_ended') {
+      notifyCallCancelled(remoteMessage.data);
+      return;
+    }
+
     const title = remoteMessage.notification?.title || remoteMessage.data?.title || 'Pineapple';
     const body  = remoteMessage.notification?.body  || remoteMessage.data?.body  || '';
 
@@ -172,11 +223,18 @@ export function setupNotificationListeners(onNotificationPress) {
   // 3. User tapped notification while app was in background
   const unsubscribeOpenedApp = messaging().onNotificationOpenedApp((remoteMessage) => {
     console.log('[FCM] Notification opened from background:', remoteMessage);
-    if (remoteMessage?.data?.type === 'incoming_call') {
+    const type = remoteMessage?.data?.type;
+
+    if (type === 'incoming_call') {
       pendingIncomingCall = remoteMessage.data;
       notifyIncomingCall(remoteMessage.data);
       return;
     }
+    if (type === 'call_cancelled' || type === 'call_ended') {
+      notifyCallCancelled(remoteMessage.data);
+      return;
+    }
+
     if (onNotificationPress && remoteMessage) {
       onNotificationPress(remoteMessage);
     }
@@ -188,11 +246,18 @@ export function setupNotificationListeners(onNotificationPress) {
     .then((remoteMessage) => {
       if (remoteMessage) {
         console.log('[FCM] Notification opened from quit state:', remoteMessage);
-        if (remoteMessage?.data?.type === 'incoming_call') {
+        const type = remoteMessage?.data?.type;
+
+        if (type === 'incoming_call') {
           pendingIncomingCall = remoteMessage.data;
           notifyIncomingCall(remoteMessage.data);
           return;
         }
+        if (type === 'call_cancelled' || type === 'call_ended') {
+          notifyCallCancelled(remoteMessage.data);
+          return;
+        }
+
         if (onNotificationPress) {
           onNotificationPress(remoteMessage);
         }

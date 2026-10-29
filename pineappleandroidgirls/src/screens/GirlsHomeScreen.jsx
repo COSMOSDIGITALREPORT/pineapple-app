@@ -28,7 +28,9 @@ import RecentsScreen from './RecentsScreen';
 import IncomingCallScreen from './IncomingCallScreen';
 import VideoCallScreen from './VideoCallScreen';
 import GirlsEarningsScreen from './GirlsEarningsScreen';
-import { onIncomingCallNotification, syncFcmToken, getPendingIncomingCall } from '../services/notifications';
+import { onIncomingCallNotification, onCallCancelledNotification, syncFcmToken, getPendingIncomingCall } from '../services/notifications';
+import { NativeModules } from 'react-native';
+const { RingtoneModule } = NativeModules;
 import GirlsRedeemScreen from './GirlsRedeemScreen';
 import GirlsTransactionsScreen from './GirlsTransactionsScreen';
 import BlockedUsersScreen from './BlockedUsersScreen';
@@ -97,8 +99,17 @@ export default function GirlsHomeScreen({ onLogout }) {
         const dur = data?.formattedDuration || '00:00';
         setCallDuration(dur);
         if (data?.callType) setLastCallType(data.callType);
+        RingtoneModule?.dismissCallNotification?.();
+
+        // If call was still incoming (not yet answered by girl), do not show callDuration screen
+        if (incomingCallRef.current) {
+          setIncomingCall(null);
+          incomingCallRef.current = null;
+          return;
+        }
+
         setCurrentSubScreen((prev) => {
-          if (prev === 'audioCall' || prev === 'videoCall' || incomingCallRef.current) {
+          if (prev === 'audioCall' || prev === 'videoCall') {
             return 'callDuration';
           }
           return prev;
@@ -136,18 +147,39 @@ export default function GirlsHomeScreen({ onLogout }) {
       setIncomingCall(incomingData);
     };
 
-    const unsubCallPush = onIncomingCallNotification(handleCallData);
+    const handleCallCancelled = (data) => {
+      console.log('[CALL PUSH] Received call cancelled in GirlsHomeScreen:', data);
+      if (incomingCallRef.current && (!data?.callId || data.callId === incomingCallRef.current.callId)) {
+        setIncomingCall(null);
+        incomingCallRef.current = null;
+      }
+      RingtoneModule?.dismissCallNotification?.();
+    };
+
+    const unsubCallPush = onIncomingCallNotification((data) => {
+      handleCallData(data);
+      if (data?.autoAccept === true || data?.autoAccept === 'true') {
+        setTimeout(() => handleAcceptCall(), 300);
+      }
+    });
+    const unsubCallCancel = onCallCancelledNotification(handleCallCancelled);
 
     Promise.resolve(getPendingIncomingCall()).then((pending) => {
       if (pending) {
         console.log('[CALL PUSH] Processing pending call from cold start:', pending);
         handleCallData(pending);
+        if (pending?.autoAccept === true || pending?.autoAccept === 'true') {
+          setTimeout(() => handleAcceptCall(), 300);
+        }
       }
     }).catch(() => {});
 
     syncFcmToken();
 
-    return () => unsubCallPush?.();
+    return () => {
+      unsubCallPush?.();
+      unsubCallCancel?.();
+    };
   }, []);
 
   const goHome = () => { setAcceptedCallData(null); setCurrentSubScreen(null); };
@@ -157,11 +189,32 @@ export default function GirlsHomeScreen({ onLogout }) {
     setCurrentSubScreen('callDuration');
   };
 
-  const handleAcceptCall = () => {
+  const handleAcceptCall = async () => {
     const call = incomingCallRef.current;
     if (!call) return;
+    RingtoneModule?.dismissCallNotification?.();
     const cType = call.type === 'video' ? 'video' : 'audio';
     setLastCallType(cType);
+
+    // Verify call is still valid before entering call screen
+    try {
+      const { getReceiverToken } = require('../services/api');
+      const tokenRes = await getReceiverToken(call.callId);
+      if (!tokenRes || tokenRes.error) {
+        Alert.alert('Call Cancelled', 'The caller has already hung up or cancelled the call.');
+        setIncomingCall(null);
+        incomingCallRef.current = null;
+        return;
+      }
+    } catch (err) {
+      if (err.message && (err.message.includes('cancelled') || err.message.includes('410'))) {
+        Alert.alert('Call Cancelled', 'The caller has already hung up or cancelled the call.');
+        setIncomingCall(null);
+        incomingCallRef.current = null;
+        return;
+      }
+    }
+
     getSocket()?.emit('call:accepted', {
       callerId: call.callerId,
       channelName: call.channelName,
@@ -178,8 +231,13 @@ export default function GirlsHomeScreen({ onLogout }) {
 
   const handleRejectCall = () => {
     const call = incomingCallRef.current;
+    RingtoneModule?.dismissCallNotification?.();
     if (call) {
       getSocket()?.emit('call:rejected', { callerId: call.callerId });
+      try {
+        const { post } = require('../services/api');
+        post('/calls/reject', { callId: call.callId }).catch(() => {});
+      } catch (_) {}
     }
     setIncomingCall(null);
     incomingCallRef.current = null;

@@ -64,10 +64,13 @@ export default function VideoCallScreen({ onBack, onHangup, callerUser, incoming
         engineRef.current = null;
       }
     } catch {}
-    let ts = dur;
+    const isCancelledBeforeConnect = !callRef.current?._started || !callRef.current?._secs;
+    const durationToSend = isCancelledBeforeConnect ? 0 : (callRef.current?._secs || 0);
+    let ts = isCancelledBeforeConnect ? '00:00' : dur;
+
     if (callRef.current?.id) {
       try {
-        const res = await endCall(callRef.current.id, callRef.current._secs || 0);
+        const res = await endCall(callRef.current.id, durationToSend);
         if (res?.formattedDuration) {
           ts = res.formattedDuration;
           getSocket()?.emit('call:ended', { otherUserId, duration: res.duration, formattedDuration: res.formattedDuration, callType: 'video' });
@@ -75,7 +78,7 @@ export default function VideoCallScreen({ onBack, onHangup, callerUser, incoming
       } catch {}
     }
     if (!ts) {
-      const s = callRef.current?._secs || 0;
+      const s = durationToSend;
       ts = `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
       getSocket()?.emit('call:ended', { otherUserId, duration: s, formattedDuration: ts, callType: 'video' });
     }
@@ -175,13 +178,16 @@ export default function VideoCallScreen({ onBack, onHangup, callerUser, incoming
         onJoinChannelSuccess: () => {
           setEngineReady(true);
           try { engine.setEnableSpeakerphone(true); } catch {}
-          if (incomingCallData) startTimer();
         },
         onUserJoined: (_connection, uid) => {
           setRemoteUid(uid);
-          if (!incomingCallData) startTimer();
+          // Start timer only when caller is verified in the channel
+          startTimer();
         },
-        onUserOffline: () => setRemoteUid(null),
+        onUserOffline: () => {
+          setRemoteUid(null);
+          cleanupCall();
+        },
         onError: (err) => {
           console.warn('[Agora] error:', err);
         },
@@ -201,16 +207,13 @@ export default function VideoCallScreen({ onBack, onHangup, callerUser, incoming
         autoSubscribeVideo: true,
       });
 
-      if (incomingCallData) {
-        startTimer();
-      }
-
+      // Do NOT start timer on mount. Wait for remote user to join.
       setTimeout(() => {
         if (!cleanupRef.current && callRef.current && !callRef.current._started) {
-          Alert.alert('No Answer', 'Could not connect the call. Please try again.');
-          cleanupCall();
+          Alert.alert('Call Not Connected', 'The caller is no longer available.');
+          cleanupCall('00:00');
         }
-      }, 60000);
+      }, 20000);
 
     } catch (e) {
       console.warn('Agora error:', e.message);

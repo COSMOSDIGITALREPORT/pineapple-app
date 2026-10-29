@@ -148,33 +148,63 @@ class Firebase {
             $strData[(string)$k] = (string)$v;
         }
 
-        $message = [
-            'message' => [
-                'token' => $token,
-                'notification' => [
-                    'title' => $title,
-                    'body'  => $body
-                ],
-                'data' => $strData,
-                'android' => [
-                    'priority' => 'HIGH',
-                    'notification' => [
-                        'sound' => 'default',
-                        'default_sound' => true,
-                        'channel_id' => (($strData['type'] ?? '') === 'incoming_call') ? 'pineapple_calls_channel' : 'pineapple_default_channel'
-                    ]
-                ],
-                'apns' => [
-                    'payload' => [
-                        'aps' => [
-                            'sound' => 'default',
-                            'badge' => 1,
-                            'content-available' => 1
+        $isCallSignal = in_array($strData['type'] ?? '', ['incoming_call', 'call_cancelled', 'call_ended'], true);
+
+        if ($isCallSignal) {
+            // For VoIP / incoming call events, send high-priority data-only message so Android
+            // native service executes in background, screen-off, or killed states and shows fullScreenIntent!
+            $strData['title'] = $title;
+            $strData['body']  = $body;
+            $message = [
+                'message' => [
+                    'token' => $token,
+                    'data'  => $strData,
+                    'android' => [
+                        'priority' => 'HIGH',
+                        'ttl'      => '45s'
+                    ],
+                    'apns' => [
+                        'headers' => [
+                            'apns-priority' => '10',
+                            'apns-push-type' => 'voip'
+                        ],
+                        'payload' => [
+                            'aps' => [
+                                'content-available' => 1
+                            ]
                         ]
                     ]
                 ]
-            ]
-        ];
+            ];
+        } else {
+            $message = [
+                'message' => [
+                    'token' => $token,
+                    'notification' => [
+                        'title' => $title,
+                        'body'  => $body
+                    ],
+                    'data' => $strData,
+                    'android' => [
+                        'priority' => 'HIGH',
+                        'notification' => [
+                            'sound' => 'default',
+                            'default_sound' => true,
+                            'channel_id' => 'pineapple_default_channel'
+                        ]
+                    ],
+                    'apns' => [
+                        'payload' => [
+                            'aps' => [
+                                'sound' => 'default',
+                                'badge' => 1,
+                                'content-available' => 1
+                            ]
+                        ]
+                    ]
+                ]
+            ];
+        }
 
         $url = "https://fcm.googleapis.com/v1/projects/{$projectId}/messages:send";
         $ch = curl_init($url);

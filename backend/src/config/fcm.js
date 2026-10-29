@@ -55,19 +55,38 @@ async function sendPush(token, { title, body, data = {} }) {
   init();
   if (!initialized || !token) return;
   try {
-    await admin.messaging().send({
-      token,
-      notification: { title, body },
-      data: Object.fromEntries(Object.entries(data).map(([k, v]) => [k, String(v)])),
-      apns: { payload: { aps: { sound: 'default', badge: 1 } } },
-      android: {
-        priority: 'high',
-        notification: {
-          sound: 'default',
-          channelId: (data && data.type === 'incoming_call') ? 'pineapple_calls_channel' : 'pineapple_default_channel',
+    const isCallSignal = ['incoming_call', 'call_cancelled', 'call_ended'].includes(data?.type);
+    const strData = Object.fromEntries(Object.entries(data).map(([k, v]) => [k, String(v)]));
+    if (isCallSignal) {
+      strData.title = title || '';
+      strData.body = body || '';
+      await admin.messaging().send({
+        token,
+        data: strData,
+        android: {
+          priority: 'high',
+          ttl: 45000,
         },
-      },
-    });
+        apns: {
+          headers: { 'apns-priority': '10', 'apns-push-type': 'voip' },
+          payload: { aps: { 'content-available': 1 } },
+        },
+      });
+    } else {
+      await admin.messaging().send({
+        token,
+        notification: { title, body },
+        data: strData,
+        apns: { payload: { aps: { sound: 'default', badge: 1 } } },
+        android: {
+          priority: 'high',
+          notification: {
+            sound: 'default',
+            channelId: 'pineapple_default_channel',
+          },
+        },
+      });
+    }
   } catch (e) {
     console.error('[FCM] send error:', e.message);
   }

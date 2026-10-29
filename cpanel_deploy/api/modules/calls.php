@@ -141,6 +141,10 @@ function handleCallsRoute(string $subRoute, string $method, array $body, ?array 
         $call = $stmt->fetch();
         if (!$call) jsonResponse(['error' => 'Call not found'], 404);
 
+        if (in_array($call['status'], ['cancelled', 'ended', 'rejected'], true)) {
+            jsonResponse(['error' => 'Call was cancelled by the caller', 'status' => $call['status']], 410);
+        }
+
         $receiverToken = '';
         if (!empty($config['agora_app_id']) && !empty($config['agora_app_certificate'])) {
             try {
@@ -174,6 +178,10 @@ function handleCallsRoute(string $subRoute, string $method, array $body, ?array 
         $call = $stmt->fetch();
         if (!$call) jsonResponse(['error' => 'Call not found'], 404);
 
+        if ($call['status'] !== 'initiated') {
+            jsonResponse(['error' => 'Call is no longer active (' . $call['status'] . ')', 'status' => $call['status']], 410);
+        }
+
         $db->prepare('UPDATE calls SET status = "connected", started_at = datetime("now") WHERE id = ?')->execute([$callId]);
 
         // Notify caller that call was accepted
@@ -203,8 +211,45 @@ function handleCallsRoute(string $subRoute, string $method, array $body, ?array 
         if ($call) {
             $db->prepare('UPDATE calls SET status = "rejected", ended_at = datetime("now") WHERE id = ?')->execute([$callId]);
             Firebase::sendSignal($call['caller_id'], 'call:rejected', ['callId' => $callId]);
+            $otherId = ($user['id'] === $call['caller_id']) ? $call['receiver_id'] : $call['caller_id'];
+            Firebase::sendPushToUser($otherId, 'Call Declined', 'Call was declined', [
+                'type'   => 'call_cancelled',
+                'callId' => $callId
+            ]);
         }
 
+        jsonResponse(['success' => true]);
+    }
+
+    // ── POST /calls/cancel OR /calls/:id/cancel ──────────────────────────────
+    $isCancelRoute = ($subRoute === 'cancel');
+    $urlCancelCallId = '';
+    if (!$isCancelRoute && preg_match('#^([^/]+)/cancel$#', $subRoute, $matches)) {
+        $isCancelRoute = true;
+        $urlCancelCallId = $matches[1];
+    }
+    if ($isCancelRoute && ($method === 'POST' || $method === 'PUT')) {
+        $callId = $urlCancelCallId ?: trim($body['callId'] ?? '');
+        if (!$callId) jsonResponse(['error' => 'callId required'], 400);
+
+        $stmt = $db->prepare('SELECT * FROM calls WHERE id = ?');
+        $stmt->execute([$callId]);
+        $call = $stmt->fetch();
+        if ($call) {
+            $db->prepare('UPDATE calls SET status = "cancelled", ended_at = datetime("now"), duration_seconds = 0, coins_deducted = 0, girl_coins = 0, girl_earnings_inr = 0, platform_revenue_inr = 0 WHERE id = ?')->execute([$callId]);
+
+            if (!empty($call['free_trial'])) {
+                $db->prepare('UPDATE users SET free_trial_used = 0 WHERE id = ?')->execute([$call['caller_id']]);
+            }
+
+            $otherId = ($user['id'] === $call['caller_id']) ? $call['receiver_id'] : $call['caller_id'];
+            Firebase::sendSignal($otherId, 'call:cancelled', ['callId' => $callId]);
+            Firebase::sendSignal($otherId, 'call:ended', ['callId' => $callId, 'durationSeconds' => 0, 'coinsCharged' => 0]);
+            Firebase::sendPushToUser($otherId, 'Call Cancelled', 'Call was cancelled', [
+                'type'   => 'call_cancelled',
+                'callId' => $callId
+            ]);
+        }
         jsonResponse(['success' => true]);
     }
 
@@ -228,6 +273,17 @@ function handleCallsRoute(string $subRoute, string $method, array $body, ?array 
         if (!$call) jsonResponse(['error' => 'Call not found'], 404);
 
         // ── 1. IDEMPOTENCY GUARD: Prevent double payout & double deduction ──
+        if ($call['status'] === 'cancelled') {
+            jsonResponse([
+                'success'           => true,
+                'already_ended'     => true,
+                'duration'          => 0,
+                'formattedDuration' => '00:00',
+                'coinsDeducted'     => 0,
+                'girlEarningsInr'   => 0
+            ]);
+        }
+
         if ($call['status'] === 'ended') {
             $formattedDur = sprintf('%02d:%02d', floor((int)$call['duration_seconds'] / 60), (int)$call['duration_seconds'] % 60);
             jsonResponse([
@@ -240,8 +296,45 @@ function handleCallsRoute(string $subRoute, string $method, array $body, ?array 
             ]);
         }
 
-        // ── 2. SERVER-SIDE DURATION CLAMPING: Prevent manipulated duration ──
-        $callStart = !empty($call['started_at']) ? strtotime($call['started_at']) : (!empty($call['created_at']) ? strtotime($call['created_at']) : time());
+        // ── 2. ZERO DURATION & PRE-ANSWER CANCELLATION GUARD ──
+        $wasConnected = ($call['status'] === 'connected') && !empty($call['started_at']);
+
+        if (!$wasConnected || $durationSeconds <= 0) {
+            // Call was cancelled or cut before receiver answered, or 0s talked
+            $durationSeconds = 0;
+            $coinsCharged = 0.0;
+            $girlCoins    = 0.0;
+            $girlInr      = 0.0;
+            $platCut      = 0.0;
+
+            if (!empty($call['free_trial'])) {
+                $db->prepare('UPDATE users SET free_trial_used = 0 WHERE id = ?')->execute([$call['caller_id']]);
+            }
+
+            $newStatus = $wasConnected ? 'ended' : 'cancelled';
+            $upd = $db->prepare('UPDATE calls SET status = ?, ended_at = datetime("now"), duration_seconds = 0, coins_deducted = 0, girl_coins = 0, girl_earnings_inr = 0, platform_revenue_inr = 0 WHERE id = ?');
+            $upd->execute([$newStatus, $callId]);
+
+            $otherId = ($user['id'] === $call['caller_id']) ? $call['receiver_id'] : $call['caller_id'];
+            Firebase::sendSignal($otherId, 'call:cancelled', ['callId' => $callId]);
+            Firebase::sendSignal($otherId, 'call:ended', ['callId' => $callId, 'durationSeconds' => 0, 'coinsCharged' => 0]);
+            Firebase::sendPushToUser($otherId, 'Call Ended', 'Call was cancelled', [
+                'type'   => 'call_cancelled',
+                'callId' => $callId
+            ]);
+
+            jsonResponse([
+                'success'           => true,
+                'duration'          => 0,
+                'formattedDuration' => '00:00',
+                'coinsDeducted'     => 0,
+                'remainingCoins'    => (float)($user['coins'] ?? 0),
+                'girlEarningsInr'   => 0
+            ]);
+        }
+
+        // ── 3. SERVER-SIDE DURATION CLAMPING: Prevent manipulated duration ──
+        $callStart = strtotime($call['started_at']);
         $serverElapsed = max(0, time() - $callStart);
         // Allow at most 15 seconds buffer for network latency
         $maxAllowed = $serverElapsed + 15;
@@ -252,7 +345,7 @@ function handleCallsRoute(string $subRoute, string $method, array $body, ?array 
             $durationSeconds = 0;
         }
 
-        // ── 3. OVERDRAFT & ADMIN FINANCIAL LOSS PREVENTION ──
+        // ── 4. OVERDRAFT & ADMIN FINANCIAL LOSS PREVENTION ──
         $isFreeTrial = !empty($call['free_trial']);
         $ratePerMin = ($call['call_type'] === 'video') ? 2.0 : 1.0;
         $minsTalked = max(1, ceil($durationSeconds / 60));
