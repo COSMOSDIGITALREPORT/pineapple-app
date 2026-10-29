@@ -56,6 +56,7 @@ class Database {
             coins REAL DEFAULT 0.0,
             minutes REAL DEFAULT 0.0,
             is_premium INTEGER DEFAULT 0,
+            spin_available INTEGER DEFAULT 0,
             is_verified INTEGER DEFAULT 1,
             is_online INTEGER DEFAULT 0,
             is_live INTEGER DEFAULT 1,
@@ -221,6 +222,16 @@ SQL;
         // Auto-migration: ensure is_live column exists
         try {
             $pdo->exec("ALTER TABLE users ADD COLUMN is_live INTEGER DEFAULT 1;");
+        } catch (\Throwable $ignored) {}
+
+        // Auto-migration: ensure spin_available column exists
+        try {
+            $pdo->exec("ALTER TABLE users ADD COLUMN spin_available INTEGER DEFAULT 0;");
+        } catch (\Throwable $ignored) {}
+
+        // Auto-migration: grant 1 spin credit to any user who previously bought ₹500 (pack_500)
+        try {
+            $pdo->exec("UPDATE users SET spin_available = 1 WHERE (spin_available IS NULL OR spin_available = 0) AND id IN (SELECT DISTINCT user_id FROM wallet_transactions WHERE note LIKE '%500%' AND type = 'purchase');");
         } catch (\Throwable $ignored) {}
 
         // One-time legacy fix: Sync coins and minutes to eliminate old 500-coin discrepancy

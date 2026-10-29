@@ -31,7 +31,7 @@ router.get('/status', auth, async (req, res) => {
     const user = rows[0];
     if (!user) return res.status(404).json({ error: 'User not found' });
 
-    const hasSpinCredit = user.spin_available === 1;
+    const hasSpinCredit = (user.spin_available || 0) >= 1;
     const hasCoins = (user.minutes || 0) > 0;
     const isPremiumMember = !!(user.is_premium || hasSpinCredit);
 
@@ -71,7 +71,7 @@ router.post('/', auth, async (req, res) => {
     const user = rows[0];
     if (!user) return res.status(404).json({ error: 'User not found' });
 
-    if (user.spin_available !== 1) {
+    if ((user.spin_available || 0) < 1) {
       return res.status(400).json({ error: 'Recharge a Premium Plan to unlock Fortune Wheel!' });
     }
     if ((user.minutes || 0) <= 0) {
@@ -85,7 +85,7 @@ router.post('/', auth, async (req, res) => {
     // Consume the spin credit and add prize coins (if any)
     const prizeCoins = prize.value || 0;
     await pool.query(
-      'UPDATE users SET spin_available=0, minutes=minutes+? WHERE id=?',
+      'UPDATE users SET spin_available=GREATEST(0, spin_available-1), minutes=minutes+? WHERE id=?',
       [prizeCoins, req.user.userId]
     );
 

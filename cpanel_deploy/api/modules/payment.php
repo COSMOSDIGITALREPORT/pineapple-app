@@ -121,7 +121,7 @@ function handlePaymentRoute(string $subRoute, string $method, array $body, ?arra
 
         // 3. Credit coins to user
         if ($isPremiumPack) {
-            $db->prepare('UPDATE users SET coins = coins + ?, minutes = minutes + ?, is_premium = 1 WHERE id = ?')
+            $db->prepare('UPDATE users SET coins = coins + ?, minutes = minutes + ?, is_premium = 1, spin_available = COALESCE(spin_available, 0) + 1 WHERE id = ?')
                ->execute([$pkg['coins'], $pkg['coins'], $user['id']]);
         } elseif ($isIntroPack) {
             $db->prepare('UPDATE users SET coins = coins + ?, minutes = minutes + ?, intro_9_used = 1 WHERE id = ?')
@@ -146,21 +146,22 @@ function handlePaymentRoute(string $subRoute, string $method, array $body, ?arra
         } catch (\Throwable $_) {}
 
         // 6. Return updated profile state
-        $uStmt = $db->prepare('SELECT coins, minutes, is_premium, intro_9_used FROM users WHERE id = ?');
+        $uStmt = $db->prepare('SELECT coins, minutes, is_premium, spin_available, intro_9_used FROM users WHERE id = ?');
         $uStmt->execute([$user['id']]);
         $updatedUser = $uStmt->fetch();
 
         $currentCoins = (float)($updatedUser['coins'] ?? $updatedUser['minutes'] ?? 0);
 
         jsonResponse([
-            'success'      => true,
-            'coins'        => $currentCoins,
-            'minsAdded'    => $pkg['coins'],
-            'isPremium'    => !empty($updatedUser['is_premium']),
-            'planId'       => $packageId,
-            'intro_9_used' => !empty($updatedUser['intro_9_used']),
-            'intro9Used'   => !empty($updatedUser['intro_9_used']),
-            'spinReset'    => $isPremiumPack
+            'success'        => true,
+            'coins'          => $currentCoins,
+            'minsAdded'      => $pkg['coins'],
+            'isPremium'      => !empty($updatedUser['is_premium']),
+            'spin_available' => (int)($updatedUser['spin_available'] ?? 0),
+            'planId'         => $packageId,
+            'intro_9_used'   => !empty($updatedUser['intro_9_used']),
+            'intro9Used'     => !empty($updatedUser['intro_9_used']),
+            'spinReset'      => $isPremiumPack
         ]);
     }
 

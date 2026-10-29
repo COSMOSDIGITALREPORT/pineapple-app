@@ -712,8 +712,8 @@ function handleAdminRoute(string $subRoute, string $method, array $body, ?array 
 
         $recentGifts = $db->query("
             SELECT g.id, g.gift_type, g.coins_spent, g.created_at,
-                   COALESCE(u1.name, 'Him') AS sender_name, u1.gender AS sender_gender,
-                   COALESCE(u2.name, 'Kiara') AS receiver_name
+                   COALESCE(NULLIF(TRIM(u1.name), ''), u1.phone, 'User') AS sender_name, u1.gender AS sender_gender,
+                   COALESCE(NULLIF(TRIM(u2.name), ''), u2.phone, 'Host') AS receiver_name
             FROM gifts g
             LEFT JOIN users u1 ON g.sender_id=u1.id
             LEFT JOIN users u2 ON g.receiver_id=u2.id
@@ -779,9 +779,9 @@ function handleAdminRoute(string $subRoute, string $method, array $body, ?array 
         // 6. Recent Transaction Ledger Feed
         $recentTxns = $db->query("
             SELECT t.id, t.user_id, t.type, t.amount, t.note AS description, t.created_at, t.ref_id,
-                   COALESCE(u.name, 'Him') AS user_name, u.gender AS user_gender, u.phone AS user_phone,
+                   COALESCE(NULLIF(TRIM(u.name), ''), u.phone, 'User') AS user_name, u.gender AS user_gender, u.phone AS user_phone,
                    c.receiver_id AS call_receiver_id,
-                   COALESCE(u_rec.name, 'Kiara') AS receiver_name,
+                   COALESCE(NULLIF(TRIM(u_rec.name), ''), u_rec.phone, 'Host') AS receiver_name,
                    u_rec.phone AS receiver_phone
             FROM wallet_transactions t
             LEFT JOIN users u ON t.user_id = u.id
@@ -928,15 +928,15 @@ function handleAdminRoute(string $subRoute, string $method, array $body, ?array 
 
     // ── GET /admin/reviews ────────────────────────────────────────────────────
     if ($subRoute === 'reviews' && $method === 'GET') {
-        $stmt = $db->query('
+        $stmt = $db->query("
             SELECT r.*,
-                   COALESCE(u1.name, "Him") as rater_name, u1.gender as rater_gender,
-                   COALESCE(u2.name, "Kiara") as rated_name, u2.gender as rated_gender
+                   COALESCE(NULLIF(TRIM(u1.name), ''), u1.phone, 'User') as rater_name, u1.gender as rater_gender,
+                   COALESCE(NULLIF(TRIM(u2.name), ''), u2.phone, 'Host') as rated_name, u2.gender as rated_gender
             FROM user_ratings r
             LEFT JOIN users u1 ON r.rater_id = u1.id
             LEFT JOIN users u2 ON r.rated_id = u2.id
             ORDER BY r.created_at DESC
-        ');
+        ");
         jsonResponse($stmt->fetchAll());
     }
 
@@ -949,16 +949,16 @@ function handleAdminRoute(string $subRoute, string $method, array $body, ?array 
 
     // ── GET /admin/calls ──────────────────────────────────────────────────────
     if ($subRoute === 'calls' && $method === 'GET') {
-        $stmt = $db->query('
+        $stmt = $db->query("
             SELECT c.*,
                    COALESCE(c.coins_deducted, 0) AS mins_deducted,
-                   COALESCE(u1.name, "Him") AS caller,
-                   COALESCE(u2.name, "Kiara") AS receiver
+                   COALESCE(NULLIF(TRIM(u1.name), ''), u1.phone, 'User') AS caller,
+                   COALESCE(NULLIF(TRIM(u2.name), ''), u2.phone, 'Host') AS receiver
             FROM calls c
             LEFT JOIN users u1 ON c.caller_id = u1.id
             LEFT JOIN users u2 ON c.receiver_id = u2.id
             ORDER BY c.created_at DESC LIMIT 200
-        ');
+        ");
         jsonResponse($stmt->fetchAll());
     }
 

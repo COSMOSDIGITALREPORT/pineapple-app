@@ -60,7 +60,7 @@ router.post('/verify', auth, async (req, res) => {
     const isIntroPack   = req.body.packageId === 'pack_9';
     if (isPremiumPack) {
       await pool.query(
-        'UPDATE users SET minutes=minutes+?, is_premium=1, plan_id=?, spin_available=1, premium_coins_remaining=premium_coins_remaining+? WHERE id=?',
+        'UPDATE users SET minutes=minutes+?, is_premium=1, plan_id=?, spin_available=COALESCE(spin_available, 0)+1, premium_coins_remaining=premium_coins_remaining+? WHERE id=?',
         [pkg.coins, req.body.packageId, pkg.coins, req.user.userId]
       );
     } else if (isIntroPack) {
