@@ -14,6 +14,7 @@ class CallActionReceiver : BroadcastReceiver() {
         val action = intent?.action
         if (action == "ACTION_DECLINE_CALL") {
             val callId = intent.getStringExtra("callId") ?: ""
+            val callerId = intent.getStringExtra("callerId") ?: ""
             CallNotificationHelper.cancelIncomingCall(context)
             IncomingCallBridge.onCallCancelled(mapOf("callId" to callId, "type" to "call_cancelled"))
 
@@ -27,7 +28,10 @@ class CallActionReceiver : BroadcastReceiver() {
                         conn.connectTimeout = 4000
                         conn.readTimeout = 4000
                         conn.doOutput = true
-                        val json = JSONObject().apply { put("callId", callId) }.toString()
+                        val json = JSONObject().apply {
+                            put("callId", callId)
+                            put("callerId", callerId)
+                        }.toString()
                         OutputStreamWriter(conn.outputStream).use { it.write(json) }
                         conn.responseCode
                         conn.disconnect()
@@ -39,4 +43,3 @@ class CallActionReceiver : BroadcastReceiver() {
         }
     }
 }
-

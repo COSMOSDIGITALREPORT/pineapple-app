@@ -165,7 +165,7 @@ export default function AudioCallScreen({ onBack, onHangup, callerUser, incoming
         socket.on('call:accepted', () => startTimer());
         socket.on('call:rejected', () => {
           Alert.alert('Call Declined', 'The other person declined your call.');
-          (onHangup || onBack)('00:00');
+          cleanupCall('00:00');
         });
         socket.on('call:unavailable', () => {
           Alert.alert('Offline', 'User is not available right now.');

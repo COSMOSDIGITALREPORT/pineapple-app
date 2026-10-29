@@ -1,6 +1,7 @@
 package com.cosmosdigital.pineapplegirls
 
 import android.app.Application
+import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.media.AudioAttributes
@@ -34,15 +35,22 @@ class MainApplication : Application(), ReactApplication {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
       val notificationManager = getSystemService(NotificationManager::class.java) ?: return
 
+      // Clean up legacy channel if present
+      try {
+        notificationManager.deleteNotificationChannel("pineapple_calls_channel")
+      } catch (e: Exception) {}
+
       val callChannel = NotificationChannel(
-        "pineapple_calls_channel",
-        "Pineapple Calls",
+        "pineapple_calls_channel_v2",
+        "Pineapple Incoming Calls",
         NotificationManager.IMPORTANCE_HIGH
       ).apply {
-        description = "Incoming call notifications"
+        description = "Incoming call alerts and full screen intent"
         enableVibration(true)
         enableLights(true)
         vibrationPattern = longArrayOf(0, 1000, 500, 1000)
+        lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+        setBypassDnd(true)
         val soundUri = Settings.System.DEFAULT_RINGTONE_URI
         val audioAttributes = AudioAttributes.Builder()
           .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)

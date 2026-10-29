@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
   TouchableOpacity, StatusBar, Image, Switch, RefreshControl,
-  Modal, ActivityIndicator,
+  Modal, ActivityIndicator, Alert, Platform, NativeModules,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -131,6 +131,39 @@ export default function GirlsEarningsScreen({ onDrawer, onRedeem }) {
       setTimeout(() => {
         try { syncFcmToken(); } catch (_) {}
       }, 100);
+
+      // Check background & lock screen call permissions
+      if (Platform.OS === 'android') {
+        try {
+          NativeModules.RingtoneModule?.checkCallPermissions?.().then((perms) => {
+            if (perms && !perms.canDrawOverlays) {
+              Alert.alert(
+                '📞 Background Call Display',
+                'To display incoming calls over other apps and on your lock screen, please enable "Display over other apps".',
+                [
+                  { text: 'Later', style: 'cancel' },
+                  {
+                    text: 'Enable Now',
+                    onPress: () => NativeModules.RingtoneModule?.requestOverlayPermission?.(),
+                  },
+                ]
+              );
+            } else if (perms && !perms.ignoringBatteryOptimizations) {
+              Alert.alert(
+                '⚡ Receive Calls When App Closed',
+                'To make sure your phone rings when Pineapple is closed or swiped away, please set Battery to "Unrestricted".',
+                [
+                  { text: 'Later', style: 'cancel' },
+                  {
+                    text: 'Enable Now',
+                    onPress: () => NativeModules.RingtoneModule?.requestBatteryOptimization?.(),
+                  },
+                ]
+              );
+            }
+          }).catch(() => {});
+        } catch (_) {}
+      }
     }
   };
 

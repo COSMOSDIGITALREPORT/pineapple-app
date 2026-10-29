@@ -1,5 +1,6 @@
 package com.cosmosdigital.pineapplegirls
 
+import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -11,11 +12,12 @@ import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
+import android.provider.Settings
 import androidx.core.app.NotificationCompat
 
 object CallNotificationHelper {
     const val CALL_NOTIFICATION_ID = 2026
-    const val CALL_CHANNEL_ID = "pineapple_calls_channel"
+    const val CALL_CHANNEL_ID = "pineapple_calls_channel_v2"
     private var wakeLock: PowerManager.WakeLock? = null
     private var ringtone: Ringtone? = null
 
@@ -31,15 +33,16 @@ object CallNotificationHelper {
 
             val channel = NotificationChannel(
                 CALL_CHANNEL_ID,
-                "Pineapple Calls",
+                "Pineapple Incoming Calls",
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
-                description = "Incoming call notifications"
+                description = "Incoming call alerts and full screen intent"
                 enableVibration(true)
                 enableLights(true)
                 vibrationPattern = longArrayOf(0, 1000, 500, 1000)
                 setSound(soundUri, audioAttributes)
-                lockscreenVisibility = NotificationCompat.VISIBILITY_PUBLIC
+                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+                setBypassDnd(true)
             }
             nm.createNotificationChannel(channel)
         }
@@ -48,7 +51,7 @@ object CallNotificationHelper {
     fun showIncomingCall(context: Context, data: Map<String, String>) {
         ensureChannel(context)
 
-        // 1. Wake the screen
+        // 1. Wake the screen hardware
         try {
             val pm = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
             if (pm != null) {
@@ -61,6 +64,24 @@ object CallNotificationHelper {
             }
         } catch (e: Exception) {
             e.printStackTrace()
+        }
+
+        // 2. Direct Activity Launch if Overlay Permission is granted (WhatsApp behavior)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && Settings.canDrawOverlays(context)) {
+            try {
+                val directIntent = Intent(context, MainActivity::class.java).apply {
+                    action = "ACTION_INCOMING_CALL"
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                            Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                            Intent.FLAG_ACTIVITY_SINGLE_TOP
+                    for ((k, v) in data) {
+                        putExtra(k, v)
+                    }
+                }
+                context.startActivity(directIntent)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
 
         val callerName = data["callerName"] ?: "Someone"
@@ -188,4 +209,3 @@ object CallNotificationHelper {
         }
     }
 }
-

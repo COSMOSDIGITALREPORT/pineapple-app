@@ -49,6 +49,7 @@ const SECTIONS = [
     items: [
       { label: 'Push Notifications', type: 'toggle', key: 'push' },
       { label: 'Call Alerts', type: 'toggle', key: 'callAlerts' },
+      { label: 'Incoming Call Permissions', sub: 'Display over apps & lock screen', type: 'nav', key: 'callPermissions' },
     ],
   },
   {
@@ -128,6 +129,19 @@ export default function SettingsScreen({ onBack, onLogout, onBlockedUsers }) {
   };
 
   const handleNavPress = (key) => {
+    if (key === 'callPermissions') {
+      Alert.alert(
+        'Incoming Call Permissions',
+        'Configure Android permissions so calls ring and display when the app is in the background or screen is locked.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Display Over Apps', onPress: () => NativeModules.RingtoneModule?.requestOverlayPermission?.() },
+          { text: 'Unrestricted Battery', onPress: () => NativeModules.RingtoneModule?.requestBatteryOptimization?.() },
+          { text: 'App Info (Autostart)', onPress: () => NativeModules.RingtoneModule?.openAppSettings?.() },
+        ]
+      );
+      return;
+    }
     if (key === 'blockList' || key === 'blockedUsers') {
       setShowBlocked(true);
       return;

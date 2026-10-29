@@ -91,6 +91,7 @@ module.exports = (io) => {
     });
 
     socket.on('call:accepted',  ({ callerId })              => { const d = online.get(callerId);  if (d) io.to(d).emit('call:accepted',  {}); });
+    socket.on('call:rejected',  ({ callerId })              => { const d = online.get(callerId);  if (d) io.to(d).emit('call:rejected',  {}); });
     socket.on('call:ended',     async ({ otherUserId, duration, formattedDuration, callType, callId }) => {
       const d = online.get(otherUserId);
       if (d) io.to(d).emit('call:ended', { duration, formattedDuration, callType, callId });

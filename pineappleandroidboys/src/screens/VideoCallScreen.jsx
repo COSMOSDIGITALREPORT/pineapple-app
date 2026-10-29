@@ -152,7 +152,7 @@ export default function VideoCallScreen({ onBack, onHangup, callerUser, incoming
         handlers.accepted = () => startTimer();
         handlers.rejected = () => {
           Alert.alert('Call Declined', 'The other person declined your call.');
-          (onHangup || onBack)('00:00');
+          cleanupCall('00:00');
         };
         handlers.unavailable = () => {
           Alert.alert('Offline', 'User is not available right now.');

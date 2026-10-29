@@ -8,9 +8,14 @@ if (!defined('PINEAPPLE_APP')) die('Direct access forbidden');
 require_once dirname(__DIR__) . '/RtcTokenBuilder.php';
 
 function handleCallsRoute(string $subRoute, string $method, array $body, ?array $user): void {
-    if (!$user) jsonResponse(['error' => 'Unauthorized'], 401);
     $db = Database::getConnection();
     $config = require dirname(__DIR__) . '/config.php';
+
+    // Allow reject / cancel without session auth if valid callId is provided (e.g. from native Android lockscreen notification)
+    $isPublicCallAction = ($subRoute === 'reject' || $subRoute === 'cancel' || preg_match('#^([^/]+)/(reject|cancel)$#', $subRoute));
+    if (!$user && !$isPublicCallAction) {
+        jsonResponse(['error' => 'Unauthorized'], 401);
+    }
 
     // ── POST /calls/initiate OR /calls/request ────────────────────────────────
     if (($subRoute === 'initiate' || $subRoute === 'request') && $method === 'POST') {
@@ -209,11 +214,16 @@ function handleCallsRoute(string $subRoute, string $method, array $body, ?array 
         $call = $stmt->fetch();
 
         if ($call) {
-            $db->prepare('UPDATE calls SET status = "rejected", ended_at = datetime("now") WHERE id = ?')->execute([$callId]);
+            $db->prepare('UPDATE calls SET status = "rejected", ended_at = datetime("now"), duration_seconds = 0, coins_deducted = 0, girl_coins = 0, girl_earnings_inr = 0, platform_revenue_inr = 0 WHERE id = ?')->execute([$callId]);
+
+            if (!empty($call['free_trial'])) {
+                $db->prepare('UPDATE users SET free_trial_used = 0 WHERE id = ?')->execute([$call['caller_id']]);
+            }
+
             Firebase::sendSignal($call['caller_id'], 'call:rejected', ['callId' => $callId]);
-            $otherId = ($user['id'] === $call['caller_id']) ? $call['receiver_id'] : $call['caller_id'];
-            Firebase::sendPushToUser($otherId, 'Call Declined', 'Call was declined', [
-                'type'   => 'call_cancelled',
+            Firebase::sendSignal($call['caller_id'], 'call:ended', ['callId' => $callId, 'durationSeconds' => 0, 'coinsCharged' => 0]);
+            Firebase::sendPushToUser($call['caller_id'], 'Call Declined', 'Host declined the call', [
+                'type'   => 'call_rejected',
                 'callId' => $callId
             ]);
         }
