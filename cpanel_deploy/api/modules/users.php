@@ -12,7 +12,7 @@ function handleUsersRoute(string $subRoute, string $method, array $body, ?array 
     if ($subRoute === 'live' && $method === 'GET') {
         $stmt = $db->query("
             SELECT id, name, gender, city, language, bio, avatar_url, 
-                   CASE WHEN is_live = 1 THEN is_online ELSE 0 END AS is_online, 
+                   CASE WHEN is_live = 1 THEN 1 ELSE 0 END AS is_online, 
                    is_live, rating, total_calls
             FROM users
             WHERE gender IN ('girl', 'female') AND is_blocked = 0 AND is_verified = 1
@@ -26,7 +26,7 @@ function handleUsersRoute(string $subRoute, string $method, array $body, ?array 
     if ($subRoute === 'top' && $method === 'GET') {
         $stmt = $db->query("
             SELECT id, name, gender, city, avatar_url, 
-                   CASE WHEN is_live = 1 THEN is_online ELSE 0 END AS is_online, 
+                   CASE WHEN is_live = 1 THEN 1 ELSE 0 END AS is_online, 
                    is_live, rating, total_calls
             FROM users
             WHERE gender IN ('girl', 'female') AND is_blocked = 0
@@ -39,12 +39,18 @@ function handleUsersRoute(string $subRoute, string $method, array $body, ?array 
     // ── POST /users/status (Online / Offline Socket/Presence Toggle) ──────────
     if ($subRoute === 'status' && $method === 'POST') {
         if (!$user) jsonResponse(['error' => 'Unauthorized'], 401);
-        $isOnline = !empty($body['isOnline']);
-
-        $stmt = $db->prepare('UPDATE users SET is_online = ?, last_seen = datetime("now") WHERE id = ?');
-        $stmt->execute([$isOnline ? 1 : 0, $user['id']]);
-
-        Firebase::setPresence($user['id'], $isOnline);
+        $isGirl = in_array(strtolower($user['gender'] ?? ''), ['girl', 'female']);
+        if ($isGirl) {
+            // For female host, online presence is strictly tied to is_live
+            $stmt = $db->prepare('UPDATE users SET is_online = CASE WHEN is_live = 1 THEN 1 ELSE 0 END, last_seen = datetime("now") WHERE id = ?');
+            $stmt->execute([$user['id']]);
+            $isOnline = !empty($user['is_live']);
+        } else {
+            $isOnline = !empty($body['isOnline']);
+            $stmt = $db->prepare('UPDATE users SET is_online = ?, last_seen = datetime("now") WHERE id = ?');
+            $stmt->execute([$isOnline ? 1 : 0, $user['id']]);
+            Firebase::setPresence($user['id'], $isOnline);
+        }
         jsonResponse(['success' => true, 'is_online' => $isOnline]);
     }
 

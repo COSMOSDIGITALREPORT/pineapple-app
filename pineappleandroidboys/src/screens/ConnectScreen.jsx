@@ -219,7 +219,7 @@ function FloatingBubble({
         )}
 
         {/* Green online dot — when host is live */}
-        {!!(user?.is_live === 1 || user?.is_live === true || user?.is_live === '1') && (
+        {isHostOnline(user) && (
           <View style={bStyles.dot} />
         )}
 
@@ -249,6 +249,13 @@ function FloatingBubble({
     </Animated.View>
   );
 }
+
+const isHostOnline = (u) => {
+  if (!u) return false;
+  if (u.is_live === 0 || u.is_live === false || u.is_live === '0') return false;
+  if (u.is_live === 1 || u.is_live === true || u.is_live === '1') return true;
+  return Boolean(u.is_online === 1 || u.is_online === true || u.is_online === '1');
+};
 
 function StarRating({ rating = 0, count = 0 }) {
   rating = parseFloat(rating) || 0;
@@ -369,17 +376,25 @@ export default function ConnectScreen({ onVideoCall, onAudioCall, onDrawer, onBu
   useEffect(() => {
     fetchUsers();
     fetchTopGirls();
-    const interval = setInterval(fetchUsers, 10000);
+    const interval = setInterval(() => {
+      fetchUsers();
+      fetchTopGirls();
+    }, 10000);
 
     const socket = getSocket();
     const handleStatusChanged = ({ userId, is_online, is_live }) => {
-      const onlineVal = (is_online === 1 || is_online === true) ? 1 : 0;
-      const liveVal   = is_live !== undefined ? ((is_live === 1 || is_live === true) ? 1 : 0) : onlineVal;
+      const liveVal = is_live !== undefined
+        ? ((is_live === 1 || is_live === true || is_live === '1') ? 1 : 0)
+        : ((is_online === 1 || is_online === true || is_online === '1') ? 1 : 0);
+      const onlineVal = liveVal;
       setUsers((prev) =>
         prev.map((u) => (u.id === userId ? { ...u, is_online: onlineVal, is_live: liveVal } : u))
       );
       setTopGirls((prev) =>
         prev.map((g) => (g.id === userId ? { ...g, is_online: onlineVal, is_live: liveVal } : g))
+      );
+      setCallPickerUser((prev) =>
+        prev && prev.id === userId ? { ...prev, is_online: onlineVal, is_live: liveVal } : prev
       );
     };
 
@@ -392,11 +407,11 @@ export default function ConnectScreen({ onVideoCall, onAudioCall, onDrawer, onBu
   }, []);
 
   const visibleUsers = users.filter((u) => {
-    const isLiveHost = (u.is_live === 1 || u.is_live === true || u.is_live === '1');
-    if (activeFilter === '🔴 Live') return isLiveHost;
+    const isLive = isHostOnline(u);
+    if (activeFilter === '🔴 Live') return isLive;
     if (activeFilter === 'Hindi')   return (u.language || '').toLowerCase().includes('hindi') || u.language === 'HI';
     if (activeFilter === 'English') return (u.language || '').toLowerCase().includes('english') || u.language === 'EN';
-    if (activeFilter === 'New')     return !isLiveHost;
+    if (activeFilter === 'New')     return !isLive;
     return true;
   });
 
@@ -483,7 +498,7 @@ export default function ConnectScreen({ onVideoCall, onAudioCall, onDrawer, onBu
                           <Text style={styles.topRatedInitial}>{(girl.name||'?')[0].toUpperCase()}</Text>
                         </LinearGradient>
                       )}
-                      {!!girl.is_online ? <View style={styles.topRatedOnline} /> : null}
+                      {isHostOnline(girl) ? <View style={styles.topRatedOnline} /> : null}
                     </View>
                     <Text style={styles.topRatedName} numberOfLines={1}>{(girl.name||'').split(' ')[0]}</Text>
                     {parseFloat(girl.rating) > 0 ? (
@@ -619,7 +634,7 @@ export default function ConnectScreen({ onVideoCall, onAudioCall, onDrawer, onBu
                         <View style={pStyles.langBadgePreview}>
                           <Text style={pStyles.langBadgePreviewText}>{callPickerUser?.language || 'HI'}</Text>
                         </View>
-                        {!!(callPickerUser?.is_live === 1 || callPickerUser?.is_live === true || callPickerUser?.is_live === '1') && (
+                        {isHostOnline(callPickerUser) && (
                           <View style={pStyles.onlineBadge}>
                             <View style={pStyles.onlineDot} />
                             <Text style={pStyles.onlineBadgeText}>Online</Text>

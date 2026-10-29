@@ -138,11 +138,12 @@ export default function GirlsHomeScreen({ onLogout }) {
 
     const unsubCallPush = onIncomingCallNotification(handleCallData);
 
-    const pending = getPendingIncomingCall();
-    if (pending) {
-      console.log('[CALL PUSH] Processing pending call from cold start:', pending);
-      handleCallData(pending);
-    }
+    Promise.resolve(getPendingIncomingCall()).then((pending) => {
+      if (pending) {
+        console.log('[CALL PUSH] Processing pending call from cold start:', pending);
+        handleCallData(pending);
+      }
+    }).catch(() => {});
 
     syncFcmToken();
 

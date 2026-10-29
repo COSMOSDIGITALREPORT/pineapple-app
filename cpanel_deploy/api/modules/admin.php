@@ -365,7 +365,7 @@ function handleAdminRoute(string $subRoute, string $method, array $body, ?array 
         $online     = (int)$db->query("
             SELECT COUNT(*) FROM users 
             WHERE is_blocked = 0 AND (
-                (gender IN ('girl','female') AND is_live = 1 AND is_online = 1)
+                (gender IN ('girl','female') AND is_live = 1)
                 OR (gender NOT IN ('girl','female') AND (is_online = 1 OR last_seen >= datetime('now', '-5 minutes')))
             )
         ")->fetchColumn();
@@ -440,7 +440,7 @@ function handleAdminRoute(string $subRoute, string $method, array $body, ?array 
             SELECT 
                 u.id, u.phone, u.name, u.gender, u.avatar_url, u.city,
                 CASE 
-                    WHEN LOWER(COALESCE(u.gender, '')) IN ('girl', 'female', 'f') THEN (CASE WHEN u.is_live = 1 AND u.is_online = 1 THEN 1 ELSE 0 END)
+                    WHEN LOWER(COALESCE(u.gender, '')) IN ('girl', 'female', 'f') THEN (CASE WHEN u.is_live = 1 THEN 1 ELSE 0 END)
                     ELSE (CASE WHEN (u.is_online = 1 OR u.last_seen >= datetime('now', '-5 minutes')) THEN 1 ELSE 0 END)
                 END AS is_online,
                 u.is_blocked, u.is_premium, u.is_verified, u.rating, u.created_at,
@@ -621,7 +621,7 @@ function handleAdminRoute(string $subRoute, string $method, array $body, ?array 
         $stmt = $db->query("
             SELECT 
                 u.id, u.name, u.phone, u.avatar_url, u.city,
-                CASE WHEN (u.is_live = 1 AND u.is_online = 1) THEN 1 ELSE 0 END AS is_online,
+                CASE WHEN u.is_live = 1 THEN 1 ELSE 0 END AS is_online,
                 u.is_verified, u.is_blocked, u.rating,
                 u.minutes AS wallet_coins, u.created_at,
                 COALESCE(e.total_earned_inr, 0) AS total_earned_inr,
@@ -741,7 +741,7 @@ function handleAdminRoute(string $subRoute, string $method, array $body, ?array 
         $hostBreakdown = $db->query("
             SELECT 
                 u.id, u.name, u.phone, u.avatar_url, u.city, 
-                CASE WHEN (u.is_live = 1 AND u.is_online = 1) THEN 1 ELSE 0 END AS is_online, 
+                CASE WHEN u.is_live = 1 THEN 1 ELSE 0 END AS is_online, 
                 u.is_verified, u.is_blocked, u.rating,
                 u.minutes AS wallet_coins, u.created_at,
                 COALESCE(e.total_earned_inr, 0) AS total_earned_inr,

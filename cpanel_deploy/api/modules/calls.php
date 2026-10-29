@@ -351,9 +351,9 @@ function handleCallsRoute(string $subRoute, string $method, array $body, ?array 
         $stmt = $db->prepare("
             SELECT c.*, 
                    u1.name as caller_name, u1.avatar_url as caller_avatar,
-                   (CASE WHEN u1.gender IN ('girl','female') THEN (CASE WHEN u1.is_live = 1 THEN u1.is_online ELSE 0 END) ELSE u1.is_online END) as caller_online,
+                   (CASE WHEN u1.gender IN ('girl','female') THEN (CASE WHEN u1.is_live = 1 THEN 1 ELSE 0 END) ELSE u1.is_online END) as caller_online,
                    u2.name as receiver_name, u2.avatar_url as receiver_avatar,
-                   (CASE WHEN u2.gender IN ('girl','female') THEN (CASE WHEN u2.is_live = 1 THEN u2.is_online ELSE 0 END) ELSE u2.is_online END) as receiver_online
+                   (CASE WHEN u2.gender IN ('girl','female') THEN (CASE WHEN u2.is_live = 1 THEN 1 ELSE 0 END) ELSE u2.is_online END) as receiver_online
             FROM calls c
             LEFT JOIN users u1 ON c.caller_id = u1.id
             LEFT JOIN users u2 ON c.receiver_id = u2.id

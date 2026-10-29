@@ -25,7 +25,7 @@ export default function GirlsEarningsScreen({ onDrawer, onRedeem }) {
   const [withdrawals, setWithdrawals] = useState([]);
   const [calls, setCalls]       = useState([]);
   const [gifts, setGifts]       = useState([]);
-  const [isLive, setIsLive]     = useState(true);
+  const [isLive, setIsLive]     = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const lastToggleTimeRef = useRef(0);
 
@@ -115,7 +115,7 @@ export default function GirlsEarningsScreen({ onDrawer, onRedeem }) {
 
     // 1. Instantly broadcast socket status with zero delay so boys app reflects it immediately
     try {
-      getSocket()?.emit(val ? 'user:online' : 'user:offline');
+      getSocket()?.emit(val ? 'user:online' : 'user:offline', { isLive: val });
     } catch (_) {}
 
     // 2. Persist locally in storage

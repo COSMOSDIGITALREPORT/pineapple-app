@@ -79,10 +79,20 @@ export async function syncFcmToken(userIdOverride) {
 let pendingIncomingCall = null;
 const incomingCallListeners = new Set();
 
-export function getPendingIncomingCall() {
-  const call = pendingIncomingCall;
-  pendingIncomingCall = null;
-  return call;
+export async function getPendingIncomingCall() {
+  if (pendingIncomingCall) {
+    const call = pendingIncomingCall;
+    pendingIncomingCall = null;
+    return call;
+  }
+  try {
+    const raw = await AsyncStorage.getItem('@pineapple_pending_incoming_call');
+    if (raw) {
+      await AsyncStorage.removeItem('@pineapple_pending_incoming_call');
+      return JSON.parse(raw);
+    }
+  } catch (_) {}
+  return null;
 }
 
 export function onIncomingCallNotification(listener) {
@@ -96,6 +106,15 @@ export function onIncomingCallNotification(listener) {
     } catch (e) {
       console.warn('[FCM] Pending call listener error:', e);
     }
+  } else {
+    AsyncStorage.getItem('@pineapple_pending_incoming_call').then((raw) => {
+      if (raw) {
+        AsyncStorage.removeItem('@pineapple_pending_incoming_call').catch(() => {});
+        try {
+          listener(JSON.parse(raw));
+        } catch (_) {}
+      }
+    }).catch(() => {});
   }
   return () => incomingCallListeners.delete(listener);
 }

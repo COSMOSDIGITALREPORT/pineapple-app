@@ -1,4 +1,5 @@
 import { io } from 'socket.io-client';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const BASE_URL = 'https://pineapple-backend-f0yj.onrender.com';
 
@@ -21,7 +22,16 @@ export function connectSocket(userId) {
 
   socket.on('connect', () => {
     console.log('Socket connected:', socket.id);
-    socket.emit('user:online', { userId });
+    AsyncStorage.getItem('@pineapple_host_is_live').then((val) => {
+      const isLive = val === 'true';
+      if (isLive) {
+        socket.emit('user:online', { userId, isLive: true });
+      } else {
+        socket.emit('user:offline', { userId, isLive: false });
+      }
+    }).catch(() => {
+      socket.emit('user:offline', { userId, isLive: false });
+    });
   });
   socket.on('disconnect', (reason) => {
     console.log('Socket disconnected:', reason);

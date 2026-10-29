@@ -10,6 +10,11 @@ import {
   Image,
   Switch,
   Alert,
+  Modal,
+  TextInput,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -17,11 +22,19 @@ import { useSelector, useDispatch } from 'react-redux';
 import PrivacyPolicyScreen from './PrivacyPolicyScreen';
 import TermsOfServiceScreen from './TermsOfServiceScreen';
 import BlockedUsersScreen from './BlockedUsersScreen';
-import { deleteAccount, setOffline, getMe } from '../services/api';
+import { deleteAccount, getMe } from '../services/api';
 import { resetUser, setProfile } from '../store/slices/userSlice';
-import { getSocket } from '../services/socket';
 import Icon from '../components/Icon';
 import { Colors, Gradients } from '../theme/colors';
+
+const DELETE_REASONS = [
+  "Don't like the app",
+  "Bored / Not interested",
+  "Too expensive / High coin rates",
+  "No matching / Connection issues",
+  "Privacy concerns",
+  "Something else",
+];
 
 const SECTIONS = [
   {
@@ -42,7 +55,6 @@ const SECTIONS = [
     title: 'Privacy',
     items: [
       { label: 'Block List', type: 'nav', key: 'blockList' },
-      { label: 'Hide Online Status', type: 'toggle', key: 'hideOnline' },
     ],
   },
   {
@@ -83,10 +95,14 @@ export default function SettingsScreen({ onBack, onLogout, onBlockedUsers }) {
   const [showTerms, setShowTerms] = useState(false);
   const [showBlocked, setShowBlocked] = useState(false);
   const [phoneNum, setPhoneNum] = useState(user.phone || '');
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [selectedReasons, setSelectedReasons] = useState([]);
+  const [customMessage, setCustomMessage] = useState('');
+  const [deleting, setDeleting] = useState(false);
+
   const [toggles, setToggles] = useState({
     push: true,
     callAlerts: true,
-    hideOnline: false,
   });
 
   useEffect(() => {
@@ -101,20 +117,14 @@ export default function SettingsScreen({ onBack, onLogout, onBlockedUsers }) {
     }).catch(() => {});
   }, []);
 
-  const flip = (key) => {
-    setToggles((prev) => {
-      const nextVal = !prev[key];
-      if (key === 'hideOnline') {
-        if (nextVal) {
-          setOffline().catch(() => {});
-          getSocket()?.emit('user:offline');
-        } else {
-          getSocket()?.emit('user:online');
-          getMe().catch(() => {});
-        }
-      }
-      return { ...prev, [key]: nextVal };
-    });
+  const flip = (key) => setToggles((prev) => ({ ...prev, [key]: !prev[key] }));
+
+  const toggleReason = (reason) => {
+    if (selectedReasons.includes(reason)) {
+      setSelectedReasons(selectedReasons.filter((r) => r !== reason));
+    } else {
+      setSelectedReasons([...selectedReasons, reason]);
+    }
   };
 
   const handleNavPress = (key) => {
@@ -145,26 +155,32 @@ export default function SettingsScreen({ onBack, onLogout, onBlockedUsers }) {
   };
 
   const handleDeleteAccount = () => {
-    Alert.alert(
-      'Delete Account',
-      'This will permanently delete your account and all data. This cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete', style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteAccount();
-              await AsyncStorage.multiRemove(['auth_token', 'user_id', 'user_session', 'gender', 'warning_accepted']);
-              dispatch(resetUser());
-              onLogout?.();
-            } catch {
-              Alert.alert('Error', 'Could not delete account. Try again.');
-            }
-          },
-        },
-      ]
-    );
+    setSelectedReasons([]);
+    setCustomMessage('');
+    setDeleteModalVisible(true);
+  };
+
+  const confirmDeleteAccount = async () => {
+    if (selectedReasons.length === 0 && !customMessage.trim()) {
+      Alert.alert('Please Select a Reason', 'Please select at least one reason or provide feedback to let us know why you are leaving.');
+      return;
+    }
+
+    setDeleting(true);
+    try {
+      await deleteAccount({
+        reason: selectedReasons.length > 0 ? selectedReasons.join(', ') : 'Custom feedback provided',
+        customFeedback: customMessage.trim(),
+      });
+      await AsyncStorage.multiRemove(['auth_token', 'user_id', 'user_session', 'gender', 'warning_accepted']);
+      dispatch(resetUser());
+      setDeleteModalVisible(false);
+      onLogout?.();
+    } catch (e) {
+      Alert.alert('Error', e.message || 'Could not delete account. Please try again.');
+    } finally {
+      setDeleting(false);
+    }
   };
 
   if (showPrivacy) return <PrivacyPolicyScreen onBack={() => setShowPrivacy(false)} />;
@@ -207,20 +223,20 @@ export default function SettingsScreen({ onBack, onLogout, onBlockedUsers }) {
         </LinearGradient>
 
         {SECTIONS.map((section) =>
-        <View key={section.title} style={styles.section}>
+          <View key={section.title} style={styles.section}>
             <Text style={styles.sectionTitle}>{section.title}</Text>
             <View style={styles.sectionCard}>
               {section.items.map((item, i) =>
-            <View key={item.key}>
+                <View key={item.key}>
                   {i > 0 && <View style={styles.divider} />}
                   <TouchableOpacity
-                activeOpacity={item.type === 'toggle' || item.type === 'info' ? 1 : 0.7}
-                onPress={
-                  item.key === 'delete' ? handleDeleteAccount :
-                  item.type === 'nav'   ? () => handleNavPress(item.key) :
-                  undefined
-                }
-                style={styles.row}>
+                    activeOpacity={item.type === 'toggle' || item.type === 'info' ? 1 : 0.7}
+                    onPress={
+                      item.key === 'delete' ? handleDeleteAccount :
+                      item.type === 'nav'   ? () => handleNavPress(item.key) :
+                      undefined
+                    }
+                    style={styles.row}>
                     <View style={styles.rowLeft}>
                       <Text style={[styles.rowLabel, item.type === 'danger' && styles.rowLabelDanger]}>
                         {item.label}
@@ -232,17 +248,17 @@ export default function SettingsScreen({ onBack, onLogout, onBlockedUsers }) {
                       </Text>
                     </View>
                     {item.type === 'toggle' ?
-                <Switch
-                  value={toggles[item.key] ?? false}
-                  onValueChange={() => flip(item.key)}
-                  trackColor={{ false: '#E2E8F0', true: Colors.secondary }}
-                  thumbColor="#fff"
-                  ios_backgroundColor="#E2E8F0" /> :
-                item.type === 'nav' ? <ChevronIcon /> :
-                null}
+                      <Switch
+                        value={toggles[item.key] ?? false}
+                        onValueChange={() => flip(item.key)}
+                        trackColor={{ false: '#E2E8F0', true: Colors.secondary }}
+                        thumbColor="#fff"
+                        ios_backgroundColor="#E2E8F0" /> :
+                      item.type === 'nav' ? <ChevronIcon /> :
+                      null}
                   </TouchableOpacity>
                 </View>
-            )}
+              )}
             </View>
           </View>
         )}
@@ -253,8 +269,107 @@ export default function SettingsScreen({ onBack, onLogout, onBlockedUsers }) {
           <Text style={styles.signOutText}>Sign Out</Text>
         </TouchableOpacity>
       </ScrollView>
-    </View>);
 
+      {/* Delete Account Survey Modal */}
+      <Modal
+        visible={deleteModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => !deleting && setDeleteModalVisible(false)}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalOverlay}>
+          <TouchableOpacity
+            style={styles.modalBackdrop}
+            activeOpacity={1}
+            onPress={() => !deleting && setDeleteModalVisible(false)}
+          />
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <View style={styles.modalIconWrap}>
+                <Text style={{ fontSize: 22 }}>🗑️</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.modalTitle}>Delete Account</Text>
+                <Text style={styles.modalSub}>
+                  We're sad to see you go! Help us improve:
+                </Text>
+              </View>
+              <TouchableOpacity
+                disabled={deleting}
+                onPress={() => setDeleteModalVisible(false)}
+                style={styles.modalCloseBtn}>
+                <Text style={styles.modalCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 330 }}>
+              <Text style={styles.modalQuestion}>Please tell us why you are leaving:</Text>
+
+              {DELETE_REASONS.map((reason) => {
+                const isSelected = selectedReasons.includes(reason);
+                return (
+                  <TouchableOpacity
+                    key={reason}
+                    activeOpacity={0.7}
+                    onPress={() => toggleReason(reason)}
+                    style={[styles.reasonRow, isSelected && styles.reasonRowSelected]}>
+                    <View style={[styles.checkbox, isSelected && styles.checkboxActive]}>
+                      {isSelected && <Text style={styles.checkMark}>✓</Text>}
+                    </View>
+                    <Text style={[styles.reasonText, isSelected && styles.reasonTextSelected]}>
+                      {reason}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+
+              <Text style={[styles.modalQuestion, { marginTop: 14 }]}>
+                Tell us more (Optional):
+              </Text>
+              <TextInput
+                style={styles.feedbackInput}
+                placeholder="Type your feedback or custom message..."
+                placeholderTextColor="#94A3B8"
+                multiline
+                numberOfLines={3}
+                value={customMessage}
+                onChangeText={setCustomMessage}
+              />
+
+              {/* Anti-Abuse Notice */}
+              <View style={styles.antiAbuseNotice}>
+                <Text style={styles.antiAbuseIcon}>⚠️</Text>
+                <Text style={styles.antiAbuseText}>
+                  Notice: Once deleted, this number will not be eligible for new user welcome bonus coins if you sign up again in the future.
+                </Text>
+              </View>
+            </ScrollView>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                disabled={deleting}
+                style={styles.modalCancelBtn}
+                onPress={() => setDeleteModalVisible(false)}>
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                disabled={deleting}
+                style={[styles.modalConfirmBtn, deleting && { opacity: 0.7 }]}
+                onPress={confirmDeleteAccount}>
+                {deleting ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Text style={styles.modalConfirmText}>Delete Account</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
@@ -330,5 +445,186 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#f1f5f9'
   },
-  signOutText: { fontSize: 16, fontWeight: 'bold', color: Colors.secondary }
+  signOutText: { fontSize: 16, fontWeight: 'bold', color: Colors.secondary },
+
+  /* Delete Account Modal Styles */
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 420,
+    backgroundColor: '#fff',
+    borderRadius: 28,
+    padding: 22,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 8,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+    paddingBottom: 14,
+  },
+  modalIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: '#FEE2E2',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#1E293B',
+  },
+  modalSub: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  modalCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F1F5F9',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalCloseText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#64748B',
+  },
+  modalQuestion: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#334155',
+    marginBottom: 10,
+  },
+  reasonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    backgroundColor: '#F8FAFC',
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  reasonRowSelected: {
+    backgroundColor: '#FFF0F4',
+    borderColor: '#FF3870',
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: '#94A3B8',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+    backgroundColor: '#fff',
+  },
+  checkboxActive: {
+    backgroundColor: '#FF3870',
+    borderColor: '#FF3870',
+  },
+  checkMark: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  reasonText: {
+    fontSize: 13,
+    color: '#334155',
+    flex: 1,
+    fontWeight: '500',
+  },
+  reasonTextSelected: {
+    color: '#FF3870',
+    fontWeight: '700',
+  },
+  feedbackInput: {
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 14,
+    padding: 12,
+    fontSize: 13,
+    color: '#1E293B',
+    backgroundColor: '#F8FAFC',
+    textAlignVertical: 'top',
+    minHeight: 64,
+  },
+  antiAbuseNotice: {
+    flexDirection: 'row',
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    borderRadius: 12,
+    padding: 10,
+    marginTop: 12,
+    gap: 8,
+    alignItems: 'flex-start',
+  },
+  antiAbuseIcon: {
+    fontSize: 14,
+  },
+  antiAbuseText: {
+    fontSize: 11,
+    color: '#92400E',
+    flex: 1,
+    lineHeight: 16,
+    fontWeight: '600',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 18,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+    paddingTop: 14,
+  },
+  modalCancelBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 14,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalCancelText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  modalConfirmBtn: {
+    flex: 1.3,
+    paddingVertical: 12,
+    borderRadius: 14,
+    backgroundColor: '#EF4444',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalConfirmText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#fff',
+  },
 });

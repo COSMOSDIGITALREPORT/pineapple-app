@@ -133,11 +133,19 @@ router.get('/live', auth, async (req, res) => {
     const onlineMap = io?.onlineUsers;
 
     rows = rows.map(u => {
-      const activeInSocket = onlineMap ? onlineMap.has(u.id) : (u.is_online === 1);
-      const hidden = isHideOnline(u.content_prefs);
-      const isOnline = (activeInSocket && !hidden) ? 1 : 0;
+      const isGirl = ['girl', 'female', 'f'].includes((u.gender || '').toLowerCase());
+      let isOnline;
+      if (isGirl) {
+        // Girl host presence is strictly tied to her live toggle
+        isOnline = (u.is_live === 1 || u.is_live === true || u.is_live === '1') ? 1 : 0;
+      } else {
+        const activeInSocket = onlineMap ? onlineMap.has(u.id) : (u.is_online === 1);
+        const hidden = isHideOnline(u.content_prefs);
+        isOnline = (activeInSocket && !hidden) ? 1 : 0;
+      }
       return {
         ...u,
+        is_live: isGirl ? isOnline : u.is_live,
         is_online: isOnline,
         rating: parseFloat(u.rating || 0),
         age: calcAge(u.dob),
@@ -209,29 +217,27 @@ router.get('/top', async (req, res) => {
     let rows;
     try {
       [rows] = await pool.query(
-        `SELECT u.id, u.name, u.avatar_url, u.city, u.language, u.is_online, u.rating, u.rating_count, u.content_prefs,
+        `SELECT u.id, u.name, u.avatar_url, u.city, u.language, u.is_online, u.is_live, u.rating, u.rating_count, u.content_prefs,
                 (SELECT COUNT(*) FROM calls WHERE receiver_id = u.id AND status = 'ended') AS calls_count
          FROM users u WHERE u.gender='girl' AND u.is_blocked=0 AND u.is_verified=1 ${blockFilter}
-         ORDER BY u.rating DESC, u.rating_count DESC, u.is_online DESC LIMIT 20`,
+         ORDER BY u.is_live DESC, u.rating DESC, u.rating_count DESC LIMIT 20`,
         params
       );
     } catch (_) {
       [rows] = await pool.query(
-        `SELECT u.id, u.name, u.avatar_url, u.city, u.language, u.is_online, u.rating, u.rating_count, u.content_prefs,
+        `SELECT u.id, u.name, u.avatar_url, u.city, u.language, u.is_online, u.is_live, u.rating, u.rating_count, u.content_prefs,
                 (SELECT COUNT(*) FROM calls WHERE receiver_id = u.id AND status = 'ended') AS calls_count
          FROM users u WHERE u.gender='girl' AND u.is_blocked=0 AND u.is_verified=1
-         ORDER BY u.rating DESC, u.rating_count DESC, u.is_online DESC LIMIT 20`
+         ORDER BY u.is_live DESC, u.rating DESC, u.rating_count DESC LIMIT 20`
       );
     }
 
-    const io = req.app.get('io');
-    const onlineMap = io?.onlineUsers;
     res.json(rows.map(r => {
-      const activeInSocket = onlineMap ? onlineMap.has(r.id) : (r.is_online === 1);
-      const hidden = isHideOnline(r.content_prefs);
+      const isLiveHost = (r.is_live === 1 || r.is_live === true || r.is_live === '1');
       return {
         ...r,
-        is_online: (activeInSocket && !hidden) ? 1 : 0,
+        is_live: isLiveHost ? 1 : 0,
+        is_online: isLiveHost ? 1 : 0,
         rating: parseFloat(r.rating || 0),
         age: calcAge(r.dob),
       };

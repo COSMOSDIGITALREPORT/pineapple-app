@@ -95,16 +95,31 @@ module.exports = (io) => {
 
     socket.on('room:join',    ({ roomId }) => { socket.join(`room:${roomId}`);  socket.to(`room:${roomId}`).emit('room:user_joined', { userId }); });
     socket.on('room:leave',   ({ roomId }) => { socket.leave(`room:${roomId}`); socket.to(`room:${roomId}`).emit('room:user_left',  { userId }); });
-    socket.on('user:online', () => {
+    socket.on('user:online', async (payload) => {
       if (socket.userId) {
         online.set(socket.userId, socket.id);
-        pool.query('UPDATE users SET is_online=1, is_live=1 WHERE id=?', [socket.userId]).catch(() => {});
+        try {
+          const [rows] = await pool.query('SELECT gender, is_live FROM users WHERE id=?', [socket.userId]);
+          const u = rows && rows[0];
+          const isGirl = u && ['girl', 'female', 'f'].includes((u.gender || '').toLowerCase());
+          if (isGirl) {
+            let isLive = (u.is_live === 1 || u.is_live === true || u.is_live === '1') ? 1 : 0;
+            if (payload && payload.isLive !== undefined) {
+              isLive = (payload.isLive === true || payload.isLive === 1 || payload.isLive === '1') ? 1 : 0;
+            }
+            await pool.query('UPDATE users SET is_online=?, is_live=? WHERE id=?', [isLive, isLive, socket.userId]);
+            io.emit('user:status_changed', { userId: socket.userId, is_online: isLive, is_live: isLive });
+            console.log(`[SOCKET] 🟢 user:online (girl host ${socket.userId}): is_live=${isLive}`);
+            return;
+          }
+        } catch (_) {}
+        pool.query('UPDATE users SET is_online=1 WHERE id=?', [socket.userId]).catch(() => {});
         io.emit('user:status_changed', { userId: socket.userId, is_online: 1, is_live: 1 });
         console.log(`[SOCKET] 🟢 user:online: ${socket.userId}`);
       }
     });
 
-    socket.on('user:offline', () => {
+    socket.on('user:offline', async () => {
       if (socket.userId) {
         online.delete(socket.userId);
         pool.query('UPDATE users SET is_online=0, is_live=0, last_seen=NOW() WHERE id=?', [socket.userId]).catch(() => {});
@@ -113,9 +128,19 @@ module.exports = (io) => {
       }
     });
 
-    socket.on('disconnect', () => {
+    socket.on('disconnect', async () => {
       if (socket.userId) {
         online.delete(socket.userId);
+        try {
+          const [rows] = await pool.query('SELECT gender, is_live FROM users WHERE id=?', [socket.userId]);
+          const u = rows && rows[0];
+          const isGirl = u && ['girl', 'female', 'f'].includes((u.gender || '').toLowerCase());
+          if (isGirl && (u.is_live === 1 || u.is_live === true || u.is_live === '1')) {
+            // Girl host has live toggle ON — she remains LIVE and ONLINE even when socket disconnects / app in background!
+            console.log(`[SOCKET] 🟡 disconnect: girl host ${socket.userId} is_live=1, keeping online in boys app`);
+            return;
+          }
+        } catch (_) {}
         pool.query('UPDATE users SET is_online=0, last_seen=NOW() WHERE id=?', [socket.userId]).catch(() => {});
         io.emit('user:status_changed', { userId: socket.userId, is_online: 0, is_live: 0 });
       }
