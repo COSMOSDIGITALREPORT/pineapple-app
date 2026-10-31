@@ -147,16 +147,24 @@ class Firebase {
 
         $strData = [];
         foreach ($data as $k => $v) {
-            $strData[(string)$k] = (string)$v;
+            if (is_null($v)) {
+                $strData[(string)$k] = '';
+            } elseif (is_bool($v)) {
+                $strData[(string)$k] = $v ? 'true' : 'false';
+            } elseif (is_scalar($v)) {
+                $strData[(string)$k] = (string)$v;
+            } else {
+                $strData[(string)$k] = json_encode($v);
+            }
         }
 
-        $isCallSignal = in_array($strData['type'] ?? '', ['incoming_call', 'call_cancelled', 'call_ended'], true);
+        $isCallSignal = in_array($strData['type'] ?? '', ['incoming_call', 'call_cancelled', 'call_ended', 'call_rejected'], true);
 
         if ($isCallSignal) {
-            // For VoIP / incoming call events, send high-priority data-only message so Android
-            // native service executes in background, screen-off, or killed states and shows fullScreenIntent!
-            $strData['title'] = $title;
-            $strData['body']  = $body;
+            // For VoIP / incoming call events, send high-priority data-only message (NO notification block)
+            // so Android native service executes in background, screen-off, or killed states and shows fullScreenIntent!
+            $strData['title'] = (string)$title;
+            $strData['body']  = (string)$body;
             $message = [
                 'message' => [
                     'token' => $token,
@@ -222,6 +230,10 @@ class Firebase {
         $response = curl_exec($ch);
         $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
+
+        if ($code < 200 || $code >= 300) {
+            error_log("[PineappleCall FCM Error] HTTP {$code}: {$response}");
+        }
 
         return ($code >= 200 && $code < 300);
     }

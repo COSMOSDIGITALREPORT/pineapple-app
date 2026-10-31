@@ -122,6 +122,7 @@ function handleCallsRoute(string $subRoute, string $method, array $body, ?array 
                     'channelName'  => $agoraChannel,
                     'agoraChannel' => $agoraChannel,
                     'agoraAppId'   => $config['agora_app_id'],
+                    'receiverToken'=> (string)$receiverToken,
                 ]
             );
         }

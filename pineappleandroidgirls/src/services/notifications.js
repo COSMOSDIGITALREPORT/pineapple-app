@@ -46,7 +46,7 @@ export async function syncFcmToken(userIdOverride) {
 
     const token = await messaging().getToken();
     if (token) {
-      console.log('[FCM] Token acquired:', token.substring(0, 15) + '...');
+      console.log('[PineappleCall] FCM Token acquired:', token.substring(0, 15) + '...');
       await AsyncStorage.setItem('fcm_token', token);
 
       let userId = userIdOverride;
@@ -68,9 +68,9 @@ export async function syncFcmToken(userIdOverride) {
       // Sync with backend
       try {
         await saveFcmToken(token, userId);
-        console.log('[FCM] Token synced to backend successfully for user:', userId);
+        console.log('[PineappleCall] Token synced to backend successfully for user:', userId);
       } catch (apiErr) {
-        console.log('[FCM] Backend sync deferred (user not yet authenticated)');
+        console.log('[PineappleCall] Backend sync deferred (user not yet authenticated)');
       }
     }
 
@@ -186,7 +186,7 @@ function notifyCallCancelled(data) {
 export function setupNotificationListeners(onNotificationPress) {
   // 1. Token Refresh listener
   const unsubscribeToken = messaging().onTokenRefresh(async (newToken) => {
-    console.log('[FCM] Token refreshed');
+    console.log('[PineappleCall] onTokenRefresh acquired new token:', newToken.substring(0, 15) + '...');
     await AsyncStorage.setItem('fcm_token', newToken);
     try {
       let userId = null;

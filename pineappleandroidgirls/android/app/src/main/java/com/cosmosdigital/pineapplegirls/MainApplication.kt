@@ -36,13 +36,21 @@ class MainApplication : Application(), ReactApplication {
       val notificationManager = getSystemService(NotificationManager::class.java) ?: return
 
       // Clean up legacy channels if present
-      try {
-        notificationManager.deleteNotificationChannel("pineapple_calls_channel")
-        notificationManager.deleteNotificationChannel("pineapple_calls_channel_v2")
-      } catch (e: Exception) {}
+      val oldChannels = listOf(
+        "pineapple_calls_channel",
+        "pineapple_calls_channel_v2",
+        "pineapple_calls_channel_v3",
+        "incoming_calls_v2",
+        "incoming_calls_v3"
+      )
+      for (ch in oldChannels) {
+        try {
+          notificationManager.deleteNotificationChannel(ch)
+        } catch (_: Exception) {}
+      }
 
       val callChannel = NotificationChannel(
-        "pineapple_calls_channel_v3",
+        "incoming_calls_v4",
         "Pineapple Incoming Calls",
         NotificationManager.IMPORTANCE_HIGH
       ).apply {

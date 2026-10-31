@@ -12,23 +12,34 @@ import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
-import android.provider.Settings
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.Person
 
 object CallNotificationHelper {
+    private const val TAG = "PineappleCall"
     const val CALL_NOTIFICATION_ID = 2026
-    const val CALL_CHANNEL_ID = "pineapple_calls_channel_v3"
+    const val CALL_CHANNEL_ID = "incoming_calls_v4"
     private var wakeLock: PowerManager.WakeLock? = null
     private var ringtone: Ringtone? = null
 
     fun ensureChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
-            
-            // Clean up older channel versions
-            try { nm.deleteNotificationChannel("pineapple_calls_channel") } catch (_: Exception) {}
-            try { nm.deleteNotificationChannel("pineapple_calls_channel_v2") } catch (_: Exception) {}
+
+            // Delete frozen previous channels so Android creates this one fresh with high importance & sound
+            val oldChannels = listOf(
+                "pineapple_calls_channel",
+                "pineapple_calls_channel_v2",
+                "pineapple_calls_channel_v3",
+                "incoming_calls_v2",
+                "incoming_calls_v3"
+            )
+            for (ch in oldChannels) {
+                try {
+                    nm.deleteNotificationChannel(ch)
+                } catch (_: Exception) {}
+            }
 
             val soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
                 ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
@@ -51,13 +62,20 @@ object CallNotificationHelper {
                 setBypassDnd(true)
             }
             nm.createNotificationChannel(channel)
+            Log.d(TAG, "Notification channel ensured: $CALL_CHANNEL_ID")
         }
     }
 
     fun showIncomingCall(context: Context, data: Map<String, String>) {
+        val callId = data["callId"] ?: ""
+        val callerId = data["callerId"] ?: ""
+        val callerName = data["callerName"] ?: "Someone"
+        val callType = data["callType"] ?: data["type"] ?: "audio"
+
+        Log.d(TAG, "showIncomingCall called for callId=$callId, caller=$callerName, type=$callType")
         ensureChannel(context)
 
-        // 1. Wake the screen hardware
+        // 1. Hardware Wake Lock to wake up the screen
         try {
             val pm = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
             if (pm != null) {
@@ -66,15 +84,16 @@ object CallNotificationHelper {
                         PowerManager.ACQUIRE_CAUSES_WAKEUP or
                         PowerManager.ON_AFTER_RELEASE
                 wakeLock = pm.newWakeLock(flags, "Pineapple:IncomingCallWakeLock")
-                wakeLock?.acquire(35000L) // 35 sec max timeout
+                wakeLock?.acquire(45000L) // 45 sec max
+                Log.d(TAG, "WakeLock acquired for 45s")
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e(TAG, "WakeLock acquisition error: ${e.message}", e)
         }
 
         // 2. Direct Activity Launch (WhatsApp / Telegram incoming call behavior)
         try {
-            val directIntent = Intent(context, MainActivity::class.java).apply {
+            val directIntent = Intent(context, IncomingCallActivity::class.java).apply {
                 action = "ACTION_INCOMING_CALL"
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or
                         Intent.FLAG_ACTIVITY_CLEAR_TOP or
@@ -85,17 +104,17 @@ object CallNotificationHelper {
                 }
             }
             context.startActivity(directIntent)
+            Log.d(TAG, "Direct startActivity for IncomingCallActivity executed")
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.w(TAG, "Direct startActivity for IncomingCallActivity failed: ${e.message}")
         }
 
-        val callerName = data["callerName"] ?: "Someone"
-        val callType = data["callType"] ?: data["type"] ?: "video"
-        val title = "Incoming " + (if (callType == "video") "Video" else "Audio") + " Call"
+        val title = "Incoming " + (if (callType.equals("video", ignoreCase = true)) "Video" else "Audio") + " Call"
         val body = "$callerName is calling you..."
 
-        // Full-screen Activity Intent (opens MainActivity over lock screen)
-        val fullScreenIntent = Intent(context, MainActivity::class.java).apply {
+        // 3. Full-screen Activity Intent targeting IncomingCallActivity
+        Log.d(TAG, "Creating full-screen PendingIntent for IncomingCallActivity with callId=$callId")
+        val fullScreenIntent = Intent(context, IncomingCallActivity::class.java).apply {
             action = "ACTION_INCOMING_CALL"
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or
                     Intent.FLAG_ACTIVITY_CLEAR_TOP or
@@ -112,7 +131,7 @@ object CallNotificationHelper {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        // Answer action
+        // Answer action PendingIntent
         val answerIntent = Intent(context, MainActivity::class.java).apply {
             action = "ACTION_ANSWER_CALL"
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or
@@ -121,7 +140,7 @@ object CallNotificationHelper {
             for ((k, v) in data) {
                 putExtra(k, v)
             }
-            putExtra("autoAccept", true)
+            putExtra("autoAccept", "true")
         }
         val answerPendingIntent = PendingIntent.getActivity(
             context,
@@ -130,11 +149,11 @@ object CallNotificationHelper {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        // Decline action
+        // Decline action PendingIntent
         val declineIntent = Intent(context, CallActionReceiver::class.java).apply {
             action = "ACTION_DECLINE_CALL"
-            putExtra("callId", data["callId"] ?: "")
-            putExtra("callerId", data["callerId"] ?: "")
+            putExtra("callId", callId)
+            putExtra("callerId", callerId)
         }
         val declinePendingIntent = PendingIntent.getBroadcast(
             context,
@@ -174,30 +193,34 @@ object CallNotificationHelper {
             .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Decline", declinePendingIntent)
             .addAction(android.R.drawable.ic_menu_call, "Accept", answerPendingIntent)
 
+        Log.d(TAG, "Posting incoming call notification id=$CALL_NOTIFICATION_ID to channel=$CALL_CHANNEL_ID")
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
         nm?.notify(CALL_NOTIFICATION_ID, builder.build())
 
-        // Play ringtone
+        // Play Ringtone
         playRingtone(context)
     }
 
     fun cancelIncomingCall(context: Context) {
+        Log.d(TAG, "cancelIncomingCall: Dismissing notification and stopping ringtone")
         try {
             val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
             nm?.cancel(CALL_NOTIFICATION_ID)
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e(TAG, "cancelIncomingCall notification dismiss error: ${e.message}", e)
         }
 
         stopRingtone()
+        IncomingCallActivity.closeIfActive()
 
         try {
             if (wakeLock?.isHeld == true) {
                 wakeLock?.release()
+                Log.d(TAG, "WakeLock released")
             }
             wakeLock = null
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e(TAG, "WakeLock release error: ${e.message}", e)
         }
     }
 
@@ -205,6 +228,7 @@ object CallNotificationHelper {
         try {
             if (ringtone == null) {
                 val uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+                    ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
                 ringtone = RingtoneManager.getRingtone(context.applicationContext, uri)
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                     ringtone?.isLooping = true
@@ -213,17 +237,21 @@ object CallNotificationHelper {
             if (ringtone?.isPlaying == false) {
                 ringtone?.play()
             }
+            Log.d(TAG, "Ringtone started successfully (isPlaying=${ringtone?.isPlaying})")
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e(TAG, "Ringtone play error: ${e.message}", e)
         }
     }
 
     fun stopRingtone() {
         try {
-            ringtone?.stop()
+            if (ringtone?.isPlaying == true) {
+                ringtone?.stop()
+                Log.d(TAG, "Ringtone stopped")
+            }
             ringtone = null
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e(TAG, "Ringtone stop error: ${e.message}", e)
         }
     }
 }

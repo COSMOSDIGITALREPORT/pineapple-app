@@ -13,6 +13,7 @@ import Icon from '../components/Icon';
 import { getEarnings, getCallHistory, getWallet, getUserReviews, getWithdrawals, getMe, setLiveStatus } from '../services/api';
 import { getSocket } from '../services/socket';
 import { syncFcmToken } from '../services/notifications';
+import CallPermissionSetup from '../components/CallPermissionSetup';
 
 const GIFT_EMOJI = { Rose:'🌹', Chocolate:'🍫', Pastry:'🍰', Pineapple:'🍍', Heart:'❤️', Perfume:'🧴', Crown:'👑' };
 
@@ -263,6 +264,9 @@ export default function GirlsEarningsScreen({ onDrawer, onRedeem }) {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FF3870" />}
         contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}>
+
+        {/* CALL PERMISSION SETUP */}
+        <CallPermissionSetup />
 
         {/* 6 STATS GRID */}
         <View style={styles.statsGrid}>

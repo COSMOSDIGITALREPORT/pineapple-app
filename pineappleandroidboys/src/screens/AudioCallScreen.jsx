@@ -166,26 +166,51 @@ export default function AudioCallScreen({ onBack, onHangup, callerUser, incoming
 
     // Active polling for call status (declined/accepted) during "Connecting..."
     let pollInterval = null;
+    let callTimeout = null;
+
+    const handleCallDeclined = () => {
+      if (pollInterval) clearInterval(pollInterval);
+      if (callTimeout) clearTimeout(callTimeout);
+      setCallStatus('Call Declined');
+      Alert.alert('Call Declined', 'The host declined your call.', [
+        { text: 'OK', onPress: () => cleanupCall('00:00') }
+      ]);
+      setTimeout(() => cleanupCall('00:00'), 2500);
+    };
+
     if (!incomingCallData) {
+      // 40 second graceful timeout for unhandled calls
+      callTimeout = setTimeout(() => {
+        if (!callRef.current?._started) {
+          if (pollInterval) clearInterval(pollInterval);
+          setCallStatus('No Answer');
+          Alert.alert('No Answer', 'The host did not answer the call.', [
+            { text: 'OK', onPress: () => cleanupCall('00:00') }
+          ]);
+          setTimeout(() => cleanupCall('00:00'), 2500);
+        }
+      }, 40000);
+
       pollInterval = setInterval(async () => {
         const cId = callRef.current?.id;
         const isStarted = !!callRef.current?._started;
         if (!cId || isStarted) {
           if (isStarted && pollInterval) clearInterval(pollInterval);
+          if (isStarted && callTimeout) clearTimeout(callTimeout);
           return;
         }
         try {
           const { get } = require('../services/api');
           const res = await get(`/calls/${cId}/status`);
           if (res?.status === 'rejected') {
-            if (pollInterval) clearInterval(pollInterval);
-            Alert.alert('Call Declined', 'The other person declined your call.');
-            cleanupCall('00:00');
+            handleCallDeclined();
           } else if (res?.status === 'ended' || res?.status === 'cancelled') {
             if (pollInterval) clearInterval(pollInterval);
+            if (callTimeout) clearTimeout(callTimeout);
             cleanupCall('00:00');
           } else if (res?.status === 'connected') {
             if (pollInterval) clearInterval(pollInterval);
+            if (callTimeout) clearTimeout(callTimeout);
             if (!callRef.current?._started) startTimer();
           }
         } catch (_) {}
@@ -198,15 +223,16 @@ export default function AudioCallScreen({ onBack, onHangup, callerUser, incoming
       if (!incomingCallData) {
         socket.on('call:accepted', () => {
           if (pollInterval) clearInterval(pollInterval);
+          if (callTimeout) clearTimeout(callTimeout);
           startTimer();
         });
         socket.on('call:rejected', () => {
-          if (pollInterval) clearInterval(pollInterval);
-          Alert.alert('Call Declined', 'The other person declined your call.');
-          cleanupCall('00:00');
+          handleCallDeclined();
         });
         socket.on('call:unavailable', () => {
           if (pollInterval) clearInterval(pollInterval);
+          if (callTimeout) clearTimeout(callTimeout);
+          setCallStatus('Offline');
           Alert.alert('Offline', 'User is not available right now.');
           (onHangup || onBack)('00:00');
         });
@@ -217,6 +243,7 @@ export default function AudioCallScreen({ onBack, onHangup, callerUser, incoming
 
     return () => {
       if (pollInterval) clearInterval(pollInterval);
+      if (callTimeout) clearTimeout(callTimeout);
       clearInterval(callRef.current?._timer);
       try {
         if (engineRef.current) {

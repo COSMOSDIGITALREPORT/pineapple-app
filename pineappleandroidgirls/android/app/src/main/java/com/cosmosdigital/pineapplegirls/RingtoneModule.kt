@@ -1,12 +1,14 @@
 package com.cosmosdigital.pineapplegirls
 
 import android.app.NotificationManager
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
+import androidx.core.app.NotificationManagerCompat
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
@@ -76,22 +78,62 @@ class RingtoneModule(private val context: ReactApplicationContext) :
   fun checkCallPermissions(promise: Promise) {
     try {
       val map = Arguments.createMap()
-      val canDraw = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+
+      // 1. Post Notifications (Android 13+ / API 33+)
+      val notifEnabled = NotificationManagerCompat.from(context).areNotificationsEnabled()
+
+      // 2. Full-Screen Intent (Android 14+ / API 34+)
+      val canUseFullScreen = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+        nm?.canUseFullScreenIntent() ?: true
+      } else {
+        true
+      }
+
+      // 3. Draw Over Other Apps (SYSTEM_ALERT_WINDOW)
+      val canDrawOverlays = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
         Settings.canDrawOverlays(context)
       } else {
         true
       }
+
+      // 4. Battery Optimization Exemption
       val pm = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
-      val isBatteryOptimized = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && pm != null) {
+      val isBatteryIgnoring = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && pm != null) {
         pm.isIgnoringBatteryOptimizations(context.packageName)
       } else {
         true
       }
-      map.putBoolean("canDrawOverlays", canDraw)
-      map.putBoolean("ignoringBatteryOptimizations", isBatteryOptimized)
+
+      val manufacturer = Build.MANUFACTURER.lowercase()
+
+      map.putBoolean("postNotifications", notifEnabled)
+      map.putBoolean("fullScreenIntent", canUseFullScreen)
+      map.putBoolean("canDrawOverlays", canDrawOverlays)
+      map.putBoolean("ignoringBatteryOptimizations", isBatteryIgnoring)
+      map.putString("manufacturer", manufacturer)
+      map.putBoolean("allGranted", notifEnabled && canUseFullScreen && canDrawOverlays && isBatteryIgnoring)
+
       promise.resolve(map)
     } catch (e: Exception) {
       promise.reject("PERMISSION_CHECK_ERROR", e.message)
+    }
+  }
+
+  @ReactMethod
+  fun requestFullScreenIntentPermission() {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+      try {
+        val intent = Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT).apply {
+          data = Uri.parse("package:" + context.packageName)
+          flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        }
+        context.startActivity(intent)
+      } catch (e: Exception) {
+        openAppSettings()
+      }
+    } else {
+      openAppSettings()
     }
   }
 
@@ -107,7 +149,7 @@ class RingtoneModule(private val context: ReactApplicationContext) :
         }
         context.startActivity(intent)
       } catch (e: Exception) {
-        e.printStackTrace()
+        openAppSettings()
       }
     }
   }
@@ -124,8 +166,80 @@ class RingtoneModule(private val context: ReactApplicationContext) :
         }
         context.startActivity(intent)
       } catch (e: Exception) {
-        e.printStackTrace()
+        try {
+          val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+          }
+          context.startActivity(intent)
+        } catch (_: Exception) {
+          openAppSettings()
+        }
       }
+    }
+  }
+
+  @ReactMethod
+  fun openAutostartSettings() {
+    val manufacturer = Build.MANUFACTURER.lowercase()
+    val intents = mutableListOf<Intent>()
+
+    when {
+      manufacturer.contains("xiaomi") || manufacturer.contains("redmi") || manufacturer.contains("poco") -> {
+        intents.add(Intent().setComponent(ComponentName("com.miui.securitycenter", "com.miui.permcenter.autostart.AutoStartManagementActivity")))
+        intents.add(Intent("miui.intent.action.OP_AUTO_START").addCategory(Intent.CATEGORY_DEFAULT))
+      }
+      manufacturer.contains("oppo") || manufacturer.contains("realme") -> {
+        intents.add(Intent().setComponent(ComponentName("com.coloros.safecenter", "com.coloros.safecenter.permission.startup.StartupAppListActivity")))
+        intents.add(Intent().setComponent(ComponentName("com.coloros.safecenter", "com.coloros.safecenter.startupapp.StartupAppListActivity")))
+        intents.add(Intent().setComponent(ComponentName("com.oppo.safe", "com.oppo.safe.permission.startup.StartupAppListActivity")))
+      }
+      manufacturer.contains("vivo") || manufacturer.contains("iqoo") -> {
+        intents.add(Intent().setComponent(ComponentName("com.iqoo.secure", "com.iqoo.secure.ui.phoneoptimize.AddWhiteListActivity")))
+        intents.add(Intent().setComponent(ComponentName("com.vivo.permissionmanager", "com.vivo.permissionmanager.activity.BgStartUpManagerActivity")))
+        intents.add(Intent().setComponent(ComponentName("com.iqoo.secure", "com.iqoo.secure.ui.phoneoptimize.BgStartUpManager")))
+      }
+      manufacturer.contains("samsung") -> {
+        intents.add(Intent().setComponent(ComponentName("com.samsung.android.lool", "com.samsung.android.sm.ui.battery.BatteryActivity")))
+        intents.add(Intent().setComponent(ComponentName("com.samsung.android.sm", "com.samsung.android.sm.ui.battery.BatteryActivity")))
+      }
+      manufacturer.contains("huawei") || manufacturer.contains("honor") -> {
+        intents.add(Intent().setComponent(ComponentName("com.huawei.systemmanager", "com.huawei.systemmanager.optimize.process.ProtectActivity")))
+        intents.add(Intent().setComponent(ComponentName("com.huawei.systemmanager", "com.huawei.systemmanager.appcontrol.activity.StartupAppControlActivity")))
+      }
+    }
+
+    var started = false
+    for (it in intents) {
+      try {
+        it.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        context.startActivity(it)
+        started = true
+        break
+      } catch (_: Exception) {}
+    }
+
+    if (!started) {
+      openAppSettings()
+    }
+  }
+
+  @ReactMethod
+  fun openNotificationSettings() {
+    try {
+      val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+          putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+          flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        }
+      } else {
+        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+          data = Uri.parse("package:" + context.packageName)
+          flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        }
+      }
+      context.startActivity(intent)
+    } catch (e: Exception) {
+      openAppSettings()
     }
   }
 

@@ -238,5 +238,8 @@ export const getUserReviews = (userId) => get(`/users/${userId}/reviews`);
 
 export const getSupportMessages = () => get('/support/messages');
 export const sendSupportMessage = (message, is_quick_faq = false) => post('/support/messages', { message, is_quick_faq });
-export const saveFcmToken = (fcmToken, userId) => post('/auth/fcm-token', { fcmToken, userId });
+export const saveFcmToken = (fcmToken, userId) => {
+  console.log('[PineappleCall] Saving FCM token to backend for user:', userId, fcmToken ? fcmToken.substring(0, 15) + '...' : null);
+  return post('/auth/fcm-token', { fcmToken, userId });
+};
 export const deleteAccount = (data = {}) => del('/users/me', data);

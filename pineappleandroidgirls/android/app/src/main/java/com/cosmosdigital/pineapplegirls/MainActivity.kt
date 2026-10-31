@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import android.view.WindowManager
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate
@@ -64,6 +65,7 @@ class MainActivity : ReactActivity() {
       if (intent.action == "ACTION_ANSWER_CALL") {
         map["autoAccept"] = "true"
       }
+      Log.d("PineappleCall", "MainActivity handleCallIntent: action=${intent.action}, callId=$callId, autoAccept=${map["autoAccept"]}")
       IncomingCallBridge.pendingCallData = map
       IncomingCallBridge.onIncomingCall(map)
     }

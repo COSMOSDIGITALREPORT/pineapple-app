@@ -9,6 +9,7 @@ import { useDispatch } from 'react-redux';
 import { Colors, Gradients } from '../theme/colors';
 import Icon from '../components/Icon';
 import { sendOtp, verifyOtp } from '../services/api';
+import { syncFcmToken } from '../services/notifications';
 import { setAuthUser } from '../store/slices/userSlice';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import PrivacyPolicyScreen from './PrivacyPolicyScreen';
@@ -48,6 +49,7 @@ export default function LoginScreen({ onLoginSuccess }) {
         ['user_session', JSON.stringify({ token: userData.token, user: userData.user })],
       ]);
     }
+    try { syncFcmToken(userData.user?.id); } catch (_) {}
     onLoginSuccess(userData.user);
   };
 
