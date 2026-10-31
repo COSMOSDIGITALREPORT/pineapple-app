@@ -62,3 +62,9 @@ pineapple-transfer/
 APKS/
 *.apk
 *gradle_error.txt
+
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+*.db
+cpanel_deploy/api/*.sqlite*

@@ -2,5 +2,8 @@
 deployment:
   tasks:
     - export DEPLOYPATH=/home/matureen/admin.pineapplemeetups.com/
+    - mkdir -p /tmp/pineapple_db_backup
+    - if [ -f $DEPLOYPATH/api/pineapple.sqlite ]; then cp -f $DEPLOYPATH/api/pineapple.sqlite* /tmp/pineapple_db_backup/ 2>/dev/null || true; fi
     - /bin/cp -R cpanel_deploy/* $DEPLOYPATH
     - /bin/cp -f cpanel_deploy/.htaccess $DEPLOYPATH
+    - if [ -f /tmp/pineapple_db_backup/pineapple.sqlite ]; then cp -f /tmp/pineapple_db_backup/pineapple.sqlite* $DEPLOYPATH/api/ 2>/dev/null || true; rm -rf /tmp/pineapple_db_backup; fi
