@@ -58,6 +58,14 @@ router.post('/verify', auth, async (req, res) => {
 
     const isPremiumPack = req.body.packageId === 'pack_500';
     const isIntroPack   = req.body.packageId === 'pack_9';
+
+    if (isIntroPack) {
+      const [uRows] = await pool.query('SELECT intro_9_used FROM users WHERE id=?', [req.user.userId]);
+      if (uRows[0]?.intro_9_used) {
+        return res.status(400).json({ error: 'The ₹9 Intro Trial plan is a one-time offer for new users only.' });
+      }
+    }
+
     if (isPremiumPack) {
       await pool.query(
         'UPDATE users SET minutes=minutes+?, is_premium=1, plan_id=?, spin_available=COALESCE(spin_available, 0)+1, premium_coins_remaining=premium_coins_remaining+? WHERE id=?',

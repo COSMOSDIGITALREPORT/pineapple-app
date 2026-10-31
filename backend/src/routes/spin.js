@@ -5,12 +5,12 @@ const pool   = require('../config/db');
 
 // index matches frontend PRIZES array exactly
 const PRIZES = [
-  { index:0, type:'rose',      label:'Rose',      emoji:'🌹', value:10,    weight:370 },
-  { index:1, type:'chocolate', label:'Chocolate', emoji:'🍫', value:20,    weight:270 },
-  { index:2, type:'miss',      label:'Luck!',     emoji:'🍀', value:0,     weight:100 },
+  { index:0, type:'rose',      label:'Rose',      emoji:'🌹', value:10,    weight:320 },
+  { index:1, type:'chocolate', label:'Chocolate', emoji:'🍫', value:20,    weight:220 },
+  { index:2, type:'miss',      label:'Luck!',     emoji:'🍀', value:0,     weight:150 },
   { index:3, type:'pastry',    label:'Pastry',    emoji:'🍰', value:50,    weight:100 },
   { index:4, type:'pineapple', label:'Pineapple', emoji:'🍍', value:100,   weight:40  },
-  { index:5, type:'miss',      label:'Luck!',     emoji:'🍀', value:0,     weight:100 },
+  { index:5, type:'miss',      label:'Luck!',     emoji:'🍀', value:0,     weight:150 },
   { index:6, type:'heart',     label:'Heart',     emoji:'❤️', value:200,   weight:12  },
   { index:7, type:'perfume',   label:'Perfume',   emoji:'🧴', value:500,   weight:5   },
   { index:8, type:'crown',     label:'Crown',     emoji:'👑', value:5000,  weight:2   },

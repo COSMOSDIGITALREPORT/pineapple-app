@@ -119,6 +119,15 @@ function handlePaymentRoute(string $subRoute, string $method, array $body, ?arra
         $isPremiumPack = ($packageId === 'pack_500');
         $isIntroPack   = ($packageId === 'pack_9');
 
+        if ($isIntroPack) {
+            $uStmt = $db->prepare('SELECT intro_9_used FROM users WHERE id = ?');
+            $uStmt->execute([$user['id']]);
+            $uRow = $uStmt->fetch();
+            if (!empty($uRow['intro_9_used'])) {
+                jsonResponse(['error' => 'The ₹9 Intro Trial plan is a one-time offer for new users only.'], 400);
+            }
+        }
+
         // 3. Credit coins to user
         if ($isPremiumPack) {
             $db->prepare('UPDATE users SET coins = coins + ?, minutes = minutes + ?, is_premium = 1, spin_available = COALESCE(spin_available, 0) + 1 WHERE id = ?')

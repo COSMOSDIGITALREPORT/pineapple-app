@@ -5,9 +5,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  Share,
   StatusBar,
-  Alert,
   Dimensions,
   RefreshControl,
 } from 'react-native';
@@ -16,13 +14,13 @@ const SCREEN_W = Dimensions.get('window').width;
 import LinearGradient from 'react-native-linear-gradient';
 import { useSelector, useDispatch } from 'react-redux';
 
-import { redeemGift, addCoins } from '../store/slices/userSlice';
+import { addCoins } from '../store/slices/userSlice';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from '../components/Icon';
 import { Colors, Gradients } from '../theme/colors';
-import { getWallet, redeemGiftApi } from '../services/api';
+import { getWallet } from '../services/api';
 
-function GiftCard({ gift, onRedeem }) {
+function GiftCard({ gift }) {
   const isPending = gift.status === 'pending';
   const timeAgo = Math.floor((Date.now() - gift.wonAt) / 60000);
   const timeLabel = timeAgo < 60 ? `${timeAgo}m ago` : `${Math.floor(timeAgo / 60)}h ago`;
@@ -40,16 +38,7 @@ function GiftCard({ gift, onRedeem }) {
         {isPending && <Text style={giftStyles.worth}>Worth ₹{gift.value}</Text>}
       </View>
 
-      {isPending &&
-      <View style={giftStyles.actions}>
-          <TouchableOpacity onPress={onRedeem} style={giftStyles.redeemBtn} activeOpacity={0.85}>
-            <View style={giftStyles.redeemGrad}>
-              <LinearGradient colors={Gradients.secondary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />
-              <Text style={giftStyles.redeemText}>Redeem Coins</Text>
-            </View>
-          </TouchableOpacity>
-        </View>
-      }
+      
     </View>);
 }
 
@@ -108,31 +97,6 @@ export default function WalletScreen({ onBack }) {
 
   const pendingGifts = gifts.filter((g) => g.status === 'pending');
   const usedGifts = gifts.filter((g) => g.status !== 'pending');
-
-  const handleRedeem = (gift) => {
-    const mins = Math.floor(gift.value);
-    Alert.alert(
-      'Redeem Gift',
-      `Convert ${gift.emoji} ${gift.label} into ${mins} calling minutes?\n\n₹${gift.value} = ${mins} mins`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Redeem', onPress: async () => {
-            dispatch(redeemGift({ id: gift.id, action: 'redeem' }));
-            try {
-              const result = await redeemGiftApi(gift.value, gift.label);
-              dispatch(addCoins(result.minsAdded - mins)); // sync with server total
-            } catch { /* redux already updated locally */ }
-          }
-        }
-      ]
-    );
-  };
-
-  const handleShare = async () => {
-    await Share.share({
-      message: 'Join me on Pineapple! Use my referral code PINE123 and get 200 free coins. Download now!'
-    });
-  };
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
@@ -221,10 +185,7 @@ export default function WalletScreen({ onBack }) {
                     <Text style={[styles.sectionLabel, { marginTop: 24 }]}>Your Gifts</Text>
                     <View style={styles.giftList}>
                       {pendingGifts.map((g) =>
-                <GiftCard
-                  key={g.id}
-                  gift={g}
-                  onRedeem={() => handleRedeem(g)} />
+                <GiftCard key={g.id} gift={g} />
                 )}
                     </View>
                   </>
@@ -244,16 +205,7 @@ export default function WalletScreen({ onBack }) {
             }
           </View>
 
-          <TouchableOpacity style={[styles.referCard, { marginTop: 24 }]} activeOpacity={0.9} onPress={handleShare}>
-            <View style={styles.referInfo}>
-              <Text style={styles.referTitle}>Refer & Earn</Text>
-              <Text style={styles.referSub}>Get 200 coins for every friend you invite</Text>
-            </View>
-            <View style={styles.referBtn}>
-              <LinearGradient colors={Gradients.secondary} start={{x:0,y:0}} end={{x:1,y:1}} style={StyleSheet.absoluteFill} />
-              <Icon name="share" size={20} color="#fff" />
-            </View>
-          </TouchableOpacity>
+          
       </ScrollView>
     </View>);
 

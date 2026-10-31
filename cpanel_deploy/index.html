@@ -3198,14 +3198,16 @@ function renderLedger() {
 
     // Party label
     let partyHtml = `<b>${t.user_name||'User'}</b>`;
-    if (isSpend && t.receiver_name) {
+    if (isPurchase) {
+      partyHtml = `<b style="color:#16a34a;">💰 ${t.user_name || 'User'}</b>${t.user_phone ? ` <span style="color:#666;font-size:11px;font-weight:normal;">(${t.user_phone})</span>` : ''}`;
+    } else if (isSpend && t.receiver_name) {
       partyHtml = `<b>${t.user_name||'Boy'}</b> <span style="color:#aaa;font-size:11px;">➔</span> <b style="color:#7C3AED;">👧 ${t.receiver_name}</b>`;
     } else if (isEarn) {
       partyHtml = `<b style="color:#7C3AED;">👧 ${t.user_name||'Host'}</b>`;
     } else if (isFreeTrial) {
-      partyHtml = `<b style="color:#2563EB;">👦 ${t.user_name||'Boy'}</b> <span style="color:#10B981;font-size:11px;font-weight:700;">(Admin Trial)</span>`;
+      partyHtml = `<b style="color:#2563EB;">👦 ${t.user_name||'Boy'}</b>${t.user_phone ? ` <span style="color:#666;font-size:11px;font-weight:normal;">(${t.user_phone})</span>` : ''} <span style="color:#10B981;font-size:11px;font-weight:700;">(Admin Trial)</span>`;
     } else if (isSpinGift) {
-      partyHtml = `<b style="color:#D97706;">👦 ${t.user_name||'User'}</b> <span style="color:#F59E0B;font-size:11px;font-weight:700;">(Wheel Win)</span>`;
+      partyHtml = `<b style="color:#D97706;">👦 ${t.user_name||'User'}</b>${t.user_phone ? ` <span style="color:#666;font-size:11px;font-weight:normal;">(${t.user_phone})</span>` : ''} <span style="color:#F59E0B;font-size:11px;font-weight:700;">(Wheel Win)</span>`;
     }
 
     return `<tr>

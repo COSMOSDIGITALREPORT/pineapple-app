@@ -37,6 +37,7 @@ export default function AudioCallScreen({ onBack, onHangup, callerUser, incoming
   const myName = useSelector((s) => s.user.name);
   const myAvatar = useSelector((s) => s.user.avatar_url);
   const myCoins = useSelector((s) => s.user.coins);
+  const intro9Used = useSelector((s) => s.user.intro_9_used || s.user.intro9Used);
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const pulse2Anim = useRef(new Animated.Value(1)).current;
   const [muted, setMuted] = useState(false);
@@ -76,10 +77,15 @@ export default function AudioCallScreen({ onBack, onHangup, callerUser, incoming
       callRef.current._secs = elapsed;
       setSeconds(elapsed);
       if (isFreeTrialCall) {
-        if (elapsed === FREE_TRIAL_SECS - 30) setTrialWarning(true);
+        if (elapsed === FREE_TRIAL_SECS - 30 && !intro9Used) setTrialWarning(true);
         if (elapsed >= FREE_TRIAL_SECS) {
           clearInterval(t);
-          setShowTrialEndModal(true);
+          if (intro9Used) {
+            cleanupCall(elapsed);
+            Alert.alert('Free Trial Ended', 'Your free trial has ended. Please recharge coins to continue calling.');
+          } else {
+            setShowTrialEndModal(true);
+          }
         }
       } else {
         const maxSecs = allowedSecsRef.current;

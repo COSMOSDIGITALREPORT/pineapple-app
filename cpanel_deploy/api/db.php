@@ -229,10 +229,6 @@ SQL;
             $pdo->exec("ALTER TABLE users ADD COLUMN spin_available INTEGER DEFAULT 0;");
         } catch (\Throwable $ignored) {}
 
-        // Auto-migration: grant 1 spin credit to any user who previously bought ₹500 (pack_500)
-        try {
-            $pdo->exec("UPDATE users SET spin_available = 1 WHERE (spin_available IS NULL OR spin_available = 0) AND id IN (SELECT DISTINCT user_id FROM wallet_transactions WHERE note LIKE '%500%' AND type = 'purchase');");
-        } catch (\Throwable $ignored) {}
 
         // One-time legacy fix: Sync coins and minutes to eliminate old 500-coin discrepancy
         $pdo->exec("UPDATE users SET coins = 50.0, minutes = 50.0 WHERE phone = '9146773564' AND coins = 550.0;");
