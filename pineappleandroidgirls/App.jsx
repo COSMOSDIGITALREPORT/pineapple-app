@@ -13,7 +13,7 @@ import OnboardingScreen1 from './src/screens/OnboardingScreen1';
 import LoginScreen from './src/screens/LoginScreen';
 import ProfileSetupScreen from './src/screens/ProfileSetupScreen';
 import HomeScreen from './src/screens/GirlsHomeScreen';
-import { syncFcmToken, setupNotificationListeners } from './src/services/notifications';
+import { syncFcmToken, setupNotificationListeners, getPendingIncomingCall } from './src/services/notifications';
 
 function MainApp() {
   const dispatch = useDispatch();
@@ -22,6 +22,20 @@ function MainApp() {
   useEffect(() => {
     syncFcmToken();
     const unsub = setupNotificationListeners();
+    getPendingIncomingCall().then(async (pending) => {
+      if (pending) {
+        try {
+          const session = await AsyncStorage.getItem('user_session');
+          if (session) {
+            const { token, user: u } = JSON.parse(session);
+            dispatch(setAuthUser({ token, user: u }));
+            dispatch(acceptWarning());
+            dispatch(setProfile({ gender: 'girl', name: u.name, avatar_url: u.avatar_url }));
+            setScreen('home');
+          }
+        } catch (_) {}
+      }
+    }).catch(() => {});
     return () => unsub?.();
   }, []);
 

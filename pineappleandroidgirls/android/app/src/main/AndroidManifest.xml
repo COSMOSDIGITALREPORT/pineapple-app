@@ -33,7 +33,7 @@
       android:supportsRtl="true">
       <meta-data
         android:name="com.google.firebase.messaging.default_notification_channel_id"
-        android:value="pineapple_calls_channel_v2"
+        android:value="pineapple_calls_channel_v3"
         tools:replace="android:value" />
 
       <activity
@@ -50,6 +50,11 @@
             <category android:name="android.intent.category.LAUNCHER" />
         </intent-filter>
       </activity>
+
+      <!-- Remove library default service so ONLY PineappleFirebaseMessagingService handles pushes -->
+      <service
+        android:name="io.invertase.firebase.messaging.ReactNativeFirebaseMessagingService"
+        tools:node="remove" />
 
       <!-- Native VoIP incoming call service that wakes up screen & shows fullScreenIntent -->
       <service

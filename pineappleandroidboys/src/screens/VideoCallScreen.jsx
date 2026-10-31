@@ -150,8 +150,9 @@ export default function VideoCallScreen({ onBack, onHangup, callerUser, incoming
     if (!incomingCallData) {
       pollInterval = setInterval(async () => {
         const cId = callRef.current?.id;
-        if (!cId || timerStarted) {
-          if (timerStarted && pollInterval) clearInterval(pollInterval);
+        const isStarted = !!callRef.current?._started;
+        if (!cId || isStarted) {
+          if (isStarted && pollInterval) clearInterval(pollInterval);
           return;
         }
         try {
@@ -166,10 +167,10 @@ export default function VideoCallScreen({ onBack, onHangup, callerUser, incoming
             cleanupCall('00:00');
           } else if (res?.status === 'connected') {
             if (pollInterval) clearInterval(pollInterval);
-            if (!timerStarted) startTimer();
+            if (!callRef.current?._started) startTimer();
           }
         } catch (_) {}
-      }, 1200);
+      }, 1000);
     }
 
     const socket = getSocket();

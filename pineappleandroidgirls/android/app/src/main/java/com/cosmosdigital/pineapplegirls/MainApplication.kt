@@ -35,13 +35,14 @@ class MainApplication : Application(), ReactApplication {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
       val notificationManager = getSystemService(NotificationManager::class.java) ?: return
 
-      // Clean up legacy channel if present
+      // Clean up legacy channels if present
       try {
         notificationManager.deleteNotificationChannel("pineapple_calls_channel")
+        notificationManager.deleteNotificationChannel("pineapple_calls_channel_v2")
       } catch (e: Exception) {}
 
       val callChannel = NotificationChannel(
-        "pineapple_calls_channel_v2",
+        "pineapple_calls_channel_v3",
         "Pineapple Incoming Calls",
         NotificationManager.IMPORTANCE_HIGH
       ).apply {

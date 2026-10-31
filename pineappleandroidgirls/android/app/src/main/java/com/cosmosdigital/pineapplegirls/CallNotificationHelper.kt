@@ -14,16 +14,22 @@ import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
 import androidx.core.app.NotificationCompat
+import androidx.core.app.Person
 
 object CallNotificationHelper {
     const val CALL_NOTIFICATION_ID = 2026
-    const val CALL_CHANNEL_ID = "pineapple_calls_channel_v2"
+    const val CALL_CHANNEL_ID = "pineapple_calls_channel_v3"
     private var wakeLock: PowerManager.WakeLock? = null
     private var ringtone: Ringtone? = null
 
     fun ensureChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
+            
+            // Clean up older channel versions
+            try { nm.deleteNotificationChannel("pineapple_calls_channel") } catch (_: Exception) {}
+            try { nm.deleteNotificationChannel("pineapple_calls_channel_v2") } catch (_: Exception) {}
+
             val soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
                 ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
             val audioAttributes = AudioAttributes.Builder()
@@ -56,7 +62,7 @@ object CallNotificationHelper {
             val pm = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
             if (pm != null) {
                 @Suppress("DEPRECATION")
-                val flags = PowerManager.FULL_WAKE_LOCK or
+                val flags = PowerManager.SCREEN_BRIGHT_WAKE_LOCK or
                         PowerManager.ACQUIRE_CAUSES_WAKEUP or
                         PowerManager.ON_AFTER_RELEASE
                 wakeLock = pm.newWakeLock(flags, "Pineapple:IncomingCallWakeLock")
@@ -66,22 +72,21 @@ object CallNotificationHelper {
             e.printStackTrace()
         }
 
-        // 2. Direct Activity Launch if Overlay Permission is granted (WhatsApp behavior)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && Settings.canDrawOverlays(context)) {
-            try {
-                val directIntent = Intent(context, MainActivity::class.java).apply {
-                    action = "ACTION_INCOMING_CALL"
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or
-                            Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                            Intent.FLAG_ACTIVITY_SINGLE_TOP
-                    for ((k, v) in data) {
-                        putExtra(k, v)
-                    }
+        // 2. Direct Activity Launch (WhatsApp / Telegram incoming call behavior)
+        try {
+            val directIntent = Intent(context, MainActivity::class.java).apply {
+                action = "ACTION_INCOMING_CALL"
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                        Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                        Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                        Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+                for ((k, v) in data) {
+                    putExtra(k, v)
                 }
-                context.startActivity(directIntent)
-            } catch (e: Exception) {
-                e.printStackTrace()
             }
+            context.startActivity(directIntent)
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
 
         val callerName = data["callerName"] ?: "Someone"
@@ -94,7 +99,8 @@ object CallNotificationHelper {
             action = "ACTION_INCOMING_CALL"
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or
                     Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                    Intent.FLAG_ACTIVITY_SINGLE_TOP
+                    Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                    Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
             for ((k, v) in data) {
                 putExtra(k, v)
             }
@@ -140,15 +146,27 @@ object CallNotificationHelper {
         val soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
             ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
 
+        val callerPerson = Person.Builder()
+            .setName(callerName)
+            .setImportant(true)
+            .build()
+
+        val callStyle = NotificationCompat.CallStyle.forIncomingCall(
+            callerPerson,
+            declinePendingIntent,
+            answerPendingIntent
+        )
+
         val builder = NotificationCompat.Builder(context, CALL_CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(title)
             .setContentText(body)
+            .setStyle(callStyle)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setOngoing(true)
-            .setAutoCancel(true)
+            .setAutoCancel(false)
             .setSound(soundUri)
             .setVibrate(longArrayOf(0, 1000, 500, 1000))
             .setFullScreenIntent(fullScreenPendingIntent, true)
