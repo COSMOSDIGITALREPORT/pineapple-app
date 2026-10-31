@@ -65,13 +65,6 @@ class Firebase {
      * Gets a short-lived Google OAuth2 Bearer token for FCM v1 API using service account credentials.
      */
     private static function getGoogleAccessToken(): ?string {
-        $credFile = __DIR__ . '/firebase_credentials.json';
-        if (!file_exists($credFile)) {
-            $rootCred = dirname(__DIR__, 2) . '/firebase_credentials.json';
-            if (file_exists($rootCred)) $credFile = $rootCred;
-            else return null;
-        }
-
         $cacheFile = sys_get_temp_dir() . '/pineapple_fcm_token.json';
         if (file_exists($cacheFile)) {
             $cached = json_decode(@file_get_contents($cacheFile), true);
@@ -80,8 +73,36 @@ class Firebase {
             }
         }
 
-        $creds = json_decode(file_get_contents($credFile), true);
-        if (empty($creds['client_email']) || empty($creds['private_key'])) return null;
+        $config = require __DIR__ . '/config.php';
+        $clientEmail = '';
+        $privateKey  = '';
+
+        // 1. Check base64 credentials in config
+        if (!empty($config['firebase_credentials_b64'])) {
+            $creds = json_decode(base64_decode($config['firebase_credentials_b64']), true);
+            $clientEmail = $creds['client_email'] ?? '';
+            $privateKey  = $creds['private_key'] ?? '';
+        }
+
+        // 2. Check direct file on disk
+        if (empty($clientEmail) || empty($privateKey)) {
+            $credFile = __DIR__ . '/firebase_credentials.json';
+            if (!file_exists($credFile)) {
+                $rootCred = dirname(__DIR__, 2) . '/firebase_credentials.json';
+                if (file_exists($rootCred)) $credFile = $rootCred;
+            }
+            if (file_exists($credFile)) {
+                $creds = json_decode(@file_get_contents($credFile), true);
+                $clientEmail = $creds['client_email'] ?? '';
+                $privateKey  = $creds['private_key'] ?? '';
+            }
+        }
+
+        if (empty($clientEmail) || empty($privateKey)) {
+            error_log('[PineappleCall FCM Error] Missing Firebase Service Account credentials in config.php and firebase_credentials.json');
+            return null;
+        }
+        $creds = ['client_email' => $clientEmail, 'private_key' => $privateKey];
 
         $now = time();
         $header = ['alg' => 'RS256', 'typ' => 'JWT'];

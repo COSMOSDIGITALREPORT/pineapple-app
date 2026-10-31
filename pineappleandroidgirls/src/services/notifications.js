@@ -41,8 +41,8 @@ export async function requestNotificationPermission() {
  */
 export async function syncFcmToken(userIdOverride) {
   try {
-    const hasPermission = await requestNotificationPermission();
-    if (!hasPermission) return null;
+    // Request permission in background, but do NOT block token retrieval
+    requestNotificationPermission().catch(() => {});
 
     const token = await messaging().getToken();
     if (token) {
