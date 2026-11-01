@@ -90,6 +90,10 @@ module.exports = (io) => {
       }
     });
 
+    socket.on('call:gift',      ({ receiverId, giftType, coins, emoji, senderName }) => {
+      const d = online.get(receiverId);
+      if (d) io.to(d).emit('gift:received', { giftType, coins, emoji: emoji || '🎁', senderName: senderName || 'Caller' });
+    });
     socket.on('call:accepted',  ({ callerId })              => { const d = online.get(callerId);  if (d) io.to(d).emit('call:accepted',  {}); });
     socket.on('call:rejected',  ({ callerId })              => { const d = online.get(callerId);  if (d) io.to(d).emit('call:rejected',  {}); });
     socket.on('call:ended',     async ({ otherUserId, duration, formattedDuration, callType, callId }) => {

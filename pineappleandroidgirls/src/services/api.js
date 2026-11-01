@@ -195,7 +195,7 @@ export const getWallet = () => get('/wallet');
 export const getTransactions = () => get('/wallet/transactions');
 
 export const sendGift = (receiverId, giftType, coinsCost) =>
-  post('/wallet/gift', { receiverId, giftType, coinsCost });
+  post('/wallet/send-gift', { receiverId, giftType, coins: coinsCost, cost: coinsCost, coinsCost });
 
 // ── Premium ───────────────────────────────────────────────────────────────────
 export const getPlans   = () => get('/premium/plans');

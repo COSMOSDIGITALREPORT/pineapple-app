@@ -24,6 +24,7 @@ export default function AudioCallScreen({ onBack, onHangup, callerUser, incoming
   const pulse2Anim = useRef(new Animated.Value(1)).current;
   const [muted, setMuted] = useState(false);
   const [speakerOn, setSpeakerOn] = useState(true);
+  const [receivedGift, setReceivedGift] = useState(null);
   const [seconds, setSeconds] = useState(0);
   const [callStatus, setCallStatus] = useState('Connecting…');
   const engineRef = useRef(null);
@@ -110,6 +111,10 @@ export default function AudioCallScreen({ onBack, onHangup, callerUser, incoming
       }
       // Both sides: when other person ends call → auto cleanup
       socket.on('call:ended', (data) => cleanupCall(data?.formattedDuration));
+      socket.on('gift:received', (data) => {
+        setReceivedGift(data);
+        setTimeout(() => setReceivedGift(null), 4000);
+      });
     }
 
     return () => {
@@ -124,6 +129,7 @@ export default function AudioCallScreen({ onBack, onHangup, callerUser, incoming
       } catch {}
       socket?.off('call:accepted');
       socket?.off('call:ended');
+      socket?.off('gift:received');
     };
   }, []);
 
@@ -176,6 +182,7 @@ export default function AudioCallScreen({ onBack, onHangup, callerUser, incoming
       engine.registerEventHandler({
         onJoinChannelSuccess: () => {
           try { engine.setEnableSpeakerphone(true); } catch {}
+          startTimer();
         },
         onUserJoined: () => {
           // Start timer only when caller is verified in the channel
@@ -198,6 +205,10 @@ export default function AudioCallScreen({ onBack, onHangup, callerUser, incoming
         publishMicrophoneTrack: true,
         autoSubscribeAudio: true,
       });
+
+      if (incomingCallData) {
+        startTimer();
+      }
 
       // Do NOT start timer on mount. Wait for remote user to join.
       setTimeout(() => {
@@ -240,6 +251,17 @@ export default function AudioCallScreen({ onBack, onHangup, callerUser, incoming
         colors={['#3A0068', '#7B0050', '#C0003A']}
         style={StyleSheet.absoluteFill}
       />
+
+      {/* Real-time Gift Received Toast */}
+      {receivedGift && (
+        <View style={styles.giftToast}>
+          <Text style={styles.giftEmoji}>{receivedGift.emoji || '🎁'}</Text>
+          <View style={styles.giftInfo}>
+            <Text style={styles.giftTitle}>{receivedGift.senderName || 'Caller'} sent {receivedGift.giftType}!</Text>
+            <Text style={styles.giftEarnings}>+{(receivedGift.coins * 0.70).toFixed(1)} Coins (₹{(receivedGift.coins * 0.70 * 0.50).toFixed(2)})</Text>
+          </View>
+        </View>
+      )}
 
       {/* Top bar */}
       <View style={[styles.topBar, { paddingTop: insets.top + 10 }]}>
@@ -317,6 +339,31 @@ function CtrlBtn({ icon, label, onPress, active, activeColor }) {
 }
 
 const styles = StyleSheet.create({
+  giftToast: {
+    position: 'absolute',
+    top: 90,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(20, 20, 25, 0.94)',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 24,
+    borderWidth: 1.5,
+    borderColor: '#FFD700',
+    shadowColor: '#FFD700',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    elevation: 10,
+    zIndex: 9999,
+    gap: 12,
+  },
+  giftEmoji: { fontSize: 28 },
+  giftInfo: { justifyContent: 'center' },
+  giftTitle: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
+  giftEarnings: { color: '#FFD700', fontSize: 12, fontWeight: '800', marginTop: 1 },
+
   root: { flex: 1 },
 
   topBar: {
@@ -348,7 +395,7 @@ const styles = StyleSheet.create({
     shadowColor: Colors.primary, shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.6, shadowRadius: 20, elevation: 12,
   },
-  avatar: { width: '100%', height: '100%' },
+  avatar: { width: '100%', height: '100%', borderRadius: 80 },
 
   controls: { paddingHorizontal: 20, paddingTop: 16 },
 

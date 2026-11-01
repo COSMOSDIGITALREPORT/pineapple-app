@@ -22,11 +22,17 @@ export default function CallPermissionSetup() {
     allGranted: true,
   });
   const [expanded, setExpanded] = useState(false);
+  const [cameraGranted, setCameraGranted] = useState(true);
+  const [micGranted, setMicGranted] = useState(true);
 
   const checkPermissions = useCallback(async () => {
     if (Platform.OS !== 'android' || !RingtoneModule?.checkCallPermissions) return;
     try {
       const res = await RingtoneModule.checkCallPermissions();
+      const hasCam = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.CAMERA);
+      const hasMic = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.RECORD_AUDIO);
+      setCameraGranted(hasCam);
+      setMicGranted(hasMic);
       if (res) {
         setPerms(res);
         // If anything is missing, keep expanded so user can see what to fix
@@ -116,6 +122,26 @@ export default function CallPermissionSetup() {
       desc: 'Allow phone to ring when app is closed / asleep',
       granted: perms.ignoringBatteryOptimizations,
       onPress: handleRequestBattery,
+    },
+    {
+      id: 'camera',
+      title: 'Camera Access',
+      desc: 'Allow video during video calls',
+      granted: cameraGranted,
+      onPress: async () => {
+        await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.CAMERA);
+        checkPermissions();
+      },
+    },
+    {
+      id: 'microphone',
+      title: 'Microphone Access',
+      desc: 'Allow callers to hear you clearly',
+      granted: micGranted,
+      onPress: async () => {
+        await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.RECORD_AUDIO);
+        checkPermissions();
+      },
     },
     {
       id: 'autostart',

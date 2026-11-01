@@ -110,7 +110,7 @@ class IncomingCallActivity : Activity() {
                     if (bitmap != null) {
                         runOnUiThread {
                             if (!isFinishing && !isDestroyed) {
-                                ivAvatar.setImageBitmap(bitmap)
+                                ivAvatar.setImageBitmap(getCircularBitmap(bitmap))
                             }
                         }
                     }
@@ -166,6 +166,24 @@ class IncomingCallActivity : Activity() {
             stopCallAndFinish()
         }
         handler.postDelayed(autoTimeoutRunnable!!, 45000L)
+    }
+
+        private fun getCircularBitmap(bitmap: Bitmap): Bitmap {
+        val size = Math.min(bitmap.width, bitmap.height)
+        val output = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        val canvas = android.graphics.Canvas(output)
+        val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+        val rect = android.graphics.Rect(0, 0, size, size)
+        val srcRect = android.graphics.Rect(
+            (bitmap.width - size) / 2,
+            (bitmap.height - size) / 2,
+            (bitmap.width + size) / 2,
+            (bitmap.height + size) / 2
+        )
+        canvas.drawCircle(size / 2f, size / 2f, size / 2f, paint)
+        paint.xfermode = android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.SRC_IN)
+        canvas.drawBitmap(bitmap, srcRect, rect, paint)
+        return output
     }
 
     private fun setupWakeAndLockscreen() {

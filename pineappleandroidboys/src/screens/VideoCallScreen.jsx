@@ -368,6 +368,13 @@ export default function VideoCallScreen({ onBack, onHangup, callerUser, incoming
     try {
       await sendGift(otherUserId, gift.label, gift.value);
     } catch (_) {}
+    getSocket()?.emit('call:gift', {
+      receiverId: otherUserId,
+      giftType: gift.label,
+      coins: gift.value,
+      emoji: gift.emoji || '🎁',
+      senderName: myName || 'Caller',
+    });
     dispatch(redeemGift({ id: gift.id, action: 'gift' }));
     setSentGift(gift);
     setShowGiftPanel(false);
@@ -382,6 +389,13 @@ export default function VideoCallScreen({ onBack, onHangup, callerUser, incoming
     try {
       await sendGift(otherUserId, item.label, item.value);
       dispatch(deductCoins(item.value));
+      getSocket()?.emit('call:gift', {
+        receiverId: otherUserId,
+        giftType: item.label,
+        coins: item.value,
+        emoji: item.emoji || '🎁',
+        senderName: myName || 'Caller',
+      });
       setSentGift(item);
       setShowGiftPanel(false);
       setTimeout(() => setSentGift(null), 3000);
@@ -564,7 +578,7 @@ const styles = StyleSheet.create({
 
   connectingBg: { backgroundColor: '#111', alignItems: 'center', justifyContent: 'center' },
   connectingAvatar: { width: 100, height: 100, borderRadius: 50, overflow: 'hidden', backgroundColor: '#333', alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
-  connectingAvatarImg: { width: 100, height: 100 },
+  connectingAvatarImg: { width: 100, height: 100, borderRadius: 50 },
   connectingInitial: { fontSize: 40, color: '#fff', fontWeight: '700' },
   connectingText: { color: 'rgba(255,255,255,0.6)', fontSize: 14 },
 

@@ -179,7 +179,7 @@ const styles = StyleSheet.create({
     shadowRadius: 20,
     elevation: 12,
   },
-  avatar: { width: '100%', height: '100%' },
+  avatar: { width: '100%', height: '100%', borderRadius: 70 },
 
   callerName: {
     fontSize: 34,

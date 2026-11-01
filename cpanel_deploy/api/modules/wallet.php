@@ -41,11 +41,11 @@ function handleWalletRoute(string $subRoute, string $method, array $body, ?array
         jsonResponse($txns);
     }
 
-    // ── POST /wallet/send-gift ────────────────────────────────────────────────
-    if ($subRoute === 'send-gift' && $method === 'POST') {
+    // ── POST /wallet/send-gift OR /wallet/gift ────────────────────────────────
+    if (($subRoute === 'send-gift' || $subRoute === 'gift') && $method === 'POST') {
         $receiverId = trim($body['receiverId'] ?? '');
         $giftType   = trim($body['giftType'] ?? 'Rose');
-        $costCoins  = (float)($body['coins'] ?? $body['cost'] ?? 10);
+        $costCoins  = (float)($body['coins'] ?? $body['cost'] ?? $body['coinsCost'] ?? 10);
 
         if (!$receiverId) jsonResponse(['error' => 'Receiver required'], 400);
 

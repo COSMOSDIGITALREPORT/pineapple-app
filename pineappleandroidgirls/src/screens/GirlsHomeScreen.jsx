@@ -181,6 +181,11 @@ export default function GirlsHomeScreen({ onLogout }) {
         }
       }
 
+            try {
+        const { post } = require('../services/api');
+        post('/calls/accept', { callId: data.callId }).catch(() => {});
+      } catch (_) {}
+
       getSocket()?.emit('call:accepted', {
         callerId: data.callerId,
         channelName: data.channelName,

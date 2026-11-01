@@ -314,7 +314,16 @@ function handleCallsRoute(string $subRoute, string $method, array $body, ?array 
         }
 
         // ── 2. ZERO DURATION & PRE-ANSWER CANCELLATION GUARD ──
-        $wasConnected = ($call['status'] === 'connected') && !empty($call['started_at']);
+        $wasConnected = ($call['status'] === 'connected');
+        if ($durationSeconds > 0) {
+            $wasConnected = true;
+            if (empty($call['started_at'])) {
+                $callStartEst = time() - $durationSeconds;
+                $db->prepare('UPDATE calls SET status = "connected", started_at = datetime(?, "unixepoch") WHERE id = ?')->execute([$callStartEst, $callId]);
+                $call['status'] = 'connected';
+                $call['started_at'] = date('Y-m-d H:i:s', $callStartEst);
+            }
+        }
 
         if (!$wasConnected || $durationSeconds <= 0) {
             // Call was cancelled or cut before receiver answered, or 0s talked

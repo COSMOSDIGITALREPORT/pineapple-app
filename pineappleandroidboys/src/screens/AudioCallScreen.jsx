@@ -372,6 +372,13 @@ export default function AudioCallScreen({ onBack, onHangup, callerUser, incoming
     try {
       await sendGift(otherUserId, gift.label, gift.value);
     } catch (_) {}
+    getSocket()?.emit('call:gift', {
+      receiverId: otherUserId,
+      giftType: gift.label,
+      coins: gift.value,
+      emoji: gift.emoji || '🎁',
+      senderName: myName || 'Caller',
+    });
     dispatch(redeemGift({ id: gift.id, action: 'gift' }));
     setSentGift(gift);
     setShowGiftPanel(false);
@@ -386,6 +393,13 @@ export default function AudioCallScreen({ onBack, onHangup, callerUser, incoming
     try {
       await sendGift(otherUserId, item.label, item.value);
       dispatch(deductCoins(item.value));
+      getSocket()?.emit('call:gift', {
+        receiverId: otherUserId,
+        giftType: item.label,
+        coins: item.value,
+        emoji: item.emoji || '🎁',
+        senderName: myName || 'Caller',
+      });
       setSentGift(item);
       setShowGiftPanel(false);
       setTimeout(() => setSentGift(null), 3000);
@@ -666,7 +680,7 @@ const styles = StyleSheet.create({
     shadowColor: Colors.primary, shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.6, shadowRadius: 20, elevation: 12,
   },
-  avatar: { width: '100%', height: '100%' },
+  avatar: { width: '100%', height: '100%', borderRadius: 80 },
 
   giftToast: {
     marginTop: 32,

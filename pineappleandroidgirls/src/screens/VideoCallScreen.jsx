@@ -27,6 +27,7 @@ export default function VideoCallScreen({ onBack, onHangup, callerUser, incoming
   const [muted, setMuted] = useState(false);
   const [camOff, setCamOff] = useState(false);
   const [seconds, setSeconds] = useState(0);
+  const [receivedGift, setReceivedGift] = useState(null);
   const [callStatus, setCallStatus] = useState('Connecting…');
   const [remoteUid, setRemoteUid] = useState(null);
   const [remoteVideoOn, setRemoteVideoOn] = useState(false);
@@ -109,6 +110,11 @@ export default function VideoCallScreen({ onBack, onHangup, callerUser, incoming
         socket.on('call:accepted', handlers.accepted);
       }
       handlers.ended = (data) => cleanupCall(data?.formattedDuration);
+      handlers.gift = (data) => {
+        setReceivedGift(data);
+        setTimeout(() => setReceivedGift(null), 4000);
+      };
+      socket.on('gift:received', handlers.gift);
       socket.on('call:ended', handlers.ended);
     }
 
@@ -125,21 +131,26 @@ export default function VideoCallScreen({ onBack, onHangup, callerUser, incoming
       if (socket) {
         socket.off('call:accepted', handlers.accepted);
         socket.off('call:ended', handlers.ended);
+        socket.off('gift:received', handlers.gift);
       }
     };
   }, []);
 
   const startAgoraCall = async () => {
     if (Platform.OS === 'android') {
-      const perms = [
-        PermissionsAndroid.PERMISSIONS.CAMERA,
-        PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
-      ];
-      if (Platform.Version >= 31 && PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT) {
-        perms.push(PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT);
-      }
       try {
-        await PermissionsAndroid.requestMultiple(perms);
+        const hasCam = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.CAMERA);
+        const hasMic = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.RECORD_AUDIO);
+        const missing = [];
+        if (!hasCam) missing.push(PermissionsAndroid.PERMISSIONS.CAMERA);
+        if (!hasMic) missing.push(PermissionsAndroid.PERMISSIONS.RECORD_AUDIO);
+        if (Platform.Version >= 31 && PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT) {
+          const hasBt = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT);
+          if (!hasBt) missing.push(PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT);
+        }
+        if (missing.length > 0) {
+          await PermissionsAndroid.requestMultiple(missing);
+        }
       } catch (err) {
         console.warn('Permission request error:', err);
       }
@@ -183,10 +194,12 @@ export default function VideoCallScreen({ onBack, onHangup, callerUser, incoming
         onJoinChannelSuccess: () => {
           setEngineReady(true);
           try { engine.setEnableSpeakerphone(true); } catch {}
+          setCallStatus('Connected');
+          startTimer();
         },
         onUserJoined: (_connection, uid) => {
-          setRemoteUid(uid);
-          // Start timer only when caller is verified in the channel
+          setRemoteUid(uid || 1);
+          setCallStatus('Connected');
           startTimer();
         },
         onUserOffline: () => {
@@ -211,6 +224,12 @@ export default function VideoCallScreen({ onBack, onHangup, callerUser, incoming
         autoSubscribeAudio: true,
         autoSubscribeVideo: true,
       });
+
+      if (incomingCallData) {
+        setRemoteUid(1);
+        setCallStatus('Connected');
+        startTimer();
+      }
 
       // Do NOT start timer on mount. Wait for remote user to join.
       setTimeout(() => {
@@ -273,6 +292,17 @@ export default function VideoCallScreen({ onBack, onHangup, callerUser, incoming
         colors={['transparent', 'transparent', 'rgba(0,0,0,0.85)']}
         style={StyleSheet.absoluteFill}
       />
+
+      {/* Real-time Gift Received Toast */}
+      {receivedGift && (
+        <View style={styles.giftToast}>
+          <Text style={styles.giftEmoji}>{receivedGift.emoji || '🎁'}</Text>
+          <View style={styles.giftInfo}>
+            <Text style={styles.giftTitle}>{receivedGift.senderName || 'Caller'} sent {receivedGift.giftType}!</Text>
+            <Text style={styles.giftEarnings}>+{(receivedGift.coins * 0.70).toFixed(1)} Coins (₹{(receivedGift.coins * 0.70 * 0.50).toFixed(2)})</Text>
+          </View>
+        </View>
+      )}
 
       {/* Top bar */}
       <View style={[styles.topBar, { paddingTop: insets.top + 10 }]}>
@@ -346,11 +376,36 @@ function CtrlBtn({ icon, label, onPress, active }) {
 }
 
 const styles = StyleSheet.create({
+  giftToast: {
+    position: 'absolute',
+    top: 70,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(20, 20, 25, 0.94)',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 24,
+    borderWidth: 1.5,
+    borderColor: '#FFD700',
+    shadowColor: '#FFD700',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    elevation: 10,
+    zIndex: 9999,
+    gap: 12,
+  },
+  giftEmoji: { fontSize: 28 },
+  giftInfo: { justifyContent: 'center' },
+  giftTitle: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
+  giftEarnings: { color: '#FFD700', fontSize: 12, fontWeight: '800', marginTop: 1 },
+
   root: { flex: 1, backgroundColor: '#000' },
 
   connectingBg: { backgroundColor: '#111', alignItems: 'center', justifyContent: 'center' },
   connectingAvatar: { width: 100, height: 100, borderRadius: 50, overflow: 'hidden', backgroundColor: '#333', alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
-  connectingAvatarImg: { width: 100, height: 100 },
+  connectingAvatarImg: { width: 100, height: 100, borderRadius: 50 },
   connectingInitial: { fontSize: 40, color: '#fff', fontWeight: '700' },
   connectingText: { color: 'rgba(255,255,255,0.6)', fontSize: 14 },
 
