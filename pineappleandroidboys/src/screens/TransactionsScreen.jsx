@@ -250,6 +250,7 @@ const styles = StyleSheet.create({
   },
   infoWrap: {
     flex: 1,
+    minWidth: 0,
   },
   titleRow: {
     flexDirection: 'row',
@@ -267,6 +268,7 @@ const styles = StyleSheet.create({
   amountText: {
     fontSize: 15,
     fontWeight: '900',
+    flexShrink: 0,
   },
   descText: {
     fontSize: 13,

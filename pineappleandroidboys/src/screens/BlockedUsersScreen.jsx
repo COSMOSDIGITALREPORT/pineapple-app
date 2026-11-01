@@ -88,7 +88,7 @@ export default function BlockedUsersScreen({ onBack }) {
               )}
               <View style={styles.info}>
                 <Text style={styles.name} numberOfLines={1}>{item.name || 'Unknown'}</Text>
-                <Text style={styles.meta}>{item.city || item.language || item.gender || '—'}</Text>
+                <Text style={styles.meta} numberOfLines={1} ellipsizeMode="tail">{item.city || item.language || item.gender || '—'}</Text>
               </View>
               <TouchableOpacity
                 style={styles.unblockBtn}
@@ -140,13 +140,13 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   avatarLetter: { fontSize: 22, fontWeight: '900', color: '#fff' },
-  info: { flex: 1 },
+  info: { flex: 1, minWidth: 0 },
   name: { fontSize: 16, fontWeight: '700', color: Colors.dark },
   meta: { fontSize: 12, color: Colors.textLight, marginTop: 2 },
   unblockBtn: {
     paddingHorizontal: 16, paddingVertical: 8,
     borderRadius: 20, borderWidth: 1.5, borderColor: Colors.primary,
-    minWidth: 80, alignItems: 'center',
+    minWidth: 80, alignItems: 'center', flexShrink: 0,
   },
   unblockText: { fontSize: 13, fontWeight: '700', color: Colors.primary },
 });

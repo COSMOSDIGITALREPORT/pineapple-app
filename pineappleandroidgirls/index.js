@@ -2,11 +2,21 @@
  * @format
  */
 
-import { AppRegistry, NativeModules } from 'react-native';
+import { AppRegistry, NativeModules, Text, TextInput } from 'react-native';
 import messaging from '@react-native-firebase/messaging';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import App from './App';
 import { name as appName } from './app.json';
+
+// Universal Font Scaling Safeguard:
+// Prevents high Android system font size settings from distorting layouts, cards, drawer menus & modals
+if (Text.defaultProps == null) Text.defaultProps = {};
+Text.defaultProps.allowFontScaling = false;
+Text.defaultProps.maxFontSizeMultiplier = 1.0;
+
+if (TextInput.defaultProps == null) TextInput.defaultProps = {};
+TextInput.defaultProps.allowFontScaling = false;
+TextInput.defaultProps.maxFontSizeMultiplier = 1.0;
 
 const { RingtoneModule } = NativeModules;
 

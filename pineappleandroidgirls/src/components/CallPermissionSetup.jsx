@@ -238,6 +238,7 @@ const styles = StyleSheet.create({
   },
   headerLeft: {
     flex: 1,
+    minWidth: 0,
     marginRight: 10,
   },
   headerTitle: {
@@ -254,6 +255,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 12,
+    flexShrink: 0,
   },
   statusText: {
     fontSize: 11,
@@ -281,6 +283,7 @@ const styles = StyleSheet.create({
   },
   itemInfo: {
     flex: 1,
+    minWidth: 0,
     marginRight: 12,
   },
   itemTitle: {
@@ -298,6 +301,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
+    flexShrink: 0,
   },
   grantedText: {
     fontSize: 11,
@@ -309,6 +313,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: 8,
+    flexShrink: 0,
   },
   actionBtnText: {
     fontSize: 11,

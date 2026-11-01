@@ -665,6 +665,7 @@ const styles = StyleSheet.create({
   },
   txnInfo: {
     flex: 1,
+    minWidth: 0,
     gap: 2,
   },
   txnTitle: {
@@ -687,6 +688,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     gap: 2,
     marginLeft: 8,
+    flexShrink: 0,
   },
   txnInr: {
     fontSize: 14,

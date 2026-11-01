@@ -104,7 +104,7 @@ export default function DrawerMenu({ visible, onClose, onLuckySpin, onPremium, o
               <View style={styles.onlineDot} />
             </View>
             <View style={styles.profileInfo}>
-              <Text style={styles.brandText}>{user.name || 'Pineapple'}</Text>
+              <Text style={styles.brandText} numberOfLines={1} ellipsizeMode="tail">{user.name || 'Pineapple'}</Text>
               <Text style={styles.memberText}>{user.isPremium ? 'Premium Member' : 'Free Member'}</Text>
             </View>
           </View>
@@ -299,7 +299,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     marginTop: 8
   },
-  avatarWrap: { position: 'relative' },
+  avatarWrap: { position: 'relative', flexShrink: 0 },
   avatar: {
     width: 60,
     height: 60,
@@ -322,7 +322,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#FFF5F8',
   },
-  profileInfo: { marginLeft: 16 },
+  profileInfo: { marginLeft: 16, flex: 1, minWidth: 0 },
   brandText: {
     fontSize: 22,
     fontWeight: 'bold',

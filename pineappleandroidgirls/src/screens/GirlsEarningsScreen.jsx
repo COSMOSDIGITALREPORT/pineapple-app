@@ -566,10 +566,10 @@ const styles = StyleSheet.create({
     width: 44, height: 44, borderRadius: 22,
     backgroundColor: '#FFE8EF', alignItems: 'center', justifyContent: 'center', marginRight: 12,
   },
-  rowInfo: { flex: 1, marginRight: 8 },
+  rowInfo: { flex: 1, marginRight: 8, minWidth: 0 },
   rowName: { fontSize: 15, fontWeight: '700', color: '#0F172A' },
   rowMeta: { fontSize: 12, color: '#94A3B8', marginTop: 2 },
-  rowEarned: { fontSize: 14, fontWeight: '800', color: '#22C55E' },
+  rowEarned: { fontSize: 14, fontWeight: '800', color: '#22C55E', flexShrink: 0 },
 });
 
 /* ─── Reviews Modal Styles ─── */

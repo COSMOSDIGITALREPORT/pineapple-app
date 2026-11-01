@@ -149,7 +149,7 @@ export default function RecentsScreen({ onRandom, onBack, onDrawer, onCall }) {
 
                   {/* Info */}
                   <View style={styles.cardInfo}>
-                    <Text style={styles.cardName}>{user.name || 'Unknown'}</Text>
+                    <Text style={styles.cardName} numberOfLines={1} ellipsizeMode="tail">{user.name || 'Unknown'}</Text>
                     <View style={styles.cardMeta}>
                       <PhoneArrowIcon missed={missed} />
                       <Text style={[styles.cardStatus, missed && styles.cardStatusMissed]}>
@@ -295,7 +295,7 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 2,
   },
-  avatarWrap: { position: 'relative' },
+  avatarWrap: { position: 'relative', flexShrink: 0 },
   avatar: {
     width: 54,
     height: 54,
@@ -358,6 +358,7 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 22,
     backgroundColor: '#F8F9FB',
+    flexShrink: 0,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',

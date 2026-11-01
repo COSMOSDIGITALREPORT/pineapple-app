@@ -983,7 +983,7 @@ const pStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  previewInfo: { flex: 1, gap: 2 },
+  previewInfo: { flex: 1, minWidth: 0, gap: 2 },
   previewName: {
     fontSize: 18,
     fontWeight: '900',
