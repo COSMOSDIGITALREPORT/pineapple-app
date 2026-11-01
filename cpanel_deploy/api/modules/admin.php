@@ -361,12 +361,13 @@ function handleAdminRoute(string $subRoute, string $method, array $body, ?array 
     // ── GET /admin/stats (Overview metrics) ───────────────────────────────────
     if ($subRoute === 'stats' && $method === 'GET') {
         $totalUsers = (int)$db->query('SELECT COUNT(*) FROM users')->fetchColumn();
-        $totalBoys  = (int)$db->query("SELECT COUNT(*) FROM users WHERE gender IN ('boy','male')")->fetchColumn();
+        $totalBoys  = (int)$db->query("SELECT COUNT(*) FROM users WHERE LOWER(COALESCE(gender, '')) IN ('boy', 'male', 'm')")->fetchColumn();
+        $totalGirls = (int)$db->query("SELECT COUNT(*) FROM users WHERE LOWER(COALESCE(gender, '')) IN ('girl', 'female', 'f')")->fetchColumn();
         $online     = (int)$db->query("
             SELECT COUNT(*) FROM users 
             WHERE is_blocked = 0 AND (
-                (gender IN ('girl','female') AND is_live = 1)
-                OR (gender NOT IN ('girl','female') AND is_online = 1 AND last_seen >= datetime('now', '-2 minutes'))
+                (LOWER(COALESCE(gender, '')) IN ('girl', 'female', 'f') AND is_live = 1)
+                OR (LOWER(COALESCE(gender, '')) NOT IN ('girl', 'female', 'f') AND is_online = 1 AND last_seen >= datetime('now', '-2 minutes'))
             )
         ")->fetchColumn();
         
@@ -399,7 +400,7 @@ function handleAdminRoute(string $subRoute, string $method, array $body, ?array 
 
         $pending = $db->query("SELECT COUNT(*) AS total, COALESCE(SUM(amount),0) AS total_amount FROM withdrawals WHERE status='pending'")->fetch();
         $reports = (int)$db->query("SELECT COUNT(*) FROM reports WHERE status='pending'")->fetchColumn();
-        $unverified = (int)$db->query("SELECT COUNT(*) FROM users WHERE gender IN ('girl','female') AND is_verified=0")->fetchColumn();
+        $unverified = (int)$db->query("SELECT COUNT(*) FROM users WHERE LOWER(COALESCE(gender, '')) IN ('girl', 'female', 'f') AND is_verified=0")->fetchColumn();
         $pendingSupport = (int)$db->query("SELECT COUNT(DISTINCT user_id) FROM support_messages WHERE sender_type='user' AND status='pending'")->fetchColumn();
 
         $totalCalls = (int)($calls['total'] ?? 0);

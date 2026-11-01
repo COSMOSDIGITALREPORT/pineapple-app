@@ -236,13 +236,13 @@ router.post('/migrate-verification-and-withdrawals', adminAuth, async (req, res)
 router.get('/stats', adminAuth, async (req, res) => {
   try {
     const [[users]]   = await pool.query('SELECT COUNT(*) AS total FROM users');
-    const [[boys]]    = await pool.query('SELECT COUNT(*) AS total FROM users WHERE gender IN ("boy","male")');
-    const [[girls]]   = await pool.query('SELECT COUNT(*) AS total FROM users WHERE gender IN ("girl","female")');
+    const [[boys]]    = await pool.query('SELECT COUNT(*) AS total FROM users WHERE LOWER(COALESCE(gender,"")) IN ("boy","male","m")');
+    const [[girls]]   = await pool.query('SELECT COUNT(*) AS total FROM users WHERE LOWER(COALESCE(gender,"")) IN ("girl","female","f")');
     const [[online]]  = await pool.query(`
       SELECT COUNT(*) AS total FROM users 
       WHERE is_blocked=0 AND (
-        (gender IN ('girl','female') AND is_live=1)
-        OR (gender NOT IN ('girl','female') AND is_online=1 AND last_seen >= DATE_SUB(NOW(), INTERVAL 2 MINUTE))
+        (LOWER(COALESCE(gender,"")) IN ('girl','female','f') AND is_live=1)
+        OR (LOWER(COALESCE(gender,"")) NOT IN ('girl','female','f') AND is_online=1 AND last_seen >= DATE_SUB(NOW(), INTERVAL 2 MINUTE))
       )
     `);
     const [[calls]]   = await pool.query(
