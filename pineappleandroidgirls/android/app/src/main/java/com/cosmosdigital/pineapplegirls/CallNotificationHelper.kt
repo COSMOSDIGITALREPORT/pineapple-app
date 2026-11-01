@@ -19,21 +19,28 @@ import androidx.core.app.Person
 object CallNotificationHelper {
     private const val TAG = "PineappleCall"
     const val CALL_NOTIFICATION_ID = 2026
-    const val CALL_CHANNEL_ID = "incoming_calls_v4"
+    const val CALL_CHANNEL_ID = "incoming_calls_v6"
     private var wakeLock: PowerManager.WakeLock? = null
     private var ringtone: Ringtone? = null
+
+    @Volatile
+    private var isCallInProgress: Boolean = false
+    @Volatile
+    private var currentCallId: String? = null
 
     fun ensureChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
 
-            // Delete frozen previous channels so Android creates this one fresh with high importance & sound
+            // Delete legacy channels so Android picks up fresh channel settings
             val oldChannels = listOf(
                 "pineapple_calls_channel",
                 "pineapple_calls_channel_v2",
                 "pineapple_calls_channel_v3",
                 "incoming_calls_v2",
-                "incoming_calls_v3"
+                "incoming_calls_v3",
+                "incoming_calls_v4",
+                "incoming_calls_v5"
             )
             for (ch in oldChannels) {
                 try {
@@ -41,13 +48,8 @@ object CallNotificationHelper {
                 } catch (_: Exception) {}
             }
 
-            val soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
-                ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-            val audioAttributes = AudioAttributes.Builder()
-                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
-                .build()
-
+            // Notice: setSound(null, null) so the notification service does NOT play a conflicting second audio stream.
+            // Programmatic looping ringtone is handled by playRingtone() / stopRingtone() with instant control.
             val channel = NotificationChannel(
                 CALL_CHANNEL_ID,
                 "Pineapple Incoming Calls",
@@ -57,12 +59,12 @@ object CallNotificationHelper {
                 enableVibration(true)
                 enableLights(true)
                 vibrationPattern = longArrayOf(0, 1000, 500, 1000)
-                setSound(soundUri, audioAttributes)
+                setSound(null, null)
                 lockscreenVisibility = Notification.VISIBILITY_PUBLIC
                 setBypassDnd(true)
             }
             nm.createNotificationChannel(channel)
-            Log.d(TAG, "Notification channel ensured: $CALL_CHANNEL_ID")
+            Log.d(TAG, "Notification channel ensured: $CALL_CHANNEL_ID (sound=programmatic)")
         }
     }
 
@@ -71,6 +73,14 @@ object CallNotificationHelper {
         val callerId = data["callerId"] ?: ""
         val callerName = data["callerName"] ?: "Someone"
         val callType = data["callType"] ?: data["type"] ?: "audio"
+
+        // Deduplication guard: ignore duplicate triggers for an already ringing call
+        if (callId.isNotEmpty() && isCallInProgress && currentCallId == callId) {
+            Log.d(TAG, "Ignoring duplicate showIncomingCall for already active callId=$callId")
+            return
+        }
+        isCallInProgress = true
+        currentCallId = callId
 
         Log.d(TAG, "showIncomingCall called for callId=$callId, caller=$callerName, type=$callType")
         ensureChannel(context)
@@ -113,7 +123,6 @@ object CallNotificationHelper {
         val body = "$callerName is calling you..."
 
         // 3. Full-screen Activity Intent targeting IncomingCallActivity
-        Log.d(TAG, "Creating full-screen PendingIntent for IncomingCallActivity with callId=$callId")
         val fullScreenIntent = Intent(context, IncomingCallActivity::class.java).apply {
             action = "ACTION_INCOMING_CALL"
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or
@@ -162,9 +171,6 @@ object CallNotificationHelper {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
-            ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-
         val callerPerson = Person.Builder()
             .setName(callerName)
             .setImportant(true)
@@ -186,7 +192,7 @@ object CallNotificationHelper {
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setOngoing(true)
             .setAutoCancel(false)
-            .setSound(soundUri)
+            .setSound(null) // Sound played exclusively via playRingtone() to prevent double audio
             .setVibrate(longArrayOf(0, 1000, 500, 1000))
             .setFullScreenIntent(fullScreenPendingIntent, true)
             .setContentIntent(fullScreenPendingIntent)
@@ -197,21 +203,24 @@ object CallNotificationHelper {
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
         nm?.notify(CALL_NOTIFICATION_ID, builder.build())
 
-        // Play Ringtone
+        // Play single programmatic looping ringtone
         playRingtone(context)
     }
 
     fun cancelIncomingCall(context: Context) {
         Log.d(TAG, "cancelIncomingCall: Dismissing notification and stopping ringtone")
+        isCallInProgress = false
+        currentCallId = null
+
+        stopRingtone()
+        IncomingCallActivity.closeIfActive()
+
         try {
             val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
             nm?.cancel(CALL_NOTIFICATION_ID)
         } catch (e: Exception) {
             Log.e(TAG, "cancelIncomingCall notification dismiss error: ${e.message}", e)
         }
-
-        stopRingtone()
-        IncomingCallActivity.closeIfActive()
 
         try {
             if (wakeLock?.isHeld == true) {
@@ -224,6 +233,7 @@ object CallNotificationHelper {
         }
     }
 
+    @Synchronized
     fun playRingtone(context: Context) {
         try {
             if (ringtone == null) {
@@ -243,15 +253,15 @@ object CallNotificationHelper {
         }
     }
 
+    @Synchronized
     fun stopRingtone() {
         try {
-            if (ringtone?.isPlaying == true) {
-                ringtone?.stop()
-                Log.d(TAG, "Ringtone stopped")
-            }
-            ringtone = null
+            ringtone?.stop()
+            Log.d(TAG, "Ringtone stopped successfully")
         } catch (e: Exception) {
             Log.e(TAG, "Ringtone stop error: ${e.message}", e)
+        } finally {
+            ringtone = null
         }
     }
 }

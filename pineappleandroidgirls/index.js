@@ -18,12 +18,14 @@ messaging().setBackgroundMessageHandler(async (remoteMessage) => {
   if (type === 'incoming_call') {
     try {
       await AsyncStorage.setItem('@pineapple_pending_incoming_call', JSON.stringify(remoteMessage.data));
-      RingtoneModule?.showCallNotification?.(remoteMessage.data);
+      // NOTE: Do NOT call RingtoneModule.showCallNotification here.
+      // Native PineappleFirebaseMessagingService already handles incoming call notification & activity launch.
     } catch (_) {}
   } else if (type === 'call_cancelled' || type === 'call_ended') {
     try {
       await AsyncStorage.removeItem('@pineapple_pending_incoming_call');
       RingtoneModule?.dismissCallNotification?.();
+      RingtoneModule?.stopRingtone?.();
     } catch (_) {}
   }
 });

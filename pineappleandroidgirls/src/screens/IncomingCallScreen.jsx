@@ -41,6 +41,20 @@ export default function IncomingCallScreen({ callData, onAccept, onReject }) {
 
   const isVideo = callData?.type === 'video';
 
+  const handlePressAccept = () => {
+    try { Vibration.cancel(); } catch (_) {}
+    try { RingtoneModule?.stopRingtone?.(); } catch (_) {}
+    try { RingtoneModule?.dismissCallNotification?.(); } catch (_) {}
+    if (typeof onAccept === 'function') onAccept();
+  };
+
+  const handlePressReject = () => {
+    try { Vibration.cancel(); } catch (_) {}
+    try { RingtoneModule?.stopRingtone?.(); } catch (_) {}
+    try { RingtoneModule?.dismissCallNotification?.(); } catch (_) {}
+    if (typeof onReject === 'function') onReject();
+  };
+
   return (
     <View style={styles.root}>
       <LinearGradient
@@ -78,11 +92,12 @@ export default function IncomingCallScreen({ callData, onAccept, onReject }) {
       <Text style={styles.callerName}>{callData?.callerName || 'Unknown'}</Text>
       <Text style={styles.callerSub}>wants to {isVideo ? 'video' : 'audio'} call you</Text>
 
+
       {/* Buttons */}
       <View style={[styles.btns, { paddingBottom: insets.bottom + 48 }]}>
 
         {/* Reject */}
-        <TouchableOpacity style={styles.rejectBtn} onPress={onReject} activeOpacity={0.85}>
+        <TouchableOpacity style={styles.rejectBtn} onPress={handlePressReject} activeOpacity={0.85}>
           <View style={styles.rejectCircle}>
             <Svg width={28} height={28} viewBox="0 0 24 24">
               <Path
@@ -95,7 +110,7 @@ export default function IncomingCallScreen({ callData, onAccept, onReject }) {
         </TouchableOpacity>
 
         {/* Accept */}
-        <TouchableOpacity style={styles.acceptBtn} onPress={onAccept} activeOpacity={0.85}>
+        <TouchableOpacity style={styles.acceptBtn} onPress={handlePressAccept} activeOpacity={0.85}>
           <View style={styles.acceptCircle}>
             <LinearGradient
               colors={['#FF3870', '#C0004A']}

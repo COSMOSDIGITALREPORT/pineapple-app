@@ -4,9 +4,7 @@ import android.app.Application
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
-import android.media.AudioAttributes
 import android.os.Build
-import android.provider.Settings
 import com.facebook.react.PackageList
 import com.facebook.react.ReactApplication
 import com.facebook.react.ReactHost
@@ -41,7 +39,9 @@ class MainApplication : Application(), ReactApplication {
         "pineapple_calls_channel_v2",
         "pineapple_calls_channel_v3",
         "incoming_calls_v2",
-        "incoming_calls_v3"
+        "incoming_calls_v3",
+        "incoming_calls_v4",
+        "incoming_calls_v5"
       )
       for (ch in oldChannels) {
         try {
@@ -50,7 +50,7 @@ class MainApplication : Application(), ReactApplication {
       }
 
       val callChannel = NotificationChannel(
-        "incoming_calls_v4",
+        "incoming_calls_v6",
         "Pineapple Incoming Calls",
         NotificationManager.IMPORTANCE_HIGH
       ).apply {
@@ -60,12 +60,7 @@ class MainApplication : Application(), ReactApplication {
         vibrationPattern = longArrayOf(0, 1000, 500, 1000)
         lockscreenVisibility = Notification.VISIBILITY_PUBLIC
         setBypassDnd(true)
-        val soundUri = Settings.System.DEFAULT_RINGTONE_URI
-        val audioAttributes = AudioAttributes.Builder()
-          .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-          .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
-          .build()
-        setSound(soundUri, audioAttributes)
+        setSound(null, null) // Programmatic ringtone management to prevent overlapping audio
       }
 
       val defaultChannel = NotificationChannel(

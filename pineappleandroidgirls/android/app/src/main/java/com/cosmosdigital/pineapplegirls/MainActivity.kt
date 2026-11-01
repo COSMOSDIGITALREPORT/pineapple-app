@@ -52,6 +52,11 @@ class MainActivity : ReactActivity() {
     if (intent == null) return
     val callId = intent.getStringExtra("callId")
     if (!callId.isNullOrEmpty()) {
+      if (intent.action == "ACTION_ANSWER_CALL") {
+        CallNotificationHelper.stopRingtone()
+        CallNotificationHelper.cancelIncomingCall(this)
+        IncomingCallActivity.closeIfActive()
+      }
       val map = mutableMapOf<String, String>()
       val extras = intent.extras
       if (extras != null) {

@@ -156,10 +156,53 @@ export default function GirlsHomeScreen({ onLogout }) {
       RingtoneModule?.dismissCallNotification?.();
     };
 
+    const handleDirectAccept = async (data) => {
+      if (!data || !data.callId) return;
+      console.log('[CALL PUSH] handleDirectAccept invoked directly for callId:', data.callId);
+      try { RingtoneModule?.stopRingtone?.(); } catch (_) {}
+      try { RingtoneModule?.dismissCallNotification?.(); } catch (_) {}
+      setIncomingCall(null);
+      incomingCallRef.current = null;
+
+      const cType = (data.callType || data.type || 'video').toLowerCase() === 'video' ? 'video' : 'audio';
+      setLastCallType(cType);
+
+      try {
+        const { getReceiverToken } = require('../services/api');
+        const tokenRes = await getReceiverToken(data.callId);
+        if (!tokenRes || tokenRes.error) {
+          Alert.alert('Call Cancelled', 'The caller has already hung up or cancelled the call.');
+          return;
+        }
+      } catch (err) {
+        if (err.message && (err.message.includes('cancelled') || err.message.includes('410'))) {
+          Alert.alert('Call Cancelled', 'The caller has already hung up or cancelled the call.');
+          return;
+        }
+      }
+
+      getSocket()?.emit('call:accepted', {
+        callerId: data.callerId,
+        channelName: data.channelName,
+      });
+      setSelectedUser({
+        id: data.callerId,
+        name: data.callerName || 'Caller',
+        avatar_url: data.callerAvatar || '',
+      });
+      setAcceptedCallData({
+        callId: data.callId,
+        channelName: data.channelName,
+        callerId: data.callerId,
+      });
+      setCurrentSubScreen(cType === 'video' ? 'videoCall' : 'audioCall');
+    };
+
     const unsubCallPush = onIncomingCallNotification((data) => {
-      handleCallData(data);
       if (data?.autoAccept === true || data?.autoAccept === 'true') {
-        setTimeout(() => handleAcceptCall(), 300);
+        handleDirectAccept(data);
+      } else {
+        handleCallData(data);
       }
     });
     const unsubCallCancel = onCallCancelledNotification(handleCallCancelled);
@@ -167,9 +210,10 @@ export default function GirlsHomeScreen({ onLogout }) {
     Promise.resolve(getPendingIncomingCall()).then((pending) => {
       if (pending) {
         console.log('[CALL PUSH] Processing pending call from cold start:', pending);
-        handleCallData(pending);
         if (pending?.autoAccept === true || pending?.autoAccept === 'true') {
-          setTimeout(() => handleAcceptCall(), 300);
+          handleDirectAccept(pending);
+        } else {
+          handleCallData(pending);
         }
       }
     }).catch(() => {});
@@ -192,8 +236,11 @@ export default function GirlsHomeScreen({ onLogout }) {
   const handleAcceptCall = async () => {
     const call = incomingCallRef.current;
     if (!call) return;
-    RingtoneModule?.dismissCallNotification?.();
-    const cType = call.type === 'video' ? 'video' : 'audio';
+    try { RingtoneModule?.stopRingtone?.(); } catch (_) {}
+    try { RingtoneModule?.dismissCallNotification?.(); } catch (_) {}
+    setIncomingCall(null);
+    incomingCallRef.current = null;
+    const cType = (call.type || 'video').toLowerCase() === 'video' ? 'video' : 'audio';
     setLastCallType(cType);
 
     // Verify call is still valid before entering call screen
@@ -231,7 +278,8 @@ export default function GirlsHomeScreen({ onLogout }) {
 
   const handleRejectCall = () => {
     const call = incomingCallRef.current;
-    RingtoneModule?.dismissCallNotification?.();
+    try { RingtoneModule?.stopRingtone?.(); } catch (_) {}
+    try { RingtoneModule?.dismissCallNotification?.(); } catch (_) {}
     if (call) {
       getSocket()?.emit('call:rejected', { callerId: call.callerId });
       try {

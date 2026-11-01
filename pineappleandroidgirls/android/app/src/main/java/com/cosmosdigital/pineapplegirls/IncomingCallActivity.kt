@@ -2,6 +2,7 @@ package com.cosmosdigital.pineapplegirls
 
 import android.app.Activity
 import android.app.KeyguardManager
+import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
@@ -46,10 +47,31 @@ class IncomingCallActivity : Activity() {
     private val handler = Handler(Looper.getMainLooper())
     private var autoTimeoutRunnable: Runnable? = null
 
+    override fun onResume() {
+        super.onResume()
+        try {
+            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+            nm?.cancel(CallNotificationHelper.CALL_NOTIFICATION_ID)
+        } catch (_: Exception) {}
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         setupWakeAndLockscreen()
         super.onCreate(savedInstanceState)
         activeInstance = this
+
+        handler.postDelayed({
+            try {
+                val nm = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+                nm?.cancel(CallNotificationHelper.CALL_NOTIFICATION_ID)
+            } catch (_: Exception) {}
+        }, 400)
+
+        // Dismiss the top notification banner immediately so the user has ONLY the clean full-screen UI!
+        try {
+            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+            nm?.cancel(CallNotificationHelper.CALL_NOTIFICATION_ID)
+        } catch (_: Exception) {}
 
         setContentView(R.layout.activity_incoming_call)
 
@@ -98,22 +120,24 @@ class IncomingCallActivity : Activity() {
             }
         }
 
-        // Start ringing
+        // Ensure ringtone is active
         CallNotificationHelper.playRingtone(this)
 
         // Decline Button
         btnDecline.setOnClickListener {
             Log.d(TAG, "IncomingCallActivity: Decline tapped for callId=$callId")
-            stopCallAndFinish()
+            CallNotificationHelper.stopRingtone()
             CallNotificationHelper.cancelIncomingCall(this)
+            stopCallAndFinish()
             CallActionReceiver.sendRejectCall(this, callId, callerId)
         }
 
         // Accept Button
         btnAccept.setOnClickListener {
             Log.d(TAG, "IncomingCallActivity: Accept tapped for callId=$callId")
-            stopCallAndFinish()
+            CallNotificationHelper.stopRingtone()
             CallNotificationHelper.cancelIncomingCall(this)
+            stopCallAndFinish()
 
             // Launch MainActivity with all call extras so React Native Agora connects immediately
             val mainIntent = Intent(this, MainActivity::class.java).apply {
@@ -137,8 +161,9 @@ class IncomingCallActivity : Activity() {
         // Auto timeout after 45 seconds if unhandled
         autoTimeoutRunnable = Runnable {
             Log.d(TAG, "IncomingCallActivity: Auto-timeout after 45s without answer")
-            stopCallAndFinish()
+            CallNotificationHelper.stopRingtone()
             CallNotificationHelper.cancelIncomingCall(this)
+            stopCallAndFinish()
         }
         handler.postDelayed(autoTimeoutRunnable!!, 45000L)
     }
@@ -181,9 +206,7 @@ class IncomingCallActivity : Activity() {
 
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
-        // Prevent accidental back press during incoming call
         super.onBackPressed()
         CallNotificationHelper.stopRingtone()
     }
 }
-

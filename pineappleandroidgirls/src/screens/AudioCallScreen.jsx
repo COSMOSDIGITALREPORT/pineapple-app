@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, Image, TouchableOpacity,
-  StatusBar, Animated, Alert, PermissionsAndroid, Platform,
+  StatusBar, Animated, Alert, PermissionsAndroid, Platform, NativeModules,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -82,6 +82,11 @@ export default function AudioCallScreen({ onBack, onHangup, callerUser, incoming
   };
 
   useEffect(() => {
+    try {
+      NativeModules.RingtoneModule?.stopRingtone?.();
+      NativeModules.RingtoneModule?.dismissCallNotification?.();
+    } catch (_) {}
+
     Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, { toValue: 1.18, duration: 1800, useNativeDriver: true }),
