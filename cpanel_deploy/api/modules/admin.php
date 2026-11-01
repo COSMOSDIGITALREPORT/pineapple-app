@@ -366,7 +366,7 @@ function handleAdminRoute(string $subRoute, string $method, array $body, ?array 
             SELECT COUNT(*) FROM users 
             WHERE is_blocked = 0 AND (
                 (gender IN ('girl','female') AND is_live = 1)
-                OR (gender NOT IN ('girl','female') AND (is_online = 1 OR last_seen >= datetime('now', '-5 minutes')))
+                OR (gender NOT IN ('girl','female') AND is_online = 1 AND last_seen >= datetime('now', '-2 minutes'))
             )
         ")->fetchColumn();
         
@@ -384,11 +384,13 @@ function handleAdminRoute(string $subRoute, string $method, array $body, ?array 
         $totalCoinsSpent = ((float)($calls['total_coins'] ?? 0)) + $giftsCoins;
 
         $callPlatformRev = (float)($calls['call_platform_rev'] ?? 0);
-        $giftPlatformRev = round($giftsCoins * 0.33, 2);
+        // 30% platform cut on gift coins (at 0.50 INR base)
+        $giftPlatformRev = round($giftsCoins * 0.30 * 0.50, 2);
         $totalPlatformRev = round($callPlatformRev + $giftPlatformRev, 2);
 
         $recordedCallGirlEarnings = (float)($calls['call_girl_earnings'] ?? 0);
-        $giftGirlEarningsInr = round($giftsCoins * 0.50, 2);
+        // 70% host cut on gift coins (at 0.50 INR base)
+        $giftGirlEarningsInr = round($giftsCoins * 0.70 * 0.50, 2);
         $totalEarningsTable = (float)$db->query('SELECT COALESCE(SUM(amount_inr),0) FROM earnings')->fetchColumn();
         $totalGirlEarnings = max($totalEarningsTable, round($recordedCallGirlEarnings + $giftGirlEarningsInr, 2));
 
@@ -441,7 +443,7 @@ function handleAdminRoute(string $subRoute, string $method, array $body, ?array 
                 u.id, u.phone, u.name, u.gender, u.avatar_url, u.city,
                 CASE 
                     WHEN LOWER(COALESCE(u.gender, '')) IN ('girl', 'female', 'f') THEN (CASE WHEN u.is_live = 1 THEN 1 ELSE 0 END)
-                    ELSE (CASE WHEN (u.is_online = 1 OR u.last_seen >= datetime('now', '-5 minutes')) THEN 1 ELSE 0 END)
+                    ELSE (CASE WHEN (u.is_online = 1 AND u.last_seen >= datetime('now', '-2 minutes')) THEN 1 ELSE 0 END)
                 END AS is_online,
                 u.is_blocked, u.is_premium, u.is_verified, u.rating, u.created_at,
                 CASE 
@@ -590,7 +592,7 @@ function handleAdminRoute(string $subRoute, string $method, array $body, ?array 
             $newCoins = max(0, $numCoins);
             $db->prepare('UPDATE users SET coins = ?, minutes = ? WHERE id = ?')->execute([$newCoins, $newCoins, $userId]);
             $txnId = uniqid('tx_', true);
-            $db->prepare('INSERT INTO wallet_transactions (id, user_id, type, amount, note) VALUES (?, ?, "free_trial", ?, ?)')
+            $db->prepare('INSERT INTO wallet_transactions (id, user_id, type, amount, note, created_at) VALUES (?, ?, "free_trial", ?, ?, datetime("now"))')
                ->execute([$txnId, $userId, $newCoins, $note]);
 
             jsonResponse([
@@ -604,7 +606,7 @@ function handleAdminRoute(string $subRoute, string $method, array $body, ?array 
 
             // Insert into wallet_transactions
             $txnId = uniqid('tx_', true);
-            $db->prepare('INSERT INTO wallet_transactions (id, user_id, type, amount, note) VALUES (?, ?, "free_trial", ?, ?)')
+            $db->prepare('INSERT INTO wallet_transactions (id, user_id, type, amount, note, created_at) VALUES (?, ?, "free_trial", ?, ?, datetime("now"))')
                ->execute([$txnId, $userId, $numCoins, $note]);
 
             jsonResponse([
@@ -722,8 +724,10 @@ function handleAdminRoute(string $subRoute, string $method, array $body, ?array 
 
         // 4. Totals & Economics
         $totalCoinsConsumed = (float)($callsStats['total_call_coins'] ?? 0) + $giftsCoins;
-        $giftPlatformRevInr = round($giftsCoins * 0.33, 2);
-        $giftGirlEarningsInr = round($giftsCoins * 0.50, 2);
+        // 30% platform cut on gift coins (at 0.50 INR base)
+        $giftPlatformRevInr = round($giftsCoins * 0.30 * 0.50, 2);
+        // 70% host cut on gift coins (at 0.50 INR base)
+        $giftGirlEarningsInr = round($giftsCoins * 0.70 * 0.50, 2);
         $totalPlatformRev = round(((float)($callsStats['call_platform_rev'] ?? 0)) + $giftPlatformRevInr, 2);
         
         $totalEarningsTable = (float)$db->query("SELECT COALESCE(SUM(amount_inr), 0) FROM earnings")->fetchColumn();
@@ -780,14 +784,16 @@ function handleAdminRoute(string $subRoute, string $method, array $body, ?array 
         $recentTxns = $db->query("
             SELECT t.id, t.user_id, t.type, t.amount, t.note AS description, t.created_at, t.ref_id,
                    COALESCE(NULLIF(TRIM(u.name), ''), u.phone, 'User') AS user_name, u.gender AS user_gender, u.phone AS user_phone,
-                   c.receiver_id AS call_receiver_id,
-                   COALESCE(NULLIF(TRIM(u_rec.name), ''), u_rec.phone, 'Host') AS receiver_name,
-                   u_rec.phone AS receiver_phone
+                   COALESCE(c.receiver_id, g.receiver_id) AS call_receiver_id,
+                   COALESCE(NULLIF(TRIM(COALESCE(u_rec.name, u_grec.name)), ''), COALESCE(u_rec.phone, u_grec.phone), 'Host') AS receiver_name,
+                   COALESCE(u_rec.phone, u_grec.phone) AS receiver_phone
             FROM wallet_transactions t
             LEFT JOIN users u ON t.user_id = u.id
-            LEFT JOIN calls c ON t.ref_id = c.id
+            LEFT JOIN calls c ON (t.type IN ('spend', 'earn') AND t.ref_id = c.id)
             LEFT JOIN users u_rec ON c.receiver_id = u_rec.id
-            ORDER BY t.created_at DESC LIMIT 250
+            LEFT JOIN gifts g ON (t.type = 'gift' AND t.ref_id = g.id)
+            LEFT JOIN users u_grec ON g.receiver_id = u_grec.id
+            ORDER BY t.created_at DESC LIMIT 300
         ")->fetchAll();
 
         // 7. Spin Gifts & Free Trial Summaries
@@ -972,7 +978,10 @@ function handleAdminRoute(string $subRoute, string $method, array $body, ?array 
                 u.avatar_url,
                 u.gender,
                 u.minutes AS coins,
-                u.is_online,
+                CASE 
+                    WHEN LOWER(COALESCE(u.gender, '')) IN ('girl', 'female', 'f') THEN (CASE WHEN u.is_live = 1 THEN 1 ELSE 0 END)
+                    ELSE (CASE WHEN (u.is_online = 1 AND u.last_seen >= datetime('now', '-2 minutes')) THEN 1 ELSE 0 END)
+                END AS is_online,
                 u.created_at AS joined_at,
                 MAX(sm.created_at) AS last_message_at,
                 (SELECT message FROM support_messages WHERE user_id = u.id ORDER BY created_at DESC LIMIT 1) AS last_message,
@@ -991,7 +1000,7 @@ function handleAdminRoute(string $subRoute, string $method, array $body, ?array 
     // ── GET /admin/support/conversations/:userId ──────────────────────────────
     if (preg_match('#^support/conversations/([^/]+)$#', $subRoute, $m) && $method === 'GET') {
         $uid = $m[1];
-        $stmtUser = $db->prepare('SELECT id, name, phone, avatar_url, gender, minutes AS coins, is_online, is_verified, is_blocked, created_at FROM users WHERE id = ?');
+        $stmtUser = $db->prepare('SELECT id, name, phone, avatar_url, gender, minutes AS coins, (CASE WHEN LOWER(COALESCE(gender, "")) IN ("girl", "female", "f") THEN (CASE WHEN is_live = 1 THEN 1 ELSE 0 END) ELSE (CASE WHEN (is_online = 1 AND last_seen >= datetime("now", "-2 minutes")) THEN 1 ELSE 0 END) END) AS is_online, is_verified, is_blocked, created_at FROM users WHERE id = ?');
         $stmtUser->execute([$uid]);
         $u = $stmtUser->fetch();
         if (!$u) jsonResponse(['error' => 'User not found'], 404);

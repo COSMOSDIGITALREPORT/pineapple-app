@@ -1263,6 +1263,7 @@ td b{color:var(--text);font-weight:600;}
         <button class="ft-btn active" id="lt-all" onclick="setLedgerTab('all')">All Transactions</button>
         <button class="ft-btn" id="lt-purchase" onclick="setLedgerTab('purchase')">💰 Coin Purchases</button>
         <button class="ft-btn" id="lt-spend" onclick="setLedgerTab('spend')">📞 Spending / Calls</button>
+        <button class="ft-btn" id="lt-gift" onclick="setLedgerTab('gift')">🎁 Gifts Sent</button>
         <button class="ft-btn" id="lt-earn" onclick="setLedgerTab('earn')">👧 Host Earnings</button>
         <button class="ft-btn" id="lt-free_trial" onclick="setLedgerTab('free_trial')">🎁 Free Trial Coins</button>
         <button class="ft-btn" id="lt-spin_gift" onclick="setLedgerTab('spin_gift')">🎡 Won Gifts / Spins</button>
@@ -3143,6 +3144,10 @@ function renderLedger() {
       list = list.filter(t => t.type === 'free_trial' || t.type === 'admin_grant');
     } else if (ledgerFilterTab === 'spin_gift') {
       list = list.filter(t => t.type === 'spin_gift');
+    } else if (ledgerFilterTab === 'gift') {
+      list = list.filter(t => t.type === 'gift');
+    } else if (ledgerFilterTab === 'spend') {
+      list = list.filter(t => t.type === 'spend');
     } else {
       list = list.filter(t => t.type === ledgerFilterTab);
     }
@@ -3185,21 +3190,26 @@ function renderLedger() {
   tb.innerHTML = list.map(t => {
     const isPurchase  = t.type === 'purchase';
     const isSpend     = t.type === 'spend';
+    const isGift      = t.type === 'gift';
     const isEarn      = t.type === 'earn';
     const isFreeTrial = t.type === 'free_trial' || t.type === 'admin_grant';
     const isSpinGift  = t.type === 'spin_gift';
 
-    const grossInr = isPurchase ? (t.description?.match(/₹(\d+)/)?.[0] || '₹'+Math.round(t.amount * 0.83)) : (isFreeTrial || isSpinGift) ? '₹0.00 (Free)' : '₹'+(t.amount * 0.5).toFixed(2);
-    const hostCut  = isSpend ? '₹'+(t.amount * 0.5 * 0.7).toFixed(2) : isEarn ? '₹'+(t.amount * 0.5).toFixed(2) : isFreeTrial ? '₹'+(t.amount * 0.5 * 0.7).toFixed(2)+' (Platform Borne)' : isSpinGift ? '₹0.00 (Free Win)' : '–';
-    const platCut  = isSpend ? '₹'+(t.amount * 0.5 * 0.3).toFixed(2) : isPurchase ? grossInr : isFreeTrial ? '-₹'+(t.amount * 0.5 * 0.7).toFixed(2)+' (Trial Exp)' : isSpinGift ? '₹0.00' : '–';
+    const amt = Math.abs(Number(t.amount || 0));
 
-    const badgeClass = isPurchase ? 'b-green' : isSpend ? 'b-red' : isFreeTrial ? 'b-blue' : isSpinGift ? 'b-yellow' : 'b-purple';
-    const badgeText  = isPurchase ? '💰 Purchase' : isSpend ? '📞 Spent' : isFreeTrial ? '🎁 Free Trial' : isSpinGift ? '🎡 Won Gift' : '👧 Earned';
+    const grossInr = isPurchase ? (t.description?.match(/₹(\d+)/)?.[0] || '₹'+Math.round(amt * 0.83)) : (isFreeTrial || isSpinGift) ? '₹0.00 (Free)' : '₹'+(amt * 0.5).toFixed(2);
+    const hostCut  = (isSpend || isGift) ? '₹'+(amt * 0.5 * 0.7).toFixed(2) : isEarn ? '₹'+(amt * 0.5).toFixed(2) : isFreeTrial ? '₹'+(amt * 0.5 * 0.7).toFixed(2)+' (Platform Borne)' : isSpinGift ? '₹0.00 (Free Win)' : '–';
+    const platCut  = (isSpend || isGift) ? '₹'+(amt * 0.5 * 0.3).toFixed(2) : isPurchase ? grossInr : isFreeTrial ? '-₹'+(amt * 0.5 * 0.7).toFixed(2)+' (Trial Exp)' : isSpinGift ? '₹0.00' : '–';
+
+    const badgeClass = isPurchase ? 'b-green' : isGift ? 'b-pink' : isSpend ? 'b-red' : isFreeTrial ? 'b-blue' : isSpinGift ? 'b-yellow' : 'b-purple';
+    const badgeText  = isPurchase ? '💰 Purchase' : isGift ? '🎁 Gift Sent' : isSpend ? '📞 Spent' : isFreeTrial ? '🎁 Free Trial' : isSpinGift ? '🎡 Won Gift' : '👧 Earned';
 
     // Party label
     let partyHtml = `<b>${t.user_name||'User'}</b>`;
     if (isPurchase) {
       partyHtml = `<b style="color:#16a34a;">💰 ${t.user_name || 'User'}</b>${t.user_phone ? ` <span style="color:#666;font-size:11px;font-weight:normal;">(${t.user_phone})</span>` : ''}`;
+    } else if (isGift && t.receiver_name) {
+      partyHtml = `<b style="color:#2563EB;">👦 ${t.user_name||'Boy'}</b> <span style="color:#aaa;font-size:11px;">➔</span> <b style="color:#EC4899;">🎁 👧 ${t.receiver_name}</b>`;
     } else if (isSpend && t.receiver_name) {
       partyHtml = `<b>${t.user_name||'Boy'}</b> <span style="color:#aaa;font-size:11px;">➔</span> <b style="color:#7C3AED;">👧 ${t.receiver_name}</b>`;
     } else if (isEarn) {
@@ -3215,7 +3225,7 @@ function renderLedger() {
       <td><span class="badge ${badgeClass}">${badgeText}</span></td>
       <td>${partyHtml}</td>
       <td style="color:#555;max-width:240px;font-weight:${isFreeTrial?'700':'400'};color:${isFreeTrial?'#1E40AF':'#555'}">${t.description||'Transaction'}</td>
-      <td><b style="color:${isSpend?'#DC2626':isSpinGift?'#D97706':'#16a34a'}">${isSpend?'-':'+'}${t.amount}</b></td>
+      <td><b style="color:${(isSpend||isGift)?'#DC2626':isSpinGift?'#D97706':'#16a34a'}">${(isSpend||isGift)?'-':'+'}${amt}</b></td>
       <td style="font-weight:700">${grossInr}</td>
       <td style="color:#7C3AED;font-weight:700">${hostCut}</td>
       <td style="color:#16a34a;font-weight:700">${platCut}</td>

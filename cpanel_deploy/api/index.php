@@ -50,7 +50,8 @@ if (preg_match('/Bearer\s+(\S+)/i', $authHeader, $matches)) {
                         // Female host's online presence is strictly tied to her Live toggle (is_live)
                         $db->prepare('UPDATE users SET is_online = CASE WHEN is_live = 1 THEN 1 ELSE 0 END, last_seen = datetime("now") WHERE id = ?')->execute([$tokenPayload['userId']]);
                     } else {
-                        $db->prepare('UPDATE users SET is_online = 1, last_seen = datetime("now") WHERE id = ?')->execute([$tokenPayload['userId']]);
+                        // For boys, only refresh last_seen timestamp. is_online is controlled strictly by app foreground status
+                        $db->prepare('UPDATE users SET last_seen = datetime("now") WHERE id = ?')->execute([$tokenPayload['userId']]);
                     }
                 } catch (\Throwable $_) {}
             }

@@ -66,14 +66,19 @@ function handleWalletRoute(string $subRoute, string $method, array $body, ?array
 
         // Insert gift log
         $giftId = uniqid('gift_', true);
-        $db->prepare('INSERT INTO gifts (id, sender_id, receiver_id, gift_type, coins_spent) VALUES (?, ?, ?, ?, ?)')
+        $db->prepare('INSERT INTO gifts (id, sender_id, receiver_id, gift_type, coins_spent, created_at) VALUES (?, ?, ?, ?, ?, datetime("now"))')
            ->execute([$giftId, $user['id'], $receiverId, $giftType, $costCoins]);
 
-        // Insert transaction & earnings
-        $db->prepare('INSERT INTO wallet_transactions (id, user_id, type, amount, ref_id, note) VALUES (?, ?, "gift", ?, ?, ?)')
-           ->execute([uniqid('tx_', true), $user['id'], -$costCoins, $giftId, "Sent $giftType"]);
+        // Insert transaction for boy (gift spend)
+        $db->prepare('INSERT INTO wallet_transactions (id, user_id, type, amount, ref_id, note, created_at) VALUES (?, ?, "gift", ?, ?, ?, datetime("now"))')
+           ->execute([uniqid('tx_gsp_', true), $user['id'], -$costCoins, $giftId, "Sent $giftType gift"]);
 
-        $db->prepare('INSERT INTO earnings (id, girl_id, call_id, coins_received, amount_inr) VALUES (?, ?, ?, ?, ?)')
+        // Insert transaction for girl host (gift earn)
+        $db->prepare('INSERT INTO wallet_transactions (id, user_id, type, amount, ref_id, note, created_at) VALUES (?, ?, "earn", ?, ?, ?, datetime("now"))')
+           ->execute([uniqid('tx_gear_', true), $receiverId, $girlCoins, $giftId, "Received $giftType gift (+₹{$girlInr})"]);
+
+        // Insert earnings record for host payout & economics
+        $db->prepare('INSERT INTO earnings (id, girl_id, call_id, coins_received, amount_inr, created_at) VALUES (?, ?, ?, ?, ?, datetime("now"))')
            ->execute([uniqid('e_', true), $receiverId, $giftId, $girlCoins, $girlInr]);
 
         // Push real-time gift event to receiver via Firebase

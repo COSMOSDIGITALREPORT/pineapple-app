@@ -238,7 +238,13 @@ router.get('/stats', adminAuth, async (req, res) => {
     const [[users]]   = await pool.query('SELECT COUNT(*) AS total FROM users');
     const [[boys]]    = await pool.query('SELECT COUNT(*) AS total FROM users WHERE gender IN ("boy","male")');
     const [[girls]]   = await pool.query('SELECT COUNT(*) AS total FROM users WHERE gender IN ("girl","female")');
-    const [[online]]  = await pool.query('SELECT COUNT(*) AS total FROM users WHERE is_online=1');
+    const [[online]]  = await pool.query(`
+      SELECT COUNT(*) AS total FROM users 
+      WHERE is_blocked=0 AND (
+        (gender IN ('girl','female') AND is_live=1)
+        OR (gender NOT IN ('girl','female') AND is_online=1 AND last_seen >= DATE_SUB(NOW(), INTERVAL 2 MINUTE))
+      )
+    `);
     const [[calls]]   = await pool.query(
       `SELECT COUNT(*) AS total,
               COALESCE(SUM(mins_deducted),0) AS total_coins,
@@ -357,7 +363,12 @@ router.get('/users', adminAuth, async (req, res) => {
   try {
     const [rows] = await pool.query(`
       SELECT 
-        u.id, u.phone, u.name, u.gender, u.is_online, u.is_blocked, u.is_premium, u.is_verified, u.rating, u.created_at,
+        u.id, u.phone, u.name, u.gender,
+        CASE 
+          WHEN LOWER(COALESCE(u.gender, '')) IN ('girl', 'female', 'f') THEN (CASE WHEN u.is_live = 1 THEN 1 ELSE 0 END)
+          ELSE (CASE WHEN (u.is_online = 1 AND u.last_seen >= DATE_SUB(NOW(), INTERVAL 2 MINUTE)) THEN 1 ELSE 0 END)
+        END AS is_online,
+        u.is_blocked, u.is_premium, u.is_verified, u.rating, u.created_at,
         CASE 
           WHEN LOWER(COALESCE(u.gender, '')) IN ('girl', 'female', 'f') THEN
             GREATEST(0, ROUND((GREATEST(COALESCE(e.total_earned_inr, 0), COALESCE(c.call_earned_inr, 0)) - COALESCE(w.total_withdrawn, 0)) * 2))

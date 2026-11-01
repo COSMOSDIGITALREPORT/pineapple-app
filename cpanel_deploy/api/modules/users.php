@@ -133,7 +133,7 @@ function handleUsersRoute(string $subRoute, string $method, array $body, ?array 
         if ($isGirl) {
             $stmt = $db->prepare('UPDATE users SET is_online = CASE WHEN is_live = 1 THEN 1 ELSE 0 END, last_seen = datetime("now") WHERE id = ?');
         } else {
-            $stmt = $db->prepare('UPDATE users SET is_online = 1, last_seen = datetime("now") WHERE id = ?');
+            $stmt = $db->prepare('UPDATE users SET last_seen = datetime("now") WHERE id = ?');
         }
         $stmt->execute([$user['id']]);
 

@@ -7,13 +7,14 @@ import {
   StatusBar,
   Alert,
   BackHandler,
+  AppState,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSelector, useDispatch } from 'react-redux';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from '../components/Icon';
 import { Colors } from '../theme/colors';
-import { getRandomUser, getBlockedUsers, getMe } from '../services/api';
+import { getRandomUser, getBlockedUsers, getMe, updateUserStatus } from '../services/api';
 import { setCoins, addCoins, setProfile } from '../store/slices/userSlice';
 import { connectSocket, getSocket, disconnectSocket } from '../services/socket';
 import LinearGradient from 'react-native-linear-gradient';
@@ -129,6 +130,49 @@ export default function HomeScreen({ onLogout }) {
     initSocket();
     return () => disconnectSocket();
   }, [dispatch]);
+
+  // Manage boy user online presence: strictly online in foreground, offline in background / closed
+  useEffect(() => {
+    const notifyOnline = () => {
+      updateUserStatus(true).catch(() => {});
+      getSocket()?.emit('user:online', { userId: user.id });
+    };
+
+    const notifyOffline = () => {
+      updateUserStatus(false).catch(() => {});
+      getSocket()?.emit('user:offline', { userId: user.id });
+    };
+
+    // Set online immediately on mount
+    notifyOnline();
+
+    // Heartbeat every 45s while active in foreground to keep last_seen fresh
+    const heartbeat = setInterval(() => {
+      if (AppState.currentState === 'active') {
+        updateUserStatus(true).catch(() => {});
+      }
+    }, 45000);
+
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'active') {
+        notifyOnline();
+      } else if (nextAppState.match(/inactive|background/)) {
+        notifyOffline();
+      }
+    });
+
+    return () => {
+      clearInterval(heartbeat);
+      subscription.remove();
+      notifyOffline();
+    };
+  }, [user.id]);
+
+  const handleLogout = () => {
+    updateUserStatus(false).catch(() => {});
+    getSocket()?.emit('user:offline', { userId: user.id });
+    onLogout?.();
+  };
 
   // Back button handler:
   // 1. Close drawer if open
@@ -308,7 +352,7 @@ export default function HomeScreen({ onLogout }) {
   if (currentSubScreen === 'transactions')    return <TransactionsScreen onBack={goHome} onBuyCoins={() => setCurrentSubScreen('premium')} />;
   if (currentSubScreen === 'privacyPolicy')   return <PrivacyPolicyScreen onBack={goHome} />;
   if (currentSubScreen === 'termsOfService')  return <TermsOfServiceScreen onBack={goHome} />;
-  if (currentSubScreen === 'settings')        return <SettingsScreen onBack={goHome} onLogout={onLogout} onBlockedUsers={() => setCurrentSubScreen('blockedUsers')} onPrivacyPolicy={() => setCurrentSubScreen('privacyPolicy')} onTermsOfService={() => setCurrentSubScreen('termsOfService')} />;
+  if (currentSubScreen === 'settings')        return <SettingsScreen onBack={goHome} onLogout={handleLogout} onBlockedUsers={() => setCurrentSubScreen('blockedUsers')} onPrivacyPolicy={() => setCurrentSubScreen('privacyPolicy')} onTermsOfService={() => setCurrentSubScreen('termsOfService')} />;
   if (currentSubScreen === 'premium')         return <PremiumPlansScreen onBack={goHome} />;
   if (currentSubScreen === 'editProfile')     return <EditProfileScreen onBack={goHome} />;
   if (currentSubScreen === 'safety')          return <SafetyScreen onBack={goHome} onAccept={goHome} />;
@@ -367,7 +411,7 @@ export default function HomeScreen({ onLogout }) {
             onSafety={() => setCurrentSubScreen('safety')}
             onBlockedUsers={() => setCurrentSubScreen('blockedUsers')}
             onDrawer={openDrawer}
-            onLogout={onLogout}
+            onLogout={handleLogout}
           />
         )}
       </View>
@@ -392,7 +436,7 @@ export default function HomeScreen({ onLogout }) {
         onSupport={() => setCurrentSubScreen('support')}
         onSafety={() => setCurrentSubScreen('safety')}
         onLeaderboard={() => setCurrentSubScreen('leaderboard')}
-        onLogout={onLogout}
+        onLogout={handleLogout}
       />
     </View>
   );
