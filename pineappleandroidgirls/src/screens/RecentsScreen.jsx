@@ -260,26 +260,36 @@ export default function RecentsScreen({ onRandom, onBack, onDrawer, onCall }) {
 
                   {/* Info */}
                   <View style={styles.cardInfo}>
-                    <Text style={styles.cardName} numberOfLines={1} ellipsizeMode="tail">{otherUser.name || 'Unknown'}</Text>
+                    {/* Top row: Caller name + Manage action button */}
+                    <View style={styles.cardHeaderRow}>
+                      <Text style={styles.cardName} numberOfLines={1} ellipsizeMode="tail">
+                        {otherUser.name || 'Unknown'}
+                      </Text>
+                      <TouchableOpacity
+                        style={styles.actionPillWrap}
+                        activeOpacity={0.8}
+                        onPress={() => handleCallerPress(call)}>
+                        <Text style={styles.actionPillText}>⋮ Manage</Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    {/* Bottom row: Call status, duration, call type & time ago */}
                     <View style={styles.cardMeta}>
                       <PhoneArrowIcon missed={missed} />
                       <Text style={[styles.cardStatus, missed && styles.cardStatusMissed]} numberOfLines={1}>
                         {missed ? 'Missed' : 'Completed'}
                       </Text>
+                      {!missed && (
+                        <>
+                          <Text style={styles.metaDot}>·</Text>
+                          <Icon name={isVideo ? 'video' : 'phone'} size={12} color="#94a3b8" />
+                          <Text style={styles.cardDuration}>{call.duration || '00:00'}</Text>
+                        </>
+                      )}
                       <Text style={styles.metaDot}>·</Text>
-                      <Icon name={isVideo ? 'video' : 'phone'} size={12} color="#94a3b8" />
-                      <Text style={styles.cardDuration}>{call.duration || '--:--'}</Text>
+                      <Text style={styles.cardTime}>{timeAgo(call.created_at)}</Text>
                     </View>
-                    <Text style={styles.cardTime}>{timeAgo(call.created_at)}</Text>
                   </View>
-
-                  {/* Manage action pill */}
-                  <TouchableOpacity
-                    style={styles.actionPillWrap}
-                    activeOpacity={0.8}
-                    onPress={() => handleCallerPress(call)}>
-                    <Text style={styles.actionPillText}>⋮ Manage</Text>
-                  </TouchableOpacity>
                 </TouchableOpacity>
               );
             })}
@@ -526,9 +536,16 @@ const styles = StyleSheet.create({
     borderColor: '#fff',
   },
 
-  cardInfo: { flex: 1, gap: 3 },
+  cardInfo: { flex: 1, minWidth: 0, gap: 5 },
+  cardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
   cardName: {
-    fontSize: 16,
+    flex: 1,
+    fontSize: 15,
     fontWeight: '700',
     color: Colors.dark,
     includeFontPadding: false,
@@ -536,7 +553,8 @@ const styles = StyleSheet.create({
   cardMeta: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    flexWrap: 'wrap',
+    gap: 4,
   },
   cardStatus: {
     fontSize: 12,
@@ -646,17 +664,19 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   actionPillWrap: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+    flexShrink: 0,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 14,
     backgroundColor: '#FFF0F4',
     borderWidth: 1,
     borderColor: '#FFE0EB',
   },
   actionPillText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
     color: '#FF3870',
+    includeFontPadding: false,
   },
 
   modalOverlay: {

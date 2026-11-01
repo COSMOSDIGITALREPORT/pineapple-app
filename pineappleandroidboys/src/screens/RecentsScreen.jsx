@@ -319,7 +319,7 @@ const styles = StyleSheet.create({
     borderColor: '#fff',
   },
 
-  cardInfo: { flex: 1, gap: 3 },
+  cardInfo: { flex: 1, minWidth: 0, gap: 3 },
   cardName: {
     fontSize: 16,
     fontWeight: '700',
@@ -329,7 +329,8 @@ const styles = StyleSheet.create({
   cardMeta: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    flexWrap: 'wrap',
+    gap: 4,
   },
   cardStatus: {
     fontSize: 12,
