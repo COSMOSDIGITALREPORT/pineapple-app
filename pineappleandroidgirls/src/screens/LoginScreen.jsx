@@ -161,7 +161,7 @@ export default function LoginScreen({ onLoginSuccess }) {
 
           {error.length > 0 && (
             <View style={styles.errorBox}>
-              <Text style={styles.errorTitle}>⊗  {step === 'otp' ? 'Couldn\'t verify OTP' : 'Invalid number'}</Text>
+              <Text style={styles.errorTitle}>⊗  {step === 'otp' ? "Couldn't verify OTP" : (error.toLowerCase().includes('network') || error.toLowerCase().includes('server') ? 'Connection issue' : 'Invalid number')}</Text>
               <Text style={styles.errorMsg}>{error}</Text>
             </View>
           )}

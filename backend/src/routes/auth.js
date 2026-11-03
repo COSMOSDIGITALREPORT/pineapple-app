@@ -70,15 +70,15 @@ router.post('/send-otp', async (req, res) => {
       [uuidv4(), phone, otp, expiresAt]);
     console.log(`[DEV] OTP for ${phone}: ${otp}`);
 
-    // Send OTP via voice call (2Factor)
+    // Send OTP via SMS (2Factor)
     if (process.env.TWOFACTOR_API_KEY) {
       try {
         const voiceRes = await axios.get(
-          `https://2factor.in/API/V1/${process.env.TWOFACTOR_API_KEY}/VOICE/${phone}/${otp}`
+          `https://2factor.in/API/V1/${process.env.TWOFACTOR_API_KEY}/SMS/${phone}/${otp}/AUTOGEN`
         );
-        console.log('[2FACTOR VOICE] Sent:', voiceRes.data);
+        console.log('[2FACTOR SMS] Sent:', voiceRes.data);
       } catch (err) {
-        console.error('[2FACTOR VOICE] Failed:', err.response?.data || err.message);
+        console.error('[2FACTOR SMS] Failed:', err.response?.data || err.message);
       }
     } else {
       console.warn('[VOICE] No API key configured. OTP not sent.');

@@ -23,12 +23,20 @@ async function request(method, path, body) {
 
   let res;
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
     res = await fetch(`${BASE_URL}${path}`, {
       method,
       headers,
       body: body ? JSON.stringify(body) : undefined,
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
   } catch (e) {
+    console.warn(`[API Network Error] ${method} ${path}:`, e?.message || e);
+    if (e.name === 'AbortError') {
+      throw new Error('Server took too long to respond. Please try again.');
+    }
     throw new Error('Network request failed. Check your internet connection and make sure the server is running.');
   }
 

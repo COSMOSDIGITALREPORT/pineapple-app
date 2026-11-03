@@ -40,7 +40,10 @@ function handleAdminRoute(string $subRoute, string $method, array $body, ?array 
             $ch = curl_init();
             curl_setopt($ch, CURLOPT_URL, "https://2factor.in/API/V1/{$apiKey}/SMS/{$phone}/{$otp}/AUTOGEN");
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($ch, CURLOPT_TIMEOUT, 6);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 4);
             $resp = curl_exec($ch);
             curl_close($ch);
             if ($resp) {
@@ -53,7 +56,10 @@ function handleAdminRoute(string $subRoute, string $method, array $body, ?array 
                 $ch = curl_init();
                 curl_setopt($ch, CURLOPT_URL, "https://2factor.in/API/V1/{$apiKey}/SMS/{$phone}/{$otp}");
                 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-                curl_setopt($ch, CURLOPT_TIMEOUT, 6);
+                curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+                curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+                curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 2);
+                curl_setopt($ch, CURLOPT_TIMEOUT, 3);
                 $resp2 = curl_exec($ch);
                 curl_close($ch);
                 if ($resp2) {

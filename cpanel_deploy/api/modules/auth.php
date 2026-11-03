@@ -96,7 +96,7 @@ function handleAuthRoute(string $subRoute, string $method, array $body, ?array $
             }
         }
 
-        // Priority 2: 2Factor.in SMS Gateway Fallback (Pure SMS, never voice)
+        // Priority 2: 2Factor.in SMS Gateway (Fast, reliable, SSL bypass & strict timeouts)
         if (!$smsSent && !empty($config['twofactor_api_key'])) {
             $apiKey = urlencode($config['twofactor_api_key']);
 
@@ -104,11 +104,14 @@ function handleAuthRoute(string $subRoute, string $method, array $body, ?array $
             $ch = curl_init();
             curl_setopt($ch, CURLOPT_URL, "https://2factor.in/API/V1/{$apiKey}/SMS/{$phone}/{$otp}/AUTOGEN");
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($ch, CURLOPT_TIMEOUT, 6);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 4);
             $smsResp = curl_exec($ch);
             curl_close($ch);
 
-            $sData = json_decode($smsResp, true);
+            $sData = $smsResp ? json_decode($smsResp, true) : null;
             if (!empty($sData) && ($sData['Status'] ?? '') === 'Success') {
                 $smsSent = true;
                 $dispatchNote = 'SMS OTP dispatched via 2Factor (AUTOGEN)';
@@ -117,16 +120,19 @@ function handleAuthRoute(string $subRoute, string $method, array $body, ?array $
                 $ch = curl_init();
                 curl_setopt($ch, CURLOPT_URL, "https://2factor.in/API/V1/{$apiKey}/SMS/{$phone}/{$otp}");
                 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-                curl_setopt($ch, CURLOPT_TIMEOUT, 6);
+                curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+                curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+                curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 2);
+                curl_setopt($ch, CURLOPT_TIMEOUT, 3);
                 $smsResp2 = curl_exec($ch);
                 curl_close($ch);
 
-                $sData2 = json_decode($smsResp2, true);
+                $sData2 = $smsResp2 ? json_decode($smsResp2, true) : null;
                 if (!empty($sData2) && ($sData2['Status'] ?? '') === 'Success') {
                     $smsSent = true;
                     $dispatchNote = 'SMS OTP dispatched via 2Factor';
                 } else {
-                    $dispatchNote .= '; 2Factor: ' . ($sData['Details'] ?? 'Failed');
+                    $dispatchNote .= '; 2Factor: ' . ($sData['Details'] ?? $sData2['Details'] ?? 'Failed');
                 }
             }
         }
