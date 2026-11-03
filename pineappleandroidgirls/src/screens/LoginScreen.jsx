@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, Dimensions, TouchableOpacity,
   TextInput, ScrollView, Image, KeyboardAvoidingView,
@@ -8,11 +8,12 @@ import LinearGradient from 'react-native-linear-gradient';
 import { useDispatch } from 'react-redux';
 import { Colors, Gradients } from '../theme/colors';
 import Icon from '../components/Icon';
-import { sendOtp, verifyOtp } from '../services/api';
+import { firebaseLogin } from '../services/api';
 import { syncFcmToken } from '../services/notifications';
 import { setAuthUser } from '../store/slices/userSlice';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import PrivacyPolicyScreen from './PrivacyPolicyScreen';
+import auth from '@react-native-firebase/auth';
 
 const { width } = Dimensions.get('window');
 const LOGO = require('../image/pineapple_logo.png');
@@ -21,23 +22,67 @@ export default function LoginScreen({ onLoginSuccess }) {
   const dispatch = useDispatch();
   const [step, setStep] = useState('phone');
   const [phone, setPhone] = useState('');
-  const [otp, setOtp] = useState(['', '', '', '']);
+  const [otp, setOtp] = useState(['', '', '', '', '', '']);
+  const [confirm, setConfirm] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showPrivacy, setShowPrivacy] = useState(false);
 
-  const otpRefs = [useRef(null), useRef(null), useRef(null), useRef(null)];
+  const otpRefs = [
+    useRef(null), useRef(null), useRef(null),
+    useRef(null), useRef(null), useRef(null),
+  ];
+
+  // Clean signout on mount to ensure fresh state
+  useEffect(() => {
+    auth().signOut().catch(() => {});
+  }, []);
+
+  // Android Auto-SMS Retriever verification listener
+  useEffect(() => {
+    const unsubscribe = auth().onAuthStateChanged(async (firebaseUser) => {
+      if (firebaseUser && step === 'otp' && !loading) {
+        try {
+          setLoading(true);
+          const idToken = await firebaseUser.getIdToken();
+          const data = await firebaseLogin(idToken, 'girl', phone.trim());
+          await completeLogin(data);
+        } catch (err) {
+          console.warn('[Auto-verify login error]:', err);
+        } finally {
+          setLoading(false);
+        }
+      }
+    });
+    return () => unsubscribe();
+  }, [step, phone, confirm]);
 
   const handleOtpChange = (text, index) => {
+    const cleaned = text.replace(/[^0-9]/g, '');
+    if (cleaned.length > 1) {
+      const newOtp = [...otp];
+      for (let i = 0; i < cleaned.length && (index + i) < 6; i++) {
+        newOtp[index + i] = cleaned[i];
+      }
+      setOtp(newOtp);
+      const nextFocus = Math.min(index + cleaned.length, 5);
+      otpRefs[nextFocus].current?.focus();
+      return;
+    }
+
     const newOtp = [...otp];
-    newOtp[index] = text;
+    newOtp[index] = cleaned;
     setOtp(newOtp);
-    if (text && index < 3) otpRefs[index + 1].current?.focus();
+    if (cleaned && index < 5) otpRefs[index + 1].current?.focus();
   };
 
   const handleOtpKeyPress = (key, index) => {
-    if (key === 'Backspace' && !otp[index] && index > 0)
+    if (key === 'Backspace' && !otp[index] && index > 0) {
+      const newOtp = [...otp];
+      newOtp[index - 1] = '';
+      setOtp(newOtp);
       otpRefs[index - 1].current?.focus();
+    }
   };
 
   const completeLogin = async (userData) => {
@@ -57,29 +102,78 @@ export default function LoginScreen({ onLoginSuccess }) {
     setError('');
     if (step === 'phone') {
       const digits = phone.trim();
-      if (digits.length !== 10) { setError('Please enter your 10-digit mobile number'); return; }
+      if (digits.length !== 10) {
+        setError('Please enter your 10-digit mobile number');
+        return;
+      }
       setLoading(true);
       try {
-        await sendOtp(digits);
+        const formatted = '+91' + digits;
+        const confirmation = await auth().signInWithPhoneNumber(formatted);
+        setConfirm(confirmation);
         setStep('otp');
         setTimeout(() => otpRefs[0].current?.focus(), 300);
       } catch (e) {
-        setError(e?.message || 'Failed to send OTP. Please try again.');
+        console.warn('[Firebase Auth Error]:', e);
+        const msg = (e?.message || '').toLowerCase();
+        if (msg.includes('invalid-phone-number')) {
+          setError('Please enter a valid 10-digit mobile number.');
+        } else if (msg.includes('too-many-requests')) {
+          setError('Too many requests. Please try again later.');
+        } else if (msg.includes('network') || msg.includes('timeout')) {
+          setError('Network request failed. Check your internet connection.');
+        } else if (msg.includes('app-not-authorized') || msg.includes('play-integrity')) {
+          setError('Verification service temporarily busy. Please try again.');
+        } else {
+          setError(e?.message || 'Failed to send verification code. Try again.');
+        }
       } finally {
         setLoading(false);
       }
     } else {
       const otpCode = otp.join('');
-      if (otpCode.length < 4) { setError('Enter the 4-digit OTP'); return; }
+      if (otpCode.length < 6) {
+        setError('Enter the 6-digit verification code');
+        return;
+      }
       setLoading(true);
       try {
-        const data = await verifyOtp(phone.trim(), otpCode, 'girl');
+        if (!confirm) {
+          throw new Error('Verification session expired. Please request a new code.');
+        }
+        const userCredential = await confirm.confirm(otpCode);
+        const idToken = await userCredential.user.getIdToken();
+        const data = await firebaseLogin(idToken, 'girl', phone.trim());
         await completeLogin(data);
       } catch (e) {
-        setError(e?.message || 'Invalid or expired OTP. Try again.');
+        console.warn('[Firebase Confirm Error]:', e);
+        const msg = (e?.message || '').toLowerCase();
+        if (msg.includes('invalid-verification-code')) {
+          setError('Invalid verification code. Please check and try again.');
+        } else if (msg.includes('session-expired')) {
+          setError('Verification code expired. Please request a new code.');
+        } else {
+          setError(e?.message || 'Invalid or expired OTP. Try again.');
+        }
       } finally {
         setLoading(false);
       }
+    }
+  };
+
+  const handleResend = async () => {
+    setError('');
+    setOtp(['', '', '', '', '', '']);
+    setLoading(true);
+    try {
+      const formatted = '+91' + phone.trim();
+      const confirmation = await auth().signInWithPhoneNumber(formatted, true);
+      setConfirm(confirmation);
+      setTimeout(() => otpRefs[0].current?.focus(), 300);
+    } catch (e) {
+      setError(e?.message || 'Failed to resend code.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -108,7 +202,6 @@ export default function LoginScreen({ onLoginSuccess }) {
           </View>
           <View style={styles.wordWrap}>
             <Text style={styles.brandName}>Pineapple</Text>
-            
           </View>
           <Text style={styles.brandSub}>DATING & CALLING APP</Text>
         </View>
@@ -118,7 +211,7 @@ export default function LoginScreen({ onLoginSuccess }) {
           <Text style={styles.cardSub}>
             {step === 'phone'
               ? 'Enter your phone number to get started.'
-              : 'Enter the OTP sent to +91 ' + phone}
+              : 'Enter the 6-digit code sent to +91 ' + phone}
           </Text>
 
           {step === 'phone' ? (
@@ -146,22 +239,28 @@ export default function LoginScreen({ onLoginSuccess }) {
                     ref={otpRefs[i]}
                     style={styles.otpBox}
                     value={digit}
-                    onChangeText={(t) => handleOtpChange(t.slice(-1), i)}
+                    onChangeText={(t) => handleOtpChange(t, i)}
                     onKeyPress={({ nativeEvent }) => handleOtpKeyPress(nativeEvent.key, i)}
                     keyboardType="number-pad"
                     maxLength={1}
                     textAlign="center" />
                 ))}
               </View>
-              <TouchableOpacity onPress={() => { setStep('phone'); setOtp(['','','','']); setError(''); }} style={styles.resendBtn}>
-                <Text style={styles.resendText}>Resend Code</Text>
-              </TouchableOpacity>
+              <View style={styles.otpActionsRow}>
+                <TouchableOpacity onPress={handleResend} style={styles.resendBtn} disabled={loading}>
+                  <Text style={styles.resendText}>Resend Code</Text>
+                </TouchableOpacity>
+                <Text style={styles.actionDivider}>•</Text>
+                <TouchableOpacity onPress={() => { setStep('phone'); setOtp(['', '', '', '', '', '']); }} style={styles.resendBtn} disabled={loading}>
+                  <Text style={styles.resendText}>Change Number</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           )}
 
           {error.length > 0 && (
             <View style={styles.errorBox}>
-              <Text style={styles.errorTitle}>⊗  {step === 'otp' ? "Couldn't verify OTP" : (error.toLowerCase().includes('network') || error.toLowerCase().includes('server') ? 'Connection issue' : 'Invalid number')}</Text>
+              <Text style={styles.errorTitle}>⊗  {step === 'otp' ? "Couldn't verify code" : (error.toLowerCase().includes('network') || error.toLowerCase().includes('server') ? 'Connection issue' : 'Invalid number')}</Text>
               <Text style={styles.errorMsg}>{error}</Text>
             </View>
           )}
@@ -240,10 +339,17 @@ const styles = StyleSheet.create({
   phoneInput: { flex: 1, height: '100%', paddingHorizontal: 16, fontSize: 16, color: Colors.dark },
   otpRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 },
   otpBox: {
-    width: (width - 48 - 48 - 24) / 4, height: 64, backgroundColor: '#F5F5F5',
-    borderRadius: 16, fontSize: 24, fontWeight: 'bold', color: Colors.secondary,
+    width: Math.floor((width - 48 - 48 - 30) / 6),
+    height: 54,
+    backgroundColor: '#F5F5F5',
+    borderRadius: 12,
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: Colors.secondary,
   },
-  resendBtn: { alignSelf: 'center' },
+  otpActionsRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 12 },
+  actionDivider: { color: '#ccc', fontSize: 14 },
+  resendBtn: { alignSelf: 'center', paddingVertical: 4, paddingHorizontal: 6 },
   resendText: { fontSize: 14, color: Colors.secondary, fontWeight: '600' },
   errorBox: {
     backgroundColor: '#FFF0F0', borderRadius: 12, padding: 14,

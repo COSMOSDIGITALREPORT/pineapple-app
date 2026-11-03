@@ -62,8 +62,8 @@ export const verifyOtp = async (phone, otp, gender = 'girl') => {
   return data;
 };
 
-export const firebaseLogin = async (idToken, gender) => {
-  const data = await post('/auth/firebase-login', { idToken, gender });
+export const firebaseLogin = async (idToken, gender = 'girl', phone = '', fcmToken = '') => {
+  const data = await post('/auth/firebase-login', { idToken, gender, appType: gender, phone, fcmToken });
   await AsyncStorage.setItem('auth_token', data.token);
   return data;
 };
