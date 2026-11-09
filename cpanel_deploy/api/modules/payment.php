@@ -5,20 +5,59 @@
 
 if (!defined('PINEAPPLE_APP')) die('Direct access forbidden');
 
-function handlePaymentRoute(string $subRoute, string $method, array $body, ?array $user): void {
-    if (!$user) jsonResponse(['error' => 'Unauthorized'], 401);
-    $db = Database::getConnection();
-    $config = require dirname(__DIR__) . '/config.php';
-
-    $keyId     = $config['razorpay_key_id'] ?? '';
-    $keySecret = $config['razorpay_key_secret'] ?? '';
-
+function getPaymentPackages($db): array {
     $packages = [
         'pack_9'   => ['coins' => 15,  'price' => 9,   'label' => 'Intro Trial', 'isIntro' => true],
         'pack_100' => ['coins' => 120, 'price' => 100, 'label' => 'Basic'],
         'pack_200' => ['coins' => 240, 'price' => 200, 'label' => 'Standard'],
         'pack_500' => ['coins' => 700, 'price' => 500, 'label' => 'Premium', 'unlocksSpin' => true],
     ];
+
+    try {
+        $stmt = $db->prepare("SELECT value FROM admin_settings WHERE key = 'payment_packages'");
+        $stmt->execute();
+        $raw = $stmt->fetchColumn();
+        if ($raw) {
+            $parsed = json_decode($raw, true);
+            if (is_array($parsed) && !empty($parsed)) {
+                foreach ($parsed as $k => $v) {
+                    if (isset($packages[$k])) {
+                        if (isset($v['price']) && is_numeric($v['price'])) {
+                            $packages[$k]['price'] = (float)$v['price'];
+                        }
+                        if (isset($v['coins']) && is_numeric($v['coins'])) {
+                            $packages[$k]['coins'] = (int)$v['coins'];
+                        }
+                        if (isset($v['label']) && !empty($v['label'])) {
+                            $packages[$k]['label'] = (string)$v['label'];
+                        }
+                    }
+                }
+            }
+        }
+    } catch (\Throwable $e) {}
+
+    return $packages;
+}
+
+function handlePaymentRoute(string $subRoute, string $method, array $body, ?array $user): void {
+    $db = Database::getConnection();
+    $config = require dirname(__DIR__) . '/config.php';
+
+    $keyId     = $config['razorpay_key_id'] ?? '';
+    $keySecret = $config['razorpay_key_secret'] ?? '';
+
+    $packages = getPaymentPackages($db);
+
+    // ── GET /payment/packages (Public / App Dynamic Catalog) ───────────────────
+    if ($subRoute === 'packages' && $method === 'GET') {
+        jsonResponse([
+            'success'  => true,
+            'packages' => $packages
+        ]);
+    }
+
+    if (!$user) jsonResponse(['error' => 'Unauthorized'], 401);
 
     // ── POST /payment/create-order ────────────────────────────────────────────
     if ($subRoute === 'create-order' && $method === 'POST') {

@@ -18,6 +18,10 @@ const PACKAGES = {
   pack_500: { coins: 700, price: 500, label: 'Premium', unlocksSpin: true },
 };
 
+router.get('/packages', (req, res) => {
+  res.json({ success: true, packages: PACKAGES });
+});
+
 router.post('/create-order', auth, async (req, res) => {
   try {
     if (!razorpay) {

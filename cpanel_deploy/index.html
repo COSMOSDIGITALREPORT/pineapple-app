@@ -1055,6 +1055,32 @@ td b{color:var(--text);font-weight:600;}
         </div>
       </div>
 
+      <!-- Coin Packages & Price Manager -->
+      <div class="widget" style="margin-bottom:24px;border:1px solid #E2E8F0;box-shadow:0 4px 16px rgba(0,0,0,0.04);border-radius:18px;">
+        <div class="widget-header" style="background:#FAF5FF;border-top-left-radius:18px;border-top-right-radius:18px;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+          <div>
+            <div class="widget-title" style="color:#6B21A8;display:flex;align-items:center;gap:8px;font-size:16px;font-weight:800;">
+              <span>🏷️</span> Coin Packages & Price Manager
+            </div>
+            <div style="font-size:12px;color:#7E22CE;margin-top:4px;">
+              Edit package prices in ₹ and coins granted. For testing Razorpay live payments, click <b>"⚡ Set ₹1"</b>. Changes update live Razorpay orders and mobile apps instantly!
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center;">
+            <button class="btn btn-purple" id="btn-save-pkgs" onclick="savePackagePricing()" style="font-size:13px;padding:8px 18px;font-weight:700;display:flex;align-items:center;gap:6px;">
+              <span>💾</span> Save All Prices
+            </button>
+            <button class="refresh-btn" onclick="loadPackagePricing()" title="Reload from server" style="padding:8px 12px;">↻</button>
+          </div>
+        </div>
+        <div class="widget-body" style="padding:20px;">
+          <div id="pkg-manager-grid" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(230px, 1fr));gap:16px;">
+            <div style="text-align:center;padding:24px;color:#94A3B8;grid-column:1/-1;">⏳ Loading package pricing...</div>
+          </div>
+          <div id="pkg-save-status" style="margin-top:14px;font-size:13px;font-weight:600;display:none;"></div>
+        </div>
+      </div>
+
       <!-- Economics Metric Cards -->
       <div class="stats">
         <div class="stat-card c-green">
@@ -2499,9 +2525,143 @@ async function fixMissingGenders() {
   } catch(e) { showToast(e.message, false); }
 }
 
+/* ── COIN PACKAGES & PRICING MANAGER ── */
+let currentPackages = {};
+
+async function loadPackagePricing() {
+  const container = document.getElementById('pkg-manager-grid');
+  try {
+    const res = await api('/admin/packages');
+    if (res && res.packages) {
+      currentPackages = res.packages;
+      renderPackageGrid();
+    }
+  } catch (err) {
+    console.warn('[Package Pricing Load Error]:', err);
+    if (container && (!currentPackages || Object.keys(currentPackages).length === 0)) {
+      container.innerHTML = '<div style="color:#DC2626;padding:12px;grid-column:1/-1;">Failed to load package pricing. Click refresh to retry.</div>';
+    }
+  }
+}
+
+function renderPackageGrid() {
+  const container = document.getElementById('pkg-manager-grid');
+  if (!container) return;
+
+  const pkgKeys = ['pack_9', 'pack_100', 'pack_200', 'pack_500'];
+  const pkgMeta = {
+    pack_9:   { icon: '🎁', tag: 'ONE-TIME INTRO', color: '#EC4899', defPrice: 9,   defCoins: 15,  defLabel: 'Intro Trial' },
+    pack_100: { icon: '📞', tag: 'STARTER',       color: '#3B82F6', defPrice: 100, defCoins: 120, defLabel: 'Basic' },
+    pack_200: { icon: '⚡', tag: 'POPULAR',       color: '#8B5CF6', defPrice: 200, defCoins: 240, defLabel: 'Standard' },
+    pack_500: { icon: '👑', tag: 'PREMIUM',       color: '#EAB308', defPrice: 500, defCoins: 700, defLabel: 'Premium' },
+  };
+
+  let html = '';
+  pkgKeys.forEach(k => {
+    const meta = pkgMeta[k];
+    const p = currentPackages[k] || { price: meta.defPrice, coins: meta.defCoins, label: meta.defLabel };
+    const isTestMode = (Number(p.price) === 1);
+
+    html += `
+      <div style="background:#fff;border:2px solid ${isTestMode ? '#22C55E' : '#E2E8F0'};border-radius:16px;padding:16px;position:relative;display:flex;flex-direction:column;justify-content:space-between;box-shadow:0 2px 8px rgba(0,0,0,0.02);transition:all 0.2s;">
+        ${isTestMode ? `<div style="position:absolute;top:-10px;right:14px;background:#22C55E;color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px;letter-spacing:0.5px;box-shadow:0 2px 6px rgba(34,197,94,0.4);">⚡ ₹1 TEST MODE ACTIVE</div>` : ''}
+        <div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <span style="font-size:26px;">${meta.icon}</span>
+            <span style="background:${meta.color}15;color:${meta.color};font-weight:700;font-size:10px;padding:3px 8px;border-radius:6px;letter-spacing:0.5px;">${meta.tag}</span>
+          </div>
+          <div style="font-weight:800;font-size:16px;color:#1E293B;margin-bottom:12px;">${p.label || meta.defLabel} <span style="font-size:11px;color:#94A3B8;font-weight:600;">(${k})</span></div>
+          
+          <div style="margin-bottom:10px;">
+            <label style="display:block;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;margin-bottom:4px;">Price in ₹ (Razorpay)</label>
+            <div style="position:relative;display:flex;align-items:center;">
+              <span style="position:absolute;left:10px;font-weight:800;color:#64748B;font-size:15px;">₹</span>
+              <input type="number" min="1" step="1" id="pkg-price-${k}" value="${p.price}" oninput="updatePkgState('${k}')" style="width:100%;padding:8px 8px 8px 26px;border:1.5px solid ${isTestMode ? '#22C55E' : '#CBD5E1'};border-radius:8px;font-size:16px;font-weight:800;color:#0F172A;background:${isTestMode ? '#F0FDF4' : '#fff'};" />
+            </div>
+          </div>
+
+          <div style="margin-bottom:12px;">
+            <label style="display:block;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;margin-bottom:4px;">Coins Granted</label>
+            <input type="number" min="1" step="1" id="pkg-coins-${k}" value="${p.coins}" oninput="updatePkgState('${k}')" style="width:100%;padding:8px 12px;border:1.5px solid #CBD5E1;border-radius:8px;font-size:14px;font-weight:700;color:#0F172A;" />
+          </div>
+        </div>
+
+        <div style="display:flex;gap:6px;margin-top:8px;">
+          <button type="button" onclick="quickSetPackagePrice('${k}', 1)" style="flex:1;background:#F0FDF4;color:#16A34A;border:1px solid #BBF7D0;font-size:11px;font-weight:700;padding:7px 4px;border-radius:8px;cursor:pointer;" title="Set price to ₹1 for testing real payments">
+            ⚡ Set ₹1
+          </button>
+          <button type="button" onclick="quickSetPackagePrice('${k}', ${meta.defPrice}, ${meta.defCoins})" style="flex:1;background:#F8FAFC;color:#64748B;border:1px solid #E2E8F0;font-size:11px;font-weight:600;padding:7px 4px;border-radius:8px;cursor:pointer;" title="Reset back to default price">
+            ↺ Default (₹${meta.defPrice})
+          </button>
+        </div>
+      </div>
+    `;
+  });
+
+  container.innerHTML = html;
+}
+
+function updatePkgState(k) {
+  const priceInput = document.getElementById('pkg-price-' + k);
+  const coinsInput = document.getElementById('pkg-coins-' + k);
+  if (priceInput && coinsInput) {
+    if (!currentPackages[k]) currentPackages[k] = {};
+    currentPackages[k].price = Math.max(1, parseFloat(priceInput.value) || 1);
+    currentPackages[k].coins = Math.max(1, parseInt(coinsInput.value) || 1);
+  }
+}
+
+function quickSetPackagePrice(k, newPrice, newCoins) {
+  if (!currentPackages[k]) currentPackages[k] = {};
+  currentPackages[k].price = newPrice;
+  if (newCoins) currentPackages[k].coins = newCoins;
+  renderPackageGrid();
+  showPkgStatus('⚠️ You modified prices! Click "Save All Prices" above to apply live.', '#9333EA');
+}
+
+async function savePackagePricing() {
+  const btn = document.getElementById('btn-save-pkgs');
+  if (btn) btn.disabled = true;
+  showPkgStatus('Saving package prices...', '#64748B');
+
+  const pkgKeys = ['pack_9', 'pack_100', 'pack_200', 'pack_500'];
+  pkgKeys.forEach(k => { updatePkgState(k); });
+
+  try {
+    const res = await api('/admin/packages', {
+      method: 'POST',
+      body: JSON.stringify({ packages: currentPackages })
+    });
+    if (res && res.success) {
+      currentPackages = res.packages || currentPackages;
+      renderPackageGrid();
+      showPkgStatus('✅ Package prices saved successfully! Razorpay & Boys App are now updated.', '#16A34A');
+    } else {
+      showPkgStatus('❌ ' + (res?.error || 'Failed to save prices'), '#DC2626');
+    }
+  } catch (err) {
+    showPkgStatus('❌ Network error saving prices', '#DC2626');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+function showPkgStatus(msg, color) {
+  const el = document.getElementById('pkg-save-status');
+  if (el) {
+    el.style.display = 'block';
+    el.style.color = color;
+    el.textContent = msg;
+    if (color === '#16A34A') {
+      setTimeout(() => { if (el) el.style.display = 'none'; }, 6000);
+    }
+  }
+}
+
 /* ── ECONOMICS & FINANCIAL LEDGER ── */
 async function loadFinancials(isAuto=false) {
   try {
+    loadPackagePricing();
     const f = await api('/admin/financials');
 
     // Calculate sanitized host earnings and true unpaid balance (avoiding double counting)

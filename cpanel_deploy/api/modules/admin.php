@@ -510,6 +510,70 @@ function handleAdminRoute(string $subRoute, string $method, array $body, ?array 
         ]);
     }
 
+    // ── GET /admin/packages (Coin Packages & Pricing) ──────────────────────────
+    if ($subRoute === 'packages' && $method === 'GET') {
+        $defaultPackages = [
+            'pack_9'   => ['coins' => 15,  'price' => 9,   'label' => 'Intro Trial', 'isIntro' => true],
+            'pack_100' => ['coins' => 120, 'price' => 100, 'label' => 'Basic'],
+            'pack_200' => ['coins' => 240, 'price' => 200, 'label' => 'Standard'],
+            'pack_500' => ['coins' => 700, 'price' => 500, 'label' => 'Premium', 'unlocksSpin' => true],
+        ];
+        $val = $getSetting('payment_packages', null);
+        if ($val) {
+            $parsed = json_decode($val, true);
+            if (is_array($parsed) && !empty($parsed)) {
+                foreach ($parsed as $k => $v) {
+                    if (isset($defaultPackages[$k])) {
+                        if (isset($v['price']) && is_numeric($v['price'])) $defaultPackages[$k]['price'] = (float)$v['price'];
+                        if (isset($v['coins']) && is_numeric($v['coins'])) $defaultPackages[$k]['coins'] = (int)$v['coins'];
+                        if (!empty($v['label'])) $defaultPackages[$k]['label'] = (string)$v['label'];
+                    }
+                }
+            }
+        }
+        jsonResponse(['success' => true, 'packages' => $defaultPackages]);
+    }
+
+    // ── POST /admin/packages (Update Coin Packages & Pricing) ──────────────────
+    if ($subRoute === 'packages' && ($method === 'POST' || $method === 'PUT')) {
+        $inputPackages = $body['packages'] ?? [];
+        if (!is_array($inputPackages) || empty($inputPackages)) {
+            jsonResponse(['error' => 'Valid packages object required.'], 400);
+        }
+
+        $defaultPackages = [
+            'pack_9'   => ['coins' => 15,  'price' => 9,   'label' => 'Intro Trial', 'isIntro' => true],
+            'pack_100' => ['coins' => 120, 'price' => 100, 'label' => 'Basic'],
+            'pack_200' => ['coins' => 240, 'price' => 200, 'label' => 'Standard'],
+            'pack_500' => ['coins' => 700, 'price' => 500, 'label' => 'Premium', 'unlocksSpin' => true],
+        ];
+
+        // Sanitize and update values
+        foreach ($inputPackages as $k => $v) {
+            if (isset($defaultPackages[$k])) {
+                if (isset($v['price']) && is_numeric($v['price'])) {
+                    $defaultPackages[$k]['price'] = max(1, (float)$v['price']); // min ₹1
+                }
+                if (isset($v['coins']) && is_numeric($v['coins'])) {
+                    $defaultPackages[$k]['coins'] = max(1, (int)$v['coins']);
+                }
+                if (!empty($v['label'])) {
+                    $defaultPackages[$k]['label'] = trim((string)$v['label']);
+                }
+            }
+        }
+
+        $jsonStr = json_encode($defaultPackages);
+        $stmt = $db->prepare('INSERT INTO admin_settings (key, value, updated_at) VALUES ("payment_packages", ?, datetime("now")) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at');
+        $stmt->execute([$jsonStr]);
+
+        jsonResponse([
+            'success'  => true,
+            'message'  => 'Payment packages and pricing updated successfully!',
+            'packages' => $defaultPackages
+        ]);
+    }
+
     // ── GET /admin/users/pending (Unverified Host Profiles) ────────────────────
     if ($subRoute === 'users/pending' && $method === 'GET') {
         $stmt = $db->query("SELECT * FROM users WHERE gender IN ('girl','female') AND is_verified = 0 ORDER BY created_at DESC");

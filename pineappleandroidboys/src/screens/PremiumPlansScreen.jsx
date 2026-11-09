@@ -8,7 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
 import { addCoins, setProfile } from '../store/slices/userSlice';
 import Icon from '../components/Icon';
-import { createPaymentOrder, verifyPayment } from '../services/api';
+import { createPaymentOrder, verifyPayment, getPaymentPackages } from '../services/api';
 import RazorpayCheckout from 'react-native-razorpay';
 
 const { width } = Dimensions.get('window');
@@ -85,14 +85,56 @@ export default function PremiumPlansScreen({ onBack }) {
   const insets = useSafeAreaInsets();
   const dispatch = useDispatch();
   const user = useSelector((s) => s.user);
+  const [plans, setPlans] = useState(PLANS);
+  const [introPlan, setIntroPlan] = useState(INTRO_PLAN);
   const showIntro = !user?.intro_9_used && !user?.intro9Used;
-  const allPlans = showIntro ? [INTRO_PLAN, ...PLANS] : PLANS;
+  const allPlans = showIntro ? [introPlan, ...plans] : plans;
   const [selected, setSelected] = useState(showIntro ? 'intro' : 'premium');
   const [paying, setPaying] = useState(false);
   const [successMsg, setSuccessMsg] = useState(null);
   const bannerOpacity = useRef(new Animated.Value(0)).current;
   const crownAnim = useRef(new Animated.Value(1)).current;
   const glowAnim = useRef(new Animated.Value(0.7)).current;
+
+  useEffect(() => {
+    getPaymentPackages()
+      .then((res) => {
+        if (res && res.packages) {
+          const pkgs = res.packages;
+          if (pkgs.pack_9) {
+            setIntroPlan((prev) => ({
+              ...prev,
+              price: `₹${pkgs.pack_9.price}`,
+              priceNum: pkgs.pack_9.price,
+              mins: pkgs.pack_9.coins,
+              features: [
+                `${pkgs.pack_9.coins} Coins (${pkgs.pack_9.coins} audio or ${pkgs.pack_9.coins / 2} video mins)`,
+                'One-time only for new users',
+                'Try voice & video calls',
+              ],
+            }));
+          }
+          setPlans((prev) =>
+            prev.map((p) => {
+              const updated = pkgs[p.packId];
+              if (!updated) return p;
+              return {
+                ...p,
+                price: `₹${updated.price}`,
+                priceNum: updated.price,
+                mins: updated.coins,
+                features: [
+                  `${updated.coins} Coins (${Math.round(updated.coins / 60)} hrs Audio / ${Math.round(updated.coins / 120)} hr Video)`,
+                  p.features[1] || 'Instant voice & video calling',
+                  p.features[2] || 'Standard profile',
+                ],
+              };
+            })
+          );
+        }
+      })
+      .catch((e) => console.warn('[Load packages error]:', e));
+  }, []);
 
   useEffect(() => {
     Animated.loop(

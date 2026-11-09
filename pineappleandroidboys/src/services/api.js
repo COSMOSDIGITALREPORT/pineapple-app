@@ -218,6 +218,7 @@ export const spin = async () => {
 };
 
 
+export const getPaymentPackages = () => get('/payment/packages');
 export const createPaymentOrder = (packageId) => post('/payment/create-order', { packageId });
 export const verifyPayment = (data) => post('/payment/verify', data);
 
